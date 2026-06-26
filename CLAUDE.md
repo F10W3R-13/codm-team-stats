@@ -22,7 +22,8 @@
 진행 전에 **먼저 계획을 1~3줄로 말하고 승인**받을 것:
 - 4개 이상 파일에 걸친 변경, 또는 100줄 이상 규모
 - 새 의존성 추가, 설정/빌드/배포 파일 생성·변경
-- DB 스키마·마이그레이션, git init/commit, 외부로 나가는 작업(푸시·배포)
+- DB 스키마·마이그레이션
+- git 커밋·푸시는 **§7 규칙** 참고 (사용자 허가 후 진행)
 
 원칙: **작고 명확하면 진행, 크거나 되돌리기 어려우면 멈추고 묻는다.** 애매하면 묻는다.
 
@@ -54,7 +55,90 @@
 
 ## 6. 이 프로젝트 메모
 
-- 스택: **FastAPI + Jinja2(HTML 템플릿) + SQLite**, Discord 봇(`bot.py`) 별도.
+- 스택: **FastAPI + Jinja2(HTML 템플릿) + SQLite/Postgres(양쪽 지원)**, Discord 봇(`bot.py`).
+- DB는 환경변수 `DATABASE_URL`이 있으면 Postgres, 없으면 로컬 SQLite(`codm.db`).
 - 웹 실행: `uvicorn web_api:app --port 8000` (CWD = 이 폴더여야 DB·템플릿 경로가 맞음).
-- 템플릿 스타일은 `templates/base.html`의 `<style>` 한 곳에 모여 있고, 다른 페이지가 그 클래스를 공유한다. (디자인은 토스 디자인 톤 적용됨)
-- 비밀정보(`.env`, `service-account.json`)·DB(`codm.db`)·CSV는 절대 커밋하지 않는다.
+- 봇 실행: `python bot.py`. 통합 실행(봇+웹): `python start.py` (배포용, subprocess로 둘 다 띄움).
+- 템플릿 스타일은 `templates/base.html`의 `<style>` 한 곳에 모여 있고, 다른 페이지가 그 클래스를 공유한다. (디자인은 토스 TDS 톤 적용)
+- 비밀정보(`.env`, `service-account.json`)·DB(`codm.db`)·CSV·백업(`*.bak`, `codm.db.backup*`)은 절대 커밋하지 않는다. `.gitignore`에 이미 포함.
+- GPT 프롬프트(`prompt.py`)와 커스텀 지표 공식(`metrics.py`)은 출처가 정해져 있어 함부로 수정 금지.
+
+---
+
+## 7. Git 워크플로우 ⭐ (중요)
+
+**저장소**: `https://github.com/F10W3R-13/codm-team-stats.git` (Private)
+**브랜치**: `main` (기본)
+
+### 커밋·푸시 규칙
+- **주요 작업이 끝날 때마다 커밋 + 푸시**한다. "주요 작업" = 하나의 기능/수정 단위가 완결된 상태.
+- **사용자에게 허가를 받은 뒤에 커밋·푸시**한다 ("이제 커밋·푸시할게요?" 식으로 1줄로 물어보고 진행).
+- 사용자가 명시적으로 "커밋해/푸시해/올려"라고 했으면 별도 재확인 없이 진행.
+- 사소한 수정(오타, 1-2줄)은 모을 수 있고, 기능 단위로 커밋.
+
+### 커밋 메시지 규칙
+- 한국어 또는 영어 (간결하게)
+- 형식: `제목(한 줄)` + 빈 줄 + `본문(선택, 변경 요약)`
+- 예: `Add player consistency (stddev) metric` / `Postgres 호환: INSERT OR REPLACE → UPSERT 헬퍼`
+
+### 절대 커밋 금지 (`.gitignore` 처리됨)
+- `.env` (토큰, API 키)
+- `service-account.json` (구글 키)
+- `codm.db`, `codm.db.backup*` (DB 파일)
+- `*.csv` (마이그레이션 원본)
+- `*.blueprint*.json` (make.com 원본)
+- `*.bak*`, `__pycache__/`
+
+### 표준 절차
+```bash
+git add -A
+git status   # 비밀정보 빠졌는지 확인
+git commit -m "제목"
+git push origin main
+```
+
+---
+
+## 8. 아키텍처 개요
+
+```
+디스코드 채널 ──스크린샷──▶ bot.py (on_message)
+                              │ GPT-4.1 비전 (prompt.py)
+                              ▼ JSON {mode, result, team_score, map, players[]}
+                         stats_repo.save_match()
+                              │
+                              ▼
+                         DB (SQLite/Postgres)
+                              ▲
+                              │ queries.py / analytics.py / metrics.py
+            ┌─────────────────┴──────────────────┐
+            ▼                                    ▼
+    web_api.py (FastAPI)              commands_cog.py
+    + templates/ (웹, 3개국어)          (디스코드 슬래시 명령, 영어)
+```
+
+**3개 실행 단위가 같은 DB 공유**: `bot.py`(봇), `web_api.py`(웹), `import_sheets.py`(일회성 마이그레이션).
+봇이 쓰면 웹에 즉시 반영. 통합 실행은 `start.py`.
+
+## 9. 데이터 모델 특이점 (핵심)
+
+- **매치 분할 규칙**: 구글 시트에 match_id가 없어서 "이전 매치에 이미 등장한 선수가 다시 나오면 새 매치 시작"으로 분할 (`import_sheets.py`의 `group_matches()`). 단순 행수(4/5)로 자르면 안 됨.
+- **ZCS 시트 오류 정정**: 구글 시트 Dashboard의 "ZCS" 열에 Total Damage 값이 잘못 배치되어 있었음. ZCS는 `metrics.py` 공식 `max(0, 1.1·OBJ+8·CK+4.1·K−5·D)`으로 재계산한 값이 정답.
+- **이름 정규화**: 대소문자 섞임 (`Unravel`/`unravel`) → `import_sheets.py`의 `normalize_name()`으로 통일.
+- **DB 수정 시**: 봇/웹을 먼저 중지하고 백업 후 수정 (SQLite 동시 쓰기 취약).
+
+## 10. 언어/i18n 정책
+
+- **코치용 = 한국어**, **선수용 = 영어/스페인어**.
+- **디스코드 봇**: 영어 고정 (선수들이 보는 채널).
+- **웹**: `?lang=ko|en|es` 전환. 3개국어 사전은 `i18n.py`.
+- **AI 인사이트**: `lang` 파라미터 따라 GPT 응답 언어 변경 (캐싱: `insight_cache.py`, TTL 1시간 + 매치 기록 시 무효화).
+- **로그(콘솔)**: 한국어.
+
+## 11. 배포 (Railway)
+
+- PaaS: Railway.app, GitHub 연동 (`F10W3R-13/codm-team-stats`).
+- DB: Railway Postgres (`DATABASE_URL` 자동 주입).
+- 실행: Procfile → `python start.py` (봇+웹 subprocess).
+- 환경변수: `DISCORD_BOT_TOKEN`, `OPENAI_API_KEY`, `DATABASE_URL`, `PORT`.
+- 배포 후 DB는 비어있음 → `import_sheets.py`로 구글 시트 → Postgres 마이그레이션 필요.

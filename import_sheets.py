@@ -55,9 +55,21 @@ def to_float(v):
         return None
 
 
+def _gspread_client():
+    """환경에 따라 gspread 클라이언트 생성.
+    - 배포: GOOGLE_SERVICE_ACCOUNT_JSON (JSON 내용 통째로) 사용
+    - 로컬: GOOGLE_SERVICE_ACCOUNT_FILE (파일 경로) 사용
+    """
+    if config.SERVICE_ACCOUNT_JSON:
+        from io import BytesIO
+        import json
+        return gspread.service_account_from_dict(json.loads(config.SERVICE_ACCOUNT_JSON))
+    return gspread.service_account(filename=config.SERVICE_ACCOUNT_FILE)
+
+
 def fetch_sheets():
     """구글 시트에서 HP/SND/Alias 원본 행 리스트를 가져온다."""
-    gc = gspread.service_account(filename=config.SERVICE_ACCOUNT_FILE)
+    gc = _gspread_client()
     ss = gc.open_by_key(config.SPREADSHEET_ID)
 
     hp_rows = ss.worksheet("Database_HP").get_all_values()

@@ -16,7 +16,10 @@ OPENAI_MAX_TOKENS = 2048          # make.com: max_tokens 2048
 
 # ── 구글 시트 ─────────────────────────────────────────────────────────────
 SPREADSHEET_ID = "1nnyzo7_mH1JgTF5yln2AR1HuUiVGc9c7ZctVyA8PlgE"
-SERVICE_ACCOUNT_FILE = os.environ["GOOGLE_SERVICE_ACCOUNT_FILE"]
+# 로컬: GOOGLE_SERVICE_ACCOUNT_FILE(파일 경로) 사용.
+# 배포(Railway): 파일을 못 올리므로 GOOGLE_SERVICE_ACCOUNT_JSON(JSON 내용 통째로) 사용.
+SERVICE_ACCOUNT_FILE = os.environ.get("GOOGLE_SERVICE_ACCOUNT_FILE", "")
+SERVICE_ACCOUNT_JSON = os.environ.get("GOOGLE_SERVICE_ACCOUNT_JSON", "")
 SHEET_HP = "Database_HP"          # make.com: sheetId Database_HP
 SHEET_SND = "Database_SND"        # make.com: sheetId Database_SND
 
