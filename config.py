@@ -24,7 +24,7 @@ SHEET_HP = "Database_HP"          # make.com: sheetId Database_HP
 SHEET_SND = "Database_SND"        # make.com: sheetId Database_SND
 
 # ── 로스터 (이름 정규화용) ───────────────────────────────────────────────
-ROSTER = ["Shisui", "Cartels", "unravel", "Kingz", "Maozyn", "Exile"]
+ROSTER = ["Shisui", "Cartels", "unravel", "Kingz", "Maozyn", "Exile"]  # AyeoRaph 퇴단 (2026-06)
 
 # ── 칼럼 매핑 ─────────────────────────────────────────────────────────────
 # make.com의 google-sheets addRow 모듈 mapper.values 매핑을
