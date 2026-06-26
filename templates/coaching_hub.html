@@ -94,20 +94,20 @@
 {% if data.strong_map or data.weak_map %}
 <div class="grid grid-2" style="margin: 1.5rem 0;">
     {% if data.strong_map %}
-    <div class="card" style="border-left: 4px solid var(--accent-2);">
+    <a href="/maps/{{ data.strong_map.map_name }}?mode={{ data.mode }}&lang={{ lang }}" class="card" style="border-left: 4px solid var(--accent-2); text-decoration:none;color:inherit;">
         <h2>🟢 {{ t.hub_strong_map }}</h2>
         <p style="font-size:1.3rem;font-weight:700;">{{ data.strong_map.map_name }}</p>
         <p class="muted">{{ t.hub_kd }} {{ data.strong_map.avg_kd }} · {{ data.strong_map.matches }}{{ t.matches }}</p>
         <p style="margin-top:0.5rem;font-size:.9rem;">📌 {{ t.hub_pick_hint }}</p>
-    </div>
+    </a>
     {% endif %}
     {% if data.weak_map %}
-    <div class="card" style="border-left: 4px solid #f04452;">
+    <a href="/maps/{{ data.weak_map.map_name }}?mode={{ data.mode }}&lang={{ lang }}" class="card" style="border-left: 4px solid #f04452; text-decoration:none;color:inherit;">
         <h2>🔴 {{ t.hub_weak_map }}</h2>
         <p style="font-size:1.3rem;font-weight:700;">{{ data.weak_map.map_name }}</p>
         <p class="muted">{{ t.hub_kd }} {{ data.weak_map.avg_kd }} · {{ data.weak_map.matches }}{{ t.matches }}</p>
         <p style="margin-top:0.5rem;font-size:.9rem;">🚫 {{ t.hub_ban_hint }}</p>
-    </div>
+    </a>
     {% endif %}
 </div>
 {% endif %}
