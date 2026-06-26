@@ -199,7 +199,8 @@
 <body>
     <nav class="nav">
         <div class="nav-brand">{{ t.nav_brand }}</div>
-        <a href="/?lang={{ lang }}" class="{% block nav_dashboard %}{% endblock %}">{{ t.nav_dashboard }}</a>
+        <a href="/?lang={{ lang }}" class="{% block nav_dashboard %}{% endblock %}">{{ t.nav_hub }}</a>
+        <a href="/overview?lang={{ lang }}" class="{% block nav_overview %}{% endblock %}">{{ t.nav_dashboard }}</a>
         <a href="/players?lang={{ lang }}" class="{% block nav_players %}{% endblock %}">{{ t.nav_players }}</a>
         <a href="/leaderboard?lang={{ lang }}" class="{% block nav_leaderboard %}{% endblock %}">{{ t.nav_leaderboard }}</a>
         <a href="/matches?lang={{ lang }}" class="{% block nav_matches %}{% endblock %}">{{ t.nav_matches }}</a>

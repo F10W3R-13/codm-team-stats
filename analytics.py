@@ -338,3 +338,65 @@ def team_insights_data(days: int = 30, mode: str = "HP") -> dict:
         maps.append(entry)
 
     return {"trend": trend, "maps": maps, "mode": mode}
+
+
+# ── 코칭 허브 데이터 조립 ──────────────────────────────────────────────────
+
+def coaching_hub(mode: str = "HP", days: int = 30) -> dict:
+    """코칭 허브(/ 홈)용 종합 데이터.
+
+    "이번에 봐야 할 것"을 한눈에 보여주기 위한 요약:
+    - 팀 트렌드(최근 vs 시즌)
+    - 팀 승률 요약
+    - 폼 경고: 시즌 평균 대비 최근 K/D 하락 선수
+    - 맵 하이라이트: 가장 강한/약한 맵 (top 1)
+    - 밴픽 힌트: 강한 맵은 픽, 약한 맵은 밴
+
+    반환: {
+        trend, win_loss, mode, days,
+        form_alerts: [{name, season_kd, recent_kd, delta_pct}],
+        strong_map, weak_map,
+    }
+    """
+    import queries
+
+    trend = queries.team_trend(days)
+    win_loss = queries.win_loss_summary()
+    maps = queries.map_team_stats(mode, min_matches=3)
+
+    # 폼 경고 — 시즌 평균 vs 최근 5매치 K/D
+    players = queries.all_players_overview(mode)
+    form_alerts = []
+    for p in players:
+        pid = queries.get_player_id(p["name"])
+        if not pid:
+            continue
+        recent = queries.player_kd_trend(pid, mode, 5)
+        if len(recent) < 3:
+            continue
+        recent_vals = [r["kd"] for r in recent if r["kd"] is not None]
+        if len(recent_vals) < 3:
+            continue
+        recent_kd = round(sum(recent_vals) / len(recent_vals), 2)
+        season_kd = p["avg_kd"]
+        if season_kd and season_kd > 0:
+            delta_pct = round((recent_kd - season_kd) / season_kd * 100, 1)
+            # 하락(-10% 이하)만 경고
+            if delta_pct <= -10:
+                form_alerts.append({
+                    "name": p["name"], "season_kd": season_kd,
+                    "recent_kd": recent_kd, "delta_pct": delta_pct,
+                })
+    # 하락폭 큰 순
+    form_alerts.sort(key=lambda x: x["delta_pct"])
+
+    # 강한/약한 맵 (avg_kd 기준)
+    strong_map = maps[0] if maps else None
+    weak_map = maps[-1] if maps else None
+
+    return {
+        "trend": trend, "win_loss": win_loss,
+        "mode": mode, "days": days,
+        "form_alerts": form_alerts,
+        "strong_map": strong_map, "weak_map": weak_map,
+    }

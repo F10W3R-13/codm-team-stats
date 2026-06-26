@@ -54,6 +54,12 @@ app = FastAPI(title="CODM Team Stats")
 
 # ── 페이지 ────────────────────────────────────────────────────────────────
 @app.get("/", response_class=HTMLResponse)
+async def coaching_hub_page(request: Request, lang: str = Query("ko")):
+    data = analytics.coaching_hub()
+    return render("coaching_hub.html", lang=lang, data=data)
+
+
+@app.get("/overview", response_class=HTMLResponse)
 async def dashboard(request: Request, lang: str = Query("ko")):
     data = queries.overview_stats()
     return render("dashboard.html", lang=lang, data=data)
