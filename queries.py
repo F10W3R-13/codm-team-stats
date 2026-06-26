@@ -857,38 +857,41 @@ def map_win_loss(map_name: str, mode: str = "HP") -> dict:
 
 
 def map_trend(map_name: str, mode: str = "HP", days: int = 30) -> dict:
-    """특정 맵의 최근 N일 vs 시즌 전체 평균 (K/D + ZCS).
+    """특정 맵의 최근 N일 vs 시즌 전체 평균 (모든 HP 지표 포함).
 
+    HP: K/D, ZCS, 킬, 데스, 딜, OBJ, 캡처, Impact, DPD, DPK, ID, AP% 전부.
+    SND: K/D, 킬, 데스, 어시스트, ADR, Impact.
     반환: {
-        recent: {matches, avg_kd, avg_zcs},
-        season: {matches, avg_kd, avg_zcs},
-        delta_pct: {avg_kd, avg_zcs},
+        recent: {matches, ...}, season: {...},
+        delta_pct: {지표: ±%},
+        metrics_meta: {지표: {higher_better, label_key}},  # 템플릿 표시용
     }
     """
+    import metrics as _metrics
+
     if db.USE_POSTGRES:
         date_cond = f"m.match_date >= (CURRENT_DATE - INTERVAL '{int(days)} days')::text"
     else:
         date_cond = f"m.match_date >= date('now', '-{int(days)} days')"
 
-    zcs_expr = "AVG(MAX(0, 1.1*s.obj_time + 8*s.capture_kill + 4.1*s.kills - 5*s.deaths))"
-
     def _q(extra_where):
-        wh = f"WHERE LOWER(m.map_name)=LOWER(?) AND m.mode=?"
+        wh = "WHERE LOWER(m.map_name)=LOWER(?) AND m.mode=?"
         if extra_where:
             wh += f" AND {extra_where}"
-        table = "player_stats_hp" if mode == "HP" else "player_stats_snd"
         if mode == "HP":
-            return (f"SELECT COUNT(*) matches, ROUND(AVG(s.kd_ratio),2) avg_kd, "
-                    f"ROUND({zcs_expr},1) avg_zcs "
-                    f"FROM {table} s JOIN matches m ON m.id=s.match_id {wh}")
+            return ("SELECT COUNT(*) matches, "
+                    "ROUND(AVG(s.kd_ratio),2) avg_kd, ROUND(AVG(s.kills),1) avg_k, "
+                    "ROUND(AVG(s.deaths),1) avg_d, ROUND(AVG(s.total_damage),0) avg_dmg, "
+                    "ROUND(AVG(s.obj_time),0) avg_obj, ROUND(AVG(s.score),0) avg_score, "
+                    "ROUND(AVG(s.impact),0) avg_impact, ROUND(AVG(s.capture_kill),1) avg_capture "
+                    f"FROM player_stats_hp s JOIN matches m ON m.id=s.match_id {wh}")
         else:
-            return (f"SELECT COUNT(*) matches, ROUND(AVG(s.kd_ratio),2) avg_kd, "
-                    f"NULL avg_zcs "
-                    f"FROM {table} s JOIN matches m ON m.id=s.match_id {wh}")
-
-    with db.get_conn() as conn:
-        r_rec = conn.execute(_q(date_cond), (map_name, mode)).fetchone()
-        r_sea = conn.execute(_q(None), (map_name, mode)).fetchone()
+            return ("SELECT COUNT(*) matches, "
+                    "ROUND(AVG(s.kd_ratio),2) avg_kd, ROUND(AVG(s.kills),1) avg_k, "
+                    "ROUND(AVG(s.deaths),1) avg_d, ROUND(AVG(s.assists),1) avg_a, "
+                    "ROUND(AVG(s.adr),0) avg_adr, ROUND(AVG(s.score),0) avg_score, "
+                    "ROUND(AVG(s.impact),0) avg_impact "
+                    f"FROM player_stats_snd s JOIN matches m ON m.id=s.match_id {wh}")
 
     def _d(r):
         if not r:
@@ -899,16 +902,67 @@ def map_trend(map_name: str, mode: str = "HP", days: int = 30) -> dict:
                 out[k] = float(v)
         return out
 
-    recent = _d(r_rec)
-    season = _d(r_sea)
+    with db.get_conn() as conn:
+        recent = _d(conn.execute(_q(date_cond), (map_name, mode)).fetchone())
+        season = _d(conn.execute(_q(None), (map_name, mode)).fetchone())
+
+    # HP: 커스텀 지표(ZCS/DPD/DPK/ID/AP%)를 평균 raw 값으로부터 계산해 추가
+    if mode == "HP":
+        for block in (recent, season):
+            if block.get("matches"):
+                m = _metrics.all_hp_metrics(
+                    block.get("avg_k"), block.get("avg_d"), block.get("avg_obj"),
+                    block.get("avg_score"), block.get("avg_impact"),
+                    block.get("avg_dmg"), block.get("avg_capture"),
+                )
+                block["zcs"] = m["zcs"]
+                block["dpd"] = m["dpd"]
+                block["dpk"] = m["dpk"]
+                block["id"] = m["id"]
+                block["ap_pct"] = m["ap_pct"]
+
+    # 비교할 지표 + 메타 (높을수록 좋은가, 라벨 키)
+    if mode == "HP":
+        metric_defs = [
+            ("avg_kd", True, "kd"),
+            ("zcs", True, "zcs_label"),
+            ("avg_k", True, "avg_k"),
+            ("avg_d", False, "avg_d"),
+            ("avg_dmg", True, "avg_total_dmg"),
+            ("avg_obj", True, "avg_obj"),
+            ("avg_capture", True, "avg_cap_kill"),
+            ("avg_impact", True, "avg_impact"),
+            ("dpd", True, "m_dpd"),
+            ("dpk", False, "m_dpk"),
+            ("id", True, "m_id"),
+            ("ap_pct", True, "m_ap_pct"),
+        ]
+    else:
+        metric_defs = [
+            ("avg_kd", True, "kd"),
+            ("avg_k", True, "avg_k"),
+            ("avg_d", False, "avg_d"),
+            ("avg_a", True, "avg_a"),
+            ("avg_adr", True, "avg_adr"),
+            ("avg_score", True, "avg_score"),
+            ("avg_impact", True, "avg_impact"),
+        ]
+
     delta = {}
-    for k in ("avg_kd", "avg_zcs"):
-        rv, sv = recent.get(k), season.get(k)
+    metrics_meta = {}
+    for key, higher, label_key in metric_defs:
+        rv, sv = recent.get(key), season.get(key)
         if rv is not None and sv and sv != 0:
-            delta[k] = round((rv - sv) / sv * 100, 1)
+            delta[key] = round((rv - sv) / sv * 100, 1)
         else:
-            delta[k] = None
-    return {"recent": recent, "season": season, "delta_pct": delta, "period_days": days}
+            delta[key] = None
+        metrics_meta[key] = {"higher_better": higher, "label_key": label_key}
+
+    return {
+        "recent": recent, "season": season,
+        "delta_pct": delta, "metrics_meta": metrics_meta,
+        "period_days": days,
+    }
 
 
 # ── 승패(W/L) 통계 ──────────────────────────────────────────────────────────

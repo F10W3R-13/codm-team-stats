@@ -31,37 +31,41 @@
     {% endif %}
 </div>
 
-{# ── 팀 지표 변화 (최근 vs 시즌) ── #}
-{% if data.trend.delta_pct.avg_kd is not none or data.trend.delta_pct.avg_zcs is not none %}
+{# ── 팀 지표 변화 (최근 vs 시즌) — 전 지표 ── #}
+{% if data.trend.metrics_meta %}
 <div class="card" style="margin: 1.5rem 0;">
     <h2>{{ t.map_recent_vs_season }}</h2>
-    <p class="muted" style="font-size:.85rem;">{{ t.hub_recent }} {{ data.days }}{{ t.days_suffix }} · {{ data.trend.recent.matches }}{{ t.matches }}</p>
-    <div class="grid grid-2" style="margin-top:1rem;">
-        {% if data.trend.delta_pct.avg_kd is not none %}
-        <div>
-            <div class="muted" style="font-size:.85rem;">{{ t.kd }}</div>
-            <div style="font-size:1.4rem;font-weight:700;">
-                {{ data.trend.recent.avg_kd }}
-                <span style="font-size:.95rem; color: {{ 'var(--accent-2)' if data.trend.delta_pct.avg_kd >= 0 else '#f04452' }};">
-                    {{ '+' if data.trend.delta_pct.avg_kd >= 0 }}{{ data.trend.delta_pct.avg_kd }}%
-                </span>
-            </div>
-            <div class="muted" style="font-size:.8rem;">{{ t.hub_season }} {{ data.trend.season.avg_kd }}</div>
-        </div>
-        {% endif %}
-        {% if data.trend.delta_pct.avg_zcs is not none %}
-        <div>
-            <div class="muted" style="font-size:.85rem;">{{ t.zcs_label }}</div>
-            <div style="font-size:1.4rem;font-weight:700;">
-                {{ data.trend.recent.avg_zcs }}
-                <span style="font-size:.95rem; color: {{ 'var(--accent-2)' if data.trend.delta_pct.avg_zcs >= 0 else '#f04452' }};">
-                    {{ '+' if data.trend.delta_pct.avg_zcs >= 0 }}{{ data.trend.delta_pct.avg_zcs }}%
-                </span>
-            </div>
-            <div class="muted" style="font-size:.8rem;">{{ t.hub_season }} {{ data.trend.season.avg_zcs }}</div>
-        </div>
-        {% endif %}
-    </div>
+    <p class="muted" style="font-size:.85rem;">{{ t.hub_recent }} {{ data.days }}{{ t.days_suffix }} · {{ t.hub_season }} {{ data.trend.season.matches }}{{ t.matches }} · {{ t.hub_recent }} {{ data.trend.recent.matches }}{{ t.matches }}</p>
+    <table style="margin-top:0.8rem;">
+        <thead>
+            <tr>
+                <th>{{ t.metric_label }}</th>
+                <th class="num">{{ t.hub_recent }}</th>
+                <th class="num">{{ t.hub_season }}</th>
+                <th class="num">±%</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for key, meta in data.trend.metrics_meta.items() %}
+            {% set rv = data.trend.recent.get(key) %}
+            {% set sv = data.trend.season.get(key) %}
+            {% set dv = data.trend.delta_pct.get(key) %}
+            <tr>
+                <td>{{ t[meta.label_key] if t[meta.label_key] else meta.label_key }}{% if not meta.higher_better %} <span class="muted" style="font-size:.75rem;">({{ t.lower_better }})</span>{% endif %}</td>
+                <td class="num">{{ rv if rv is not none else '-' }}</td>
+                <td class="num muted">{{ sv if sv is not none else '-' }}</td>
+                <td class="num">
+                    {% if dv is not none %}
+                        {% set is_good = (meta.higher_better and dv > 0) or (not meta.higher_better and dv < 0) %}
+                        <span style="color: {{ 'var(--accent-2)' if is_good else ('#f04452' if dv != 0 else 'var(--muted)') }}; font-weight:600;">
+                            {{ '+' if dv > 0 }}{{ dv }}%
+                        </span>
+                    {% else %}-{% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
 </div>
 {% endif %}
 
