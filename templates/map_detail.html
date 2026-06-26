@@ -23,9 +23,9 @@
         <div class="label">{{ t.map_win_rate }}</div>
     </div>
     {% endif %}
-    {% if data.trend.season.avg_zcs is not none %}
+    {% if data.trend.season.zcs is not none %}
     <div class="card stat-card" style="border-left:4px solid var(--accent);">
-        <div class="value" style="color:var(--accent);">{{ data.trend.season.avg_zcs }}</div>
+        <div class="value" style="color:var(--accent);">{{ data.trend.season.zcs }}</div>
         <div class="label">{{ t.zcs_label }} ({{ t.hub_season }})</div>
     </div>
     {% endif %}
