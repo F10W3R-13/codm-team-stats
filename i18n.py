@@ -218,6 +218,13 @@ translations = {
         "compare_radar_title": "능력치 레이더",
         "compare_detail": "상세 비교",
         "metric_label": "지표",
+        # 역할 분류
+        "role_slayer": "슬레이어",
+        "role_objective": "오브젝티브",
+        "role_balanced": "밸런스",
+        "role_title": "팀 역할 분포",
+        "role_help": "HP 스탯 기반 자동 역할 분류 (팀 평균 대비)",
+        "role_badge": "역할",
     },
 
     # ── 영어 (선수용) ────────────────────────────────────────────────────
@@ -414,6 +421,12 @@ translations = {
         "compare_radar_title": "Ability Radar",
         "compare_detail": "Detail",
         "metric_label": "Metric",
+        "role_slayer": "Slayer",
+        "role_objective": "Objective",
+        "role_balanced": "Balanced",
+        "role_title": "Team Role Distribution",
+        "role_help": "Auto role classification from HP stats (vs team avg)",
+        "role_badge": "Role",
     },
 
     # ── 스페인어 (선수용) ────────────────────────────────────────────────
@@ -610,6 +623,12 @@ translations = {
         "compare_radar_title": "Radar de Habilidad",
         "compare_detail": "Detalle",
         "metric_label": "Métrica",
+        "role_slayer": "Slayer",
+        "role_objective": "Objetivo",
+        "role_balanced": "Equilibrado",
+        "role_title": "Distribución de Roles",
+        "role_help": "Clasificación automática por stats HP (vs promedio)",
+        "role_badge": "Rol",
     },
 }
 

@@ -987,3 +987,35 @@ def compare_players(name_a: str, name_b: str, mode: str = "HP") -> dict:
         "matches_a": block_a.get("matches", 0),
         "matches_b": block_b.get("matches", 0),
     }
+
+
+# ── 팀 역할(Role) 분포 ──────────────────────────────────────────────────────
+
+def team_role_distribution() -> list:
+    """HP 기준 팀 전체 선수의 역할 분포.
+
+    반환: [{name, role, avg_k, avg_obj, avg_dmg, avg_capture}, ...]
+    role: "slayer" | "objective" | "balanced"
+    """
+    import metrics
+    players = all_players_overview("HP")
+    team_avg = {}
+    if players:
+        for k_src, k_dst in (("avg_k", "avg_k"), ("avg_obj", "avg_obj"),
+                             ("avg_dmg", "avg_dmg"), ("avg_ck", "avg_capture")):
+            vals = [p.get(k_src) for p in players if p.get(k_src) is not None]
+            team_avg[k_dst] = round(sum(vals) / len(vals), 2) if vals else 0
+
+    out = []
+    for p in players:
+        # all_players_overview는 캡처킬을 avg_ck로 리턴 → classify_role에 맞게 복사
+        p_norm = dict(p)
+        if "avg_ck" in p_norm and "avg_capture" not in p_norm:
+            p_norm["avg_capture"] = p_norm["avg_ck"]
+        role = metrics.classify_role(p_norm, team_avg)
+        out.append({
+            "name": p["name"], "role": role,
+            "avg_k": p.get("avg_k"), "avg_obj": p.get("avg_obj"),
+            "avg_dmg": p.get("avg_dmg"), "avg_capture": p_norm.get("avg_capture"),
+        })
+    return out

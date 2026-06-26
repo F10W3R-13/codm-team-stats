@@ -113,6 +113,35 @@
 {% endif %}
 
 {# ── 승률 요약 ── #}
+{% if data.roles %}
+<div class="card" style="margin: 1.5rem 0;">
+    <h2>👥 {{ t.role_title }}</h2>
+    <p class="muted" style="font-size:.85rem;">{{ t.role_help }}</p>
+    <table style="margin-top:0.8rem;">
+        <thead>
+            <tr><th>{{ t.player }}</th><th>{{ t.role_badge }}</th><th class="num">{{ t.m_kills }}</th><th class="num">{{ t.m_obj }}</th><th class="num">{{ t.m_dmg }}</th><th class="num">Cap</th></tr>
+        </thead>
+        <tbody>
+            {% for p in data.roles %}
+            <tr>
+                <td><a href="/players/{{ p.name }}?lang={{ lang }}" class="player-link">{{ p.name }}</a></td>
+                <td>
+                    <span class="badge" style="background: {{ 'rgba(240,68,82,0.12)' if p.role == 'slayer' else ('rgba(49,130,246,0.12)' if p.role == 'objective' else 'rgba(4,192,158,0.12)') }}; color: {{ '#f04452' if p.role == 'slayer' else ('var(--accent)' if p.role == 'objective' else '#04c09e') }};">
+                    {{ t['role_' + p.role] }}
+                    </span>
+                </td>
+                <td class="num">{{ p.avg_k }}</td>
+                <td class="num">{{ p.avg_obj }}</td>
+                <td class="num">{{ p.avg_dmg }}</td>
+                <td class="num">{{ p.avg_capture }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+
+{# ── 승률 요약 (기존) ── #}
 {% if data.win_loss.total > 0 %}
 <div class="card" style="margin: 1.5rem 0;">
     <h2>{{ t.win_rate }}</h2>

@@ -3,7 +3,14 @@
 {% block nav_players %}active{% endblock %}
 
 {% block content %}
-<h1>🎯 {{ stats.name }}</h1>
+<h1>🎯 {{ stats.name }}
+{% if stats.hp and stats.hp.role %}
+{% set r = stats.hp.role %}
+<span class="badge" style="background: {{ 'rgba(240,68,82,0.12)' if r == 'slayer' else ('rgba(49,130,246,0.12)' if r == 'objective' else 'rgba(4,192,158,0.12)') }}; color: {{ '#f04452' if r == 'slayer' else ('var(--accent)' if r == 'objective' else '#04c09e') }};">
+{{ t['role_' + r] }}
+</span>
+{% endif %}
+</h1>
 
 <div class="grid grid-2">
     {% if stats.hp %}

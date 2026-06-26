@@ -70,3 +70,40 @@ def all_hp_metrics(kills, deaths, obj_time, score, impact, total_damage, capture
         "zcs": compute_zcs(obj_time, capture_kill, kills, deaths),
         "impact": imp,
     }
+
+
+# ── 역할(Role) 분류 ────────────────────────────────────────────────────────
+# HP 전용 — OBJ 시간/캡처킬(목표 기여) vs 킬/딜(처치 기여) 비중으로 역할 추정.
+# 기준: 팀 평균 대비 비율. 팀 컨텍스트가 있어야 의미 있음.
+#
+# 역할 정의:
+#   slayer     — 킬·딜 비중 높음 (처치 집중형)
+#   objective  — OBJ·캡처킬 비중 높음 (목표 기여형, anchor)
+#   balanced   — 양쪽 고르게 (flex)
+ROLE_THRESHOLD = 1.08  # 팀 평균 대비 8% 이상 높으면 그 역할로 분류
+
+
+def classify_role(player_hp: dict, team_hp: dict) -> str:
+    """선수의 HP 역할 분류.
+
+    player_hp: {avg_k, avg_obj, avg_dmg, avg_capture, ...} (개인 평균)
+    team_hp:   동일 키의 팀 평균 (벤치마크)
+    반환: "slayer" | "objective" | "balanced"
+    """
+    def _ratio(indiv, team):
+        if not indiv or not team:
+            return 1.0
+        return indiv / team
+
+    # 처치 지향 점수 = 킬 비율 + 딜 비율 평균
+    slay = (_ratio(player_hp.get("avg_k"), team_hp.get("avg_k")) +
+            _ratio(player_hp.get("avg_dmg"), team_hp.get("avg_dmg"))) / 2
+    # 목표 지향 점수 = OBJ 비율 + 캡처킬 비율 평균
+    obj = (_ratio(player_hp.get("avg_obj"), team_hp.get("avg_obj")) +
+           _ratio(player_hp.get("avg_capture"), team_hp.get("avg_capture"))) / 2
+
+    if obj >= ROLE_THRESHOLD and obj > slay:
+        return "objective"
+    if slay >= ROLE_THRESHOLD and slay > obj:
+        return "slayer"
+    return "balanced"

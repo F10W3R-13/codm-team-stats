@@ -82,6 +82,10 @@ async def player_detail(request: Request, name: str, lang: str = Query("ko")):
         raise HTTPException(404, "선수를 찾을 수 없습니다")
     stats = queries.player_overall_stats(pid)
     team_hp = queries.team_averages("HP") if stats["hp"] else {}
+    # 역할 분류 (HP 전용) — player_overall_stats엔 team 컨텍스트가 없어 여기서 추가
+    if stats["hp"] and team_hp:
+        import metrics
+        stats["hp"]["role"] = metrics.classify_role(stats["hp"], team_hp)
     trend_hp = queries.player_kd_trend(pid, "HP", 30) if stats["hp"] else []
     trend_snd = queries.player_kd_trend(pid, "SND", 30) if stats["snd"] else []
     # AI 인사이트 (캐싱 — 1시간 TTL, 매치 기록 시 무효화)

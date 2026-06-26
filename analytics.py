@@ -403,15 +403,17 @@ def coaching_hub(mode: str = "HP", days: int = 30) -> dict:
     # ZCS 데이터 (HP 전용)
     team_zcs = None
     zcs_trend = []
+    roles = []
     if mode == "HP":
         team_zcs = queries.overview_stats().get("team_zcs")
         if team_zcs is not None:
             team_zcs = float(team_zcs)
         zcs_trend = queries.recent_zcs_trend(10)
-        # Postgres Decimal → float (JSON 직렬화/차트용)
         for r in zcs_trend:
             if r.get("avg_zcs") is not None:
                 r["avg_zcs"] = float(r["avg_zcs"])
+        # 팀 역할 분포
+        roles = queries.team_role_distribution()
 
     return {
         "trend": trend, "win_loss": win_loss,
@@ -419,4 +421,5 @@ def coaching_hub(mode: str = "HP", days: int = 30) -> dict:
         "form_alerts": form_alerts,
         "strong_map": strong_map, "weak_map": weak_map,
         "team_zcs": team_zcs, "zcs_trend": zcs_trend,
+        "roles": roles,
     }
