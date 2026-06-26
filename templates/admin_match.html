@@ -1,0 +1,165 @@
+{% extends "base.html" %}
+{% block title %}{{ t.edit }} #{{ match.id }} — CODM Stats{% endblock %}
+{% block nav_admin %}active{% endblock %}
+
+{% block content %}
+<a href="/admin?lang={{ lang }}" class="muted" style="text-decoration:none;">← {{ t.nav_admin }}</a>
+<h1>{{ t.edit }} — {{ t.match }} #{{ match.id }} <span class="badge {{ match.mode|lower }}">{{ match.mode }}</span></h1>
+
+<!-- 매치 메타 수정 -->
+<div class="card" style="margin-bottom: 1.5rem;">
+    <h2>{{ t.match_meta }}</h2>
+    <form id="metaForm" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem;">
+        <div>
+            <label class="muted" style="font-size:0.8rem;">{{ t.result }}</label>
+            <select name="result">
+                <option value="" {{ 'selected' if not match.result }}>-</option>
+                <option value="WIN" {{ 'selected' if match.result == 'WIN' }}>🟢 WIN</option>
+                <option value="LOSS" {{ 'selected' if match.result == 'LOSS' }}>🔴 LOSS</option>
+            </select>
+        </div>
+        <div>
+            <label class="muted" style="font-size:0.8rem;">{{ t.team_score }}</label>
+            <input type="number" name="team_score" value="{{ match.team_score if match.team_score is not none else '' }}">
+        </div>
+        <div>
+            <label class="muted" style="font-size:0.8rem;">{{ t.opponent_score }}</label>
+            <input type="number" name="opponent_score" value="{{ match.opponent_score if match.opponent_score is not none else '' }}">
+        </div>
+        <div>
+            <label class="muted" style="font-size:0.8rem;">{{ t.map }}</label>
+            <input type="text" name="map_name" value="{{ match.map_name or '' }}">
+        </div>
+        <div>
+            <label class="muted" style="font-size:0.8rem;">{{ t.date }}</label>
+            <input type="date" name="match_date" value="{{ match.match_date or '' }}">
+        </div>
+        <div style="display:flex; align-items:end;">
+            <button type="button" onclick="saveMeta()" style="padding:0.5rem 1.2rem; background:var(--accent); color:white; border:none; border-radius:10px; cursor:pointer; font-weight:600;">{{ t.save }}</button>
+        </div>
+    </form>
+</div>
+
+<!-- 선수 스탯 수정 -->
+<div class="card" style="margin-bottom: 1.5rem;">
+    <h2>{{ t.player_stats }}</h2>
+    {% if match.mode == 'HP' %}
+    <table>
+        <thead>
+            <tr>
+                <th>{{ t.player }}</th>
+                <th class="num">Kills</th><th class="num">Deaths</th><th class="num">K/D</th>
+                <th class="num">OBJ</th><th class="num">Score</th><th class="num">Impact</th>
+                <th class="num">DMG</th><th class="num">CapKill</th><th></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for p in match.players %}
+            <tr data-stat-id="{{ p.stat_id }}">
+                <td><strong>{{ p.player_name }}</strong></td>
+                <td class="num"><input type="number" class="edit-kills" value="{{ p.kills }}" style="width:60px;"></td>
+                <td class="num"><input type="number" class="edit-deaths" value="{{ p.deaths }}" style="width:60px;"></td>
+                <td class="num"><input type="number" step="0.01" class="edit-kd_ratio" value="{{ p.kd_ratio }}" style="width:70px;"></td>
+                <td class="num"><input type="number" class="edit-obj_time" value="{{ p.obj_time }}" style="width:70px;"></td>
+                <td class="num"><input type="number" class="edit-score" value="{{ p.score }}" style="width:80px;"></td>
+                <td class="num"><input type="number" step="0.1" class="edit-impact" value="{{ p.impact }}" style="width:70px;"></td>
+                <td class="num"><input type="number" class="edit-total_damage" value="{{ p.total_damage }}" style="width:80px;"></td>
+                <td class="num"><input type="number" step="0.1" class="edit-capture_kill" value="{{ p.capture_kill }}" style="width:60px;"></td>
+                <td><button type="button" onclick="saveStat(this)" data-stat="{{ p.stat_id }}" style="padding:0.3rem 0.7rem; background:var(--accent-2); color:white; border:none; border-radius:8px; cursor:pointer; font-size:0.85rem;">✓</button></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <table>
+        <thead>
+            <tr>
+                <th>{{ t.player }}</th>
+                <th class="num">Kills</th><th class="num">Deaths</th><th class="num">Assists</th>
+                <th class="num">K/D</th><th class="num">Score</th><th class="num">Impact</th>
+                <th class="num">ADR</th><th class="num">FK</th><th class="num">LWW</th><th></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for p in match.players %}
+            <tr data-stat-id="{{ p.stat_id }}">
+                <td><strong>{{ p.player_name }}</strong></td>
+                <td class="num"><input type="number" class="edit-kills" value="{{ p.kills }}" style="width:55px;"></td>
+                <td class="num"><input type="number" class="edit-deaths" value="{{ p.deaths }}" style="width:55px;"></td>
+                <td class="num"><input type="number" class="edit-assists" value="{{ p.assists }}" style="width:55px;"></td>
+                <td class="num"><input type="number" step="0.01" class="edit-kd_ratio" value="{{ p.kd_ratio }}" style="width:65px;"></td>
+                <td class="num"><input type="number" class="edit-score" value="{{ p.score }}" style="width:75px;"></td>
+                <td class="num"><input type="number" step="0.1" class="edit-impact" value="{{ p.impact }}" style="width:65px;"></td>
+                <td class="num"><input type="number" step="0.1" class="edit-adr" value="{{ p.adr }}" style="width:65px;"></td>
+                <td class="num"><input type="number" class="edit-first_kill" value="{{ p.first_kill }}" style="width:50px;"></td>
+                <td class="num"><input type="number" step="0.1" class="edit-lone_wolf_win" value="{{ p.lone_wolf_win }}" style="width:50px;"></td>
+                <td><button type="button" onclick="saveStat(this)" data-stat="{{ p.stat_id }}" style="padding:0.3rem 0.7rem; background:var(--accent-2); color:white; border:none; border-radius:8px; cursor:pointer; font-size:0.85rem;">✓</button></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% endif %}
+</div>
+
+<!-- 삭제 -->
+<div class="card" style="border:1px solid #ff6b6b;">
+    <h2 style="color:#e74c3c;">🗑️ {{ t.delete }} {{ t.match }}</h2>
+    <p class="muted" style="margin-bottom:1rem;">{{ t.confirm_delete }}</p>
+    <button type="button" onclick="deleteMatch()" style="padding:0.6rem 1.5rem; background:#e74c3c; color:white; border:none; border-radius:10px; cursor:pointer; font-weight:600;">🗑️ {{ t.delete }}</button>
+</div>
+
+<script>
+const matchId = {{ match.id }};
+const mode = "{{ match.mode }}";
+
+function flash(msg, ok=true) {
+    const d = document.createElement('div');
+    d.textContent = msg;
+    d.style.cssText = `position:fixed;top:20px;right:20px;padding:0.8rem 1.2rem;border-radius:10px;color:white;font-weight:600;z-index:1000;background:${ok?'#15c47e':'#e74c3c'};`;
+    document.body.appendChild(d);
+    setTimeout(() => d.remove(), 2000);
+}
+
+function saveMeta() {
+    const form = document.getElementById('metaForm');
+    const payload = {};
+    new FormData(form).forEach((v, k) => { payload[k] = v === '' ? null : v; });
+    fetch(`/admin/match/${matchId}/meta`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(payload),
+    }).then(r => r.json()).then(d => {
+        if (d.ok) flash("{{ t.saved_ok }}");
+        else flash("Error", false);
+    });
+}
+
+function saveStat(btn) {
+    const statId = btn.dataset.stat;
+    const tr = btn.closest('tr');
+    const payload = {};
+    tr.querySelectorAll('[class*="edit-"]').forEach(inp => {
+        const key = inp.className.replace('edit-', '');
+        payload[key] = inp.value === '' ? null : inp.value;
+    });
+    fetch(`/admin/stat/${statId}?mode=${mode}`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(payload),
+    }).then(r => r.json()).then(d => {
+        if (d.ok) flash("{{ t.saved_ok }}");
+        else flash("Error", false);
+    });
+}
+
+function deleteMatch() {
+    if (!confirm("{{ t.confirm_delete }}")) return;
+    fetch(`/admin/match/${matchId}`, { method: 'DELETE' })
+        .then(r => r.json())
+        .then(d => {
+            if (d.ok) { flash("{{ t.deleted_ok }}"); setTimeout(() => location.href = '/admin?lang={{ lang }}', 800); }
+            else flash("Error", false);
+        });
+}
+</script>
+{% endblock %}

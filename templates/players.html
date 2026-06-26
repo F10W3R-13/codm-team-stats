@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% block title %}{{ t.nav_players }} — CODM Stats{% endblock %}
+{% block nav_players %}active{% endblock %}
+
+{% block content %}
+<h1>{{ t.players_title }}</h1>
+
+<div class="filters">
+    <a href="/players?mode=HP&lang={{ lang }}" class="{{ 'active' if mode == 'HP' else '' }}">🎯 {{ t.mode_hp }}</a>
+    <a href="/players?mode=SND&lang={{ lang }}" class="{{ 'active' if mode == 'SND' else '' }}">🔍 {{ t.mode_snd }}</a>
+</div>
+
+<div class="card">
+    <table>
+        <thead>
+            <tr>
+                <th>{{ t.player }}</th>
+                <th class="num">{{ t.matches_col }}</th>
+                <th class="num">{{ t.avg_k }}</th>
+                <th class="num">{{ t.avg_d }}</th>
+                <th class="num">{{ t.kd }}</th>
+                {% if mode == 'HP' %}
+                <th class="num">{{ t.avg_obj }}</th>
+                {% else %}
+                <th class="num">{{ t.avg_a }}</th>
+                <th class="num">{{ t.avg_adr }}</th>
+                {% endif %}
+                <th class="num">{{ t.avg_score }}</th>
+                <th class="num">{{ t.avg_impact }}</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for p in players %}
+            <tr>
+                <td><a href="/players/{{ p.name }}?lang={{ lang }}" class="player-link">{{ p.name }}</a></td>
+                <td class="num">{{ p.matches }}</td>
+                <td class="num">{{ p.avg_k }}</td>
+                <td class="num">{{ p.avg_d }}</td>
+                <td class="num"><strong style="color: var(--accent-2);">{{ p.avg_kd }}</strong></td>
+                {% if mode == 'HP' %}
+                <td class="num">{{ p.avg_obj }}</td>
+                {% else %}
+                <td class="num">{{ p.avg_a }}</td>
+                <td class="num">{{ p.avg_adr }}</td>
+                {% endif %}
+                <td class="num">{{ p.avg_score }}</td>
+                <td class="num">{{ p.avg_impact }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+{% if mode == 'HP' %}
+<div class="card" style="margin-top: 1.5rem;">
+    <h2>{{ t.custom_metrics_title }}</h2>
+    <p class="muted" style="font-size:0.85rem; margin-bottom:1rem;">{{ t.custom_metrics_desc }}</p>
+    <table>
+        <thead>
+            <tr>
+                <th>{{ t.player }}</th>
+                <th class="num">DPD</th>
+                <th class="num">DPK</th>
+                <th class="num">ID</th>
+                <th class="num">AP(%)</th>
+                <th class="num">ZCS</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for p in players %}
+            <tr>
+                <td><a href="/players/{{ p.name }}?lang={{ lang }}" class="player-link">{{ p.name }}</a></td>
+                <td class="num">{{ p.dpd }}</td>
+                <td class="num">{{ p.dpk }}</td>
+                <td class="num">{{ p.id }}</td>
+                <td class="num">{{ p.ap_pct }}</td>
+                <td class="num"><strong style="color: var(--accent);">{{ p.zcs }}</strong></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+{% endblock %}

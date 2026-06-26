@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}CODM Team Stats{% endblock %}</title>
+    <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <style>
+        /* ── 토스 디자인 시스템(TDS) 토큰 ─────────────────────────── */
+        :root {
+            /* 표면 */
+            --bg: #f2f4f6;          /* Grey100 · 토스 앱 배경 */
+            --card: #ffffff;        /* 카드/표면 */
+            --card-2: #f2f4f6;      /* hover·보조 표면 */
+            --border: #e5e8eb;      /* Grey200 · 경계선 */
+            /* 텍스트 */
+            --text: #191f28;        /* Grey900 · 본문 */
+            --text-2: #4e5968;      /* Grey700 · 부제 */
+            --muted: #8b95a1;       /* Grey500 · 보조 */
+            /* 강조 */
+            --accent: #3182f6;      /* Blue500 · 토스 블루 */
+            --accent-weak: #e8f3ff; /* Blue100 · 옅은 강조 배경 */
+            --accent-2: #15c47e;    /* Green · 긍정 */
+            /* 데이터 종목색(토스 톤) */
+            --hp: #ff9d00;          /* HP · 오렌지 */
+            --hp-weak: #fff3e0;
+            --snd: #8b5cf6;         /* SND · 퍼플 */
+            --snd-weak: #f3effe;
+            /* 라운드/그림자 */
+            --radius: 20px;
+            --radius-sm: 12px;
+            --shadow: 0 1px 3px rgba(0,0,0,0.04), 0 6px 20px rgba(0,0,0,0.04);
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Pretendard', 'Pretendard Variable', system-ui, -apple-system, 'Segoe UI', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+            -webkit-font-smoothing: antialiased;
+        }
+        .nav {
+            background: rgba(255,255,255,0.8);
+            backdrop-filter: saturate(180%) blur(12px);
+            padding: 0.9rem 2rem;
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+            border-bottom: 1px solid var(--border);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        .nav-brand {
+            font-weight: 700;
+            font-size: 1.2rem;
+            color: var(--text);
+            margin-right: 1rem;
+            letter-spacing: -0.02em;
+        }
+        .nav a {
+            color: var(--text-2);
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 0.95rem;
+            padding: 0.45rem 0.9rem;
+            border-radius: 10px;
+            transition: all 0.15s;
+        }
+        .nav a:hover { color: var(--text); background: var(--card-2); }
+        .nav a.active { color: var(--accent); background: var(--accent-weak); }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+        .grid {
+            display: grid;
+            gap: 1.25rem;
+        }
+        .grid-4 { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+        .grid-2 { grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); }
+        .card {
+            background: var(--card);
+            border-radius: var(--radius);
+            padding: 1.5rem;
+            border: 1px solid var(--border);
+            box-shadow: var(--shadow);
+        }
+        .stat-card { text-align: center; }
+        .stat-card .value {
+            font-size: 2.4rem;
+            font-weight: 700;
+            line-height: 1.2;
+            letter-spacing: -0.03em;
+        }
+        .stat-card .label {
+            color: var(--muted);
+            font-size: 0.85rem;
+            font-weight: 600;
+            letter-spacing: 0.01em;
+        }
+        .stat-card.hp .value { color: var(--hp); }
+        .stat-card.snd .value { color: var(--snd); }
+        h1, h2 { margin-bottom: 1rem; letter-spacing: -0.02em; }
+        h1 { font-size: 1.8rem; font-weight: 700; }
+        h2 { font-size: 1.3rem; font-weight: 700; color: var(--text); }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th, td {
+            padding: 0.85rem 0.6rem;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+        }
+        th {
+            color: var(--muted);
+            font-size: 0.8rem;
+            letter-spacing: 0.01em;
+            font-weight: 600;
+        }
+        td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+        tbody tr:last-child td { border-bottom: none; }
+        tbody tr:hover { background: var(--card-2); }
+        .badge {
+            display: inline-block;
+            padding: 0.2rem 0.6rem;
+            border-radius: 8px;
+            font-size: 0.75rem;
+            font-weight: 700;
+        }
+        .badge.hp { background: var(--hp-weak); color: var(--hp); }
+        .badge.snd { background: var(--snd-weak); color: var(--snd); }
+        a.player-link {
+            color: var(--accent);
+            text-decoration: none;
+            font-weight: 600;
+        }
+        a.player-link:hover { text-decoration: underline; }
+        .chart-wrap { position: relative; height: 300px; }
+        .filters {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+            flex-wrap: wrap;
+        }
+        .filters a {
+            padding: 0.45rem 1rem;
+            border-radius: 10px;
+            background: var(--card);
+            border: 1px solid var(--border);
+            color: var(--text-2);
+            text-decoration: none;
+            font-size: 0.9rem;
+            font-weight: 600;
+            transition: all 0.15s;
+        }
+        .filters a:hover { background: var(--card-2); }
+        .filters a.active { background: var(--accent); color: white; border-color: var(--accent); }
+        .pagination { display: flex; gap: 0.5rem; justify-content: center; margin-top: 1.5rem; }
+        .pagination a {
+            padding: 0.45rem 0.95rem;
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            color: var(--text);
+            text-decoration: none;
+            font-weight: 600;
+        }
+        .pagination a:hover { background: var(--card-2); }
+        .pagination a.active { background: var(--accent); color: white; border-color: var(--accent); }
+        .muted { color: var(--muted); }
+        .text-center { text-align: center; }
+        .mom-box {
+            background: linear-gradient(135deg, var(--accent-weak), #f5f9ff);
+            border: 1px solid #cfe3ff;
+        }
+        .lang-switcher {
+            margin-left: auto;
+            display: flex;
+            gap: 0.3rem;
+        }
+        .lang-switcher a {
+            font-size: 0.8rem;
+            padding: 0.35rem 0.7rem;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+        }
+        .lang-switcher a.active {
+            background: var(--accent);
+            color: white;
+            border-color: var(--accent);
+        }
+    </style>
+</head>
+<body>
+    <nav class="nav">
+        <div class="nav-brand">{{ t.nav_brand }}</div>
+        <a href="/?lang={{ lang }}" class="{% block nav_dashboard %}{% endblock %}">{{ t.nav_dashboard }}</a>
+        <a href="/players?lang={{ lang }}" class="{% block nav_players %}{% endblock %}">{{ t.nav_players }}</a>
+        <a href="/leaderboard?lang={{ lang }}" class="{% block nav_leaderboard %}{% endblock %}">{{ t.nav_leaderboard }}</a>
+        <a href="/matches?lang={{ lang }}" class="{% block nav_matches %}{% endblock %}">{{ t.nav_matches }}</a>
+        <a href="/trends?lang={{ lang }}" class="{% block nav_trends %}{% endblock %}">{{ t.nav_timeseries }}</a>
+        <a href="/insights?lang={{ lang }}" class="{% block nav_insights %}{% endblock %}">{{ t.nav_insights }}</a>
+        <a href="/admin?lang={{ lang }}" class="{% block nav_admin %}{% endblock %}" style="margin-left:1rem;">{{ t.nav_admin }}</a>
+        <div class="lang-switcher">
+            <a href="javascript:setLang('ko')" class="{{ 'active' if lang == 'ko' else '' }}">한국어</a>
+            <a href="javascript:setLang('en')" class="{{ 'active' if lang == 'en' else '' }}">EN</a>
+            <a href="javascript:setLang('es')" class="{{ 'active' if lang == 'es' else '' }}">ES</a>
+        </div>
+    </nav>
+    <div class="container">
+        {% block content %}{% endblock %}
+    </div>
+    <script>
+    // 언어 전환: 현재 URL의 lang 파라미터만 교체하고 이동.
+    function setLang(lang) {
+        const url = new URL(window.location.href);
+        url.searchParams.set('lang', lang);
+        window.location.href = url.toString();
+    }
+    </script>
+</body>
+</html>

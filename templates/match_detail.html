@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% block title %}{{ t.match }} #{{ report.match_id }} — CODM Stats{% endblock %}
+{% block nav_matches %}active{% endblock %}
+
+{% block content %}
+<a href="/matches?lang={{ lang }}" class="muted" style="text-decoration:none;">{{ t.back_to_list }}</a>
+<h1>🎮 {{ t.match }} #{{ report.match_id }} <span class="badge {{ report.mode|lower }}">{{ t['mode_' + report.mode.lower()] }}</span></h1>
+<p class="muted">📅 {{ report.match_date or t.date_unknown }} · 🗺️ {{ report.map_name or t.map_unknown }}</p>
+
+{% if report.mom %}
+<div class="card mom-box" style="margin: 1.5rem 0;">
+    <h2>{{ t.mom_title }}</h2>
+    <p style="font-size: 1.3rem;"><strong>{{ report.mom.name }}</strong> <span class="muted">— {{ report.mom.reason }}</span></p>
+</div>
+{% endif %}
+
+<div class="card" style="margin-bottom: 1.5rem;">
+    <h2>{{ t.team_avg }}</h2>
+    {% if report.mode == 'HP' %}
+    <p>{{ t.kills }} <strong>{{ "%.1f"|format(report.team_totals.kills / (report.players|length)) }}</strong> ·
+       {{ t.deaths }} {{ "%.1f"|format(report.team_totals.deaths / (report.players|length)) }} ·
+       {{ t.dmg }} {{ "%.0f"|format(report.team_totals.dmg / (report.players|length)) }} ·
+       {{ t.obj }} {{ "%.0f"|format(report.team_totals.obj / (report.players|length)) }} ·
+       {{ t.score }} {{ "%.0f"|format(report.team_totals.score / (report.players|length)) }}</p>
+    {% else %}
+    <p>{{ t.kills }} <strong>{{ "%.1f"|format(report.team_totals.kills / (report.players|length)) }}</strong> ·
+       {{ t.deaths }} {{ "%.1f"|format(report.team_totals.deaths / (report.players|length)) }} ·
+       {{ t.assists }} {{ "%.1f"|format(report.team_totals.assists / (report.players|length)) }} ·
+       {{ t.fk }} {{ "%.1f"|format(report.team_totals.fk / (report.players|length)) }}</p>
+    {% endif %}
+</div>
+
+<div class="card">
+    <h2>{{ t.player_stats_title }}</h2>
+    {% if report.mode == 'HP' %}
+    <table>
+        <thead>
+            <tr>
+                <th>{{ t.player }}</th><th class="num">{{ t.kills }}</th><th class="num">{{ t.deaths }}</th>
+                <th class="num">{{ t.kd }}</th><th class="num">{{ t.obj }}</th>
+                <th class="num">{{ t.score }}</th><th class="num">{{ t.dmg }}</th><th class="num">{{ t.cap }}</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for p in report.players %}
+            <tr>
+                <td><a href="/players/{{ p.name }}?lang={{ lang }}" class="player-link">{{ p.name }}</a></td>
+                <td class="num">{{ p.k }}</td>
+                <td class="num">{{ p.d }}</td>
+                <td class="num"><strong style="color: var(--accent-2);">{{ p.kd }}</strong></td>
+                <td class="num">{{ p.obj }}</td>
+                <td class="num">{{ p.score }}</td>
+                <td class="num">{{ p.dmg }}</td>
+                <td class="num">{{ p.cap }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <table>
+        <thead>
+            <tr>
+                <th>{{ t.player }}</th><th class="num">{{ t.kills }}</th><th class="num">{{ t.deaths }}</th><th class="num">{{ t.assists }}</th>
+                <th class="num">{{ t.kd }}</th><th class="num">{{ t.score }}</th>
+                <th class="num">ADR</th><th class="num">{{ t.fk }}</th><th class="num">{{ t.lww }}</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for p in report.players %}
+            <tr>
+                <td><a href="/players/{{ p.name }}?lang={{ lang }}" class="player-link">{{ p.name }}</a></td>
+                <td class="num">{{ p.k }}</td>
+                <td class="num">{{ p.d }}</td>
+                <td class="num">{{ p.a }}</td>
+                <td class="num"><strong style="color: var(--accent-2);">{{ p.kd }}</strong></td>
+                <td class="num">{{ p.score }}</td>
+                <td class="num">{{ p.adr }}</td>
+                <td class="num">{{ p.fk }}</td>
+                <td class="num">{{ p.lww }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% endif %}
+</div>
+{% endblock %}

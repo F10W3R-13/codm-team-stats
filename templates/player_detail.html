@@ -1,0 +1,205 @@
+{% extends "base.html" %}
+{% block title %}{{ stats.name }} — CODM Stats{% endblock %}
+{% block nav_players %}active{% endblock %}
+
+{% block content %}
+<h1>🎯 {{ stats.name }}</h1>
+
+<div class="grid grid-2">
+    {% if stats.hp %}
+    <div class="card">
+        <h2>{{ t.hp_section }} <span class="muted">({{ stats.hp.matches }} {{ t.games }})</span></h2>
+        <table>
+            <tr><td>{{ t.avg_kd }}</td><td class="num"><strong>{{ stats.hp.avg_k }} / {{ stats.hp.avg_d }}</strong></td></tr>
+            <tr><td>{{ t.kd }}</td><td class="num" style="color: var(--accent-2);"><strong>{{ stats.hp.avg_kd }}</strong></td></tr>
+            <tr><td>{{ t.obj_seconds }}</td><td class="num">{{ stats.hp.avg_obj }}{{ 's' if lang != 'ko' else '초' }}</td></tr>
+            <tr><td>{{ t.avg_score }}</td><td class="num">{{ stats.hp.avg_score }}</td></tr>
+            <tr><td>{{ t.avg_impact }}</td><td class="num">{{ stats.hp.avg_impact }}</td></tr>
+            <tr><td>{{ t.avg_total_dmg }}</td><td class="num">{{ stats.hp.avg_dmg }}</td></tr>
+            <tr><td>{{ t.avg_cap_kill }}</td><td class="num">{{ stats.hp.avg_capture }}</td></tr>
+        </table>
+    </div>
+    {% endif %}
+    {% if stats.snd %}
+    <div class="card">
+        <h2>{{ t.snd_section }} <span class="muted">({{ stats.snd.matches }} {{ t.games }})</span></h2>
+        <table>
+            <tr><td>{{ t.avg_kda }}</td><td class="num"><strong>{{ stats.snd.avg_k }} / {{ stats.snd.avg_d }} / {{ stats.snd.avg_a }}</strong></td></tr>
+            <tr><td>{{ t.kd }}</td><td class="num" style="color: var(--accent-2);"><strong>{{ stats.snd.avg_kd }}</strong></td></tr>
+            <tr><td>{{ t.avg_adr }}</td><td class="num">{{ stats.snd.avg_adr }}</td></tr>
+            <tr><td>{{ t.avg_score }}</td><td class="num">{{ stats.snd.avg_score }}</td></tr>
+            <tr><td>{{ t.avg_impact }}</td><td class="num">{{ stats.snd.avg_impact }}</td></tr>
+            <tr><td>{{ t.avg_fk }}</td><td class="num">{{ stats.snd.avg_fk }}</td></tr>
+            <tr><td>{{ t.avg_lww }}</td><td class="num">{{ stats.snd.avg_lww }}</td></tr>
+        </table>
+    </div>
+    {% endif %}
+</div>
+
+<!-- 기복(Consistency) 카드 -->
+{% if stats.hp or stats.snd %}
+<div class="card" style="margin-top: 1.5rem; border-left: 4px solid var(--accent);">
+    <h2>📊 {{ t.consistency_title }}</h2>
+    <p class="muted" style="font-size:0.85rem; margin-bottom:1rem;">{{ t.consistency_help }}</p>
+    <table>
+        <thead>
+            <tr>
+                <th>{{ t.mode_col }}</th>
+                <th class="num">{{ t.avg_kd }} ± σ</th>
+                <th class="num">{{ t.m_kills }} ± σ</th>
+                {% if stats.hp %}<th class="num">{{ t.m_dmg }} ± σ</th>{% endif %}
+            </tr>
+        </thead>
+        <tbody>
+            {% if stats.hp %}
+            <tr>
+                <td><span class="badge hp">{{ t.mode_hp }}</span></td>
+                <td class="num">{{ stats.hp.avg_kd }} ± {{ stats.hp.std_kd or '-' }}</td>
+                <td class="num">{{ stats.hp.avg_k }} ± {{ stats.hp.std_kills or '-' }}</td>
+                <td class="num">{{ stats.hp.avg_dmg }} ± {{ stats.hp.std_dmg or '-' }}</td>
+            </tr>
+            {% endif %}
+            {% if stats.snd %}
+            <tr>
+                <td><span class="badge snd">{{ t.mode_snd }}</span></td>
+                <td class="num">{{ stats.snd.avg_kd }} ± {{ stats.snd.std_kd or '-' }}</td>
+                <td class="num">{{ stats.snd.avg_k }} ± {{ stats.snd.std_kills or '-' }}</td>
+                <td class="num">-</td>
+            </tr>
+            {% endif %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+
+<!-- HP 커스텀 지표 + 팀 평균 대비 -->
+{% if stats.hp %}
+<div class="grid grid-2" style="margin-top: 1.5rem;">
+    <div class="card">
+        <h2>🧮 {{ t.custom_metrics_title }} (HP)</h2>
+        <table>
+            <tr><td>DPD</td><td class="num">{{ stats.hp.dpd }}</td></tr>
+            <tr><td>DPK</td><td class="num">{{ stats.hp.dpk }} <span class="muted">({{ t.lower_better }})</span></td></tr>
+            <tr><td>ID</td><td class="num">{{ stats.hp.impact_delta }}</td></tr>
+            <tr><td>AP%</td><td class="num">{{ stats.hp.ap_pct }}%</td></tr>
+            <tr><td>ZCS</td><td class="num" style="color:var(--accent);"><strong>{{ stats.hp.zcs }}</strong></td></tr>
+        </table>
+    </div>
+    <div class="card">
+        <h2>📊 {{ t.vs_team_title }}</h2>
+        <table>
+            <thead>
+                <tr><th>{{ t.metric_label }}</th><th class="num">{{ t.player }}</th><th class="num">{{ t.team_avg }}</th><th class="num">±%</th></tr>
+            </thead>
+            <tbody>
+            {% for k, label, lower in [
+                ('avg_kd', t.kd, false),
+                ('avg_k', t.m_kills, false),
+                ('avg_dmg', t.m_dmg, false),
+                ('avg_obj', t.m_obj, false),
+                ('dpd', 'DPD', false),
+                ('dpk', 'DPK', true),
+                ('zcs', 'ZCS', false),
+            ] %}
+                {% set mine = stats.hp.get(k) %}
+                {% set team_v = team_hp.get(k) if team_hp else none %}
+                <tr>
+                    <td>{{ label }}</td>
+                    <td class="num">{{ mine if mine is not none else '-' }}</td>
+                    <td class="num muted">{{ team_v if team_v is not none else '-' }}</td>
+                    <td class="num">
+                        {% if mine is not none and team_v and team_v != 0 %}
+                            {% set pct = ((mine - team_v) / team_v * 100) | round(1) %}
+                            {% if (lower and pct < 0) or (not lower and pct > 0) %}
+                                <span style="color:var(--accent-2);">{% if pct > 0 %}+{% endif %}{{ pct }}%</span>
+                            {% else %}
+                                <span style="color:#e74c3c;">{% if pct > 0 %}+{% endif %}{{ pct }}%</span>
+                            {% endif %}
+                        {% else %}-{% endif %}
+                    </td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+<!-- AI 인사이트 -->
+{% if insight %}
+<div class="card" style="margin-top: 1.5rem; border-left: 4px solid var(--accent);">
+    <h2>🧠 AI {{ t.insight_title }}</h2>
+    <p style="line-height:1.7; white-space:pre-wrap;">{{ insight }}</p>
+</div>
+{% endif %}
+
+{% if trend_hp %}
+<div class="card" style="margin-top: 1.5rem;">
+    <h2>{{ t.hp_trend_title }}</h2>
+    <div class="chart-wrap"><canvas id="hpTrend"></canvas></div>
+</div>
+{% endif %}
+
+{% if trend_snd %}
+<div class="card" style="margin-top: 1.5rem;">
+    <h2>{{ t.snd_trend_title }}</h2>
+    <div class="chart-wrap"><canvas id="sndTrend"></canvas></div>
+</div>
+{% endif %}
+
+<p style="margin-top:1.5rem;">
+    <a href="/trends?player={{ stats.name }}&lang={{ lang }}" class="player-link">📈 {{ t.nav_timeseries }} →</a>
+</p>
+
+<script>
+{% if trend_hp %}
+const hpData = {{ trend_hp | tojson }};
+new Chart(document.getElementById('hpTrend'), {
+    type: 'line',
+    data: {
+        labels: hpData.map(d => d.date || ''),
+        datasets: [{
+            label: 'K/D',
+            data: hpData.map(d => d.kd),
+            borderColor: '#ff9d00',
+            backgroundColor: 'rgba(255,157,0,0.1)',
+            fill: true, tension: 0.3, pointRadius: 2,
+        }]
+    },
+    options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+            x: { grid: { color: '#e5e8eb' }, ticks: { color: '#8b95a1', maxTicksLimit: 8 } },
+            y: { grid: { color: '#e5e8eb' }, ticks: { color: '#8b95a1' } },
+        }
+    }
+});
+{% endif %}
+
+{% if trend_snd %}
+const sndData = {{ trend_snd | tojson }};
+new Chart(document.getElementById('sndTrend'), {
+    type: 'line',
+    data: {
+        labels: sndData.map(d => d.date || ''),
+        datasets: [{
+            label: 'K/D',
+            data: sndData.map(d => d.kd),
+            borderColor: '#8b5cf6',
+            backgroundColor: 'rgba(139,92,246,0.1)',
+            fill: true, tension: 0.3, pointRadius: 2,
+        }]
+    },
+    options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+            x: { grid: { color: '#e5e8eb' }, ticks: { color: '#8b95a1', maxTicksLimit: 8 } },
+            y: { grid: { color: '#e5e8eb' }, ticks: { color: '#8b95a1' } },
+        }
+    }
+});
+{% endif %}
+</script>
+{% endblock %}

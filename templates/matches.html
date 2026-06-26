@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}{{ t.nav_matches }} — CODM Stats{% endblock %}
+{% block nav_matches %}active{% endblock %}
+
+{% block content %}
+<h1>{{ t.matches_title }}</h1>
+<p class="muted">{{ t.total_count }} {{ data.total }} {{ t.matches }}</p>
+
+<div class="filters">
+    <a href="/matches?mode=ALL&lang={{ lang }}&page=1" class="{{ 'active' if mode == 'ALL' else '' }}">{{ t.all }}</a>
+    <a href="/matches?mode=HP&lang={{ lang }}&page=1" class="{{ 'active' if mode == 'HP' else '' }}">🎯 {{ t.mode_hp }}</a>
+    <a href="/matches?mode=SND&lang={{ lang }}&page=1" class="{{ 'active' if mode == 'SND' else '' }}">🔍 {{ t.mode_snd }}</a>
+</div>
+
+<div class="card">
+    <table>
+        <thead>
+            <tr>
+                <th class="num">#</th>
+                <th>{{ t.mode_col }}</th>
+                <th>{{ t.map }}</th>
+                <th>{{ t.date }}</th>
+                <th class="num">{{ t.players }}</th>
+                <th class="num">{{ t.avg_kd_col }}</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for m in data.matches %}
+            <tr>
+                <td class="num"><a href="/matches/{{ m.id }}?lang={{ lang }}" class="player-link">{{ m.id }}</a></td>
+                <td><span class="badge {{ m.mode|lower }}">{{ t['mode_' + m.mode.lower()] }}</span></td>
+                <td>{{ m.map_name or '-' }}</td>
+                <td>{{ m.match_date or '-' }}</td>
+                <td class="num">{{ m.players }}</td>
+                <td class="num">{{ m.avg_kd or '-' }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+{% if total_pages > 1 %}
+<div class="pagination">
+    {% if page > 1 %}
+    <a href="/matches?mode={{ mode }}&lang={{ lang }}&page={{ page - 1 }}">{{ t.prev }}</a>
+    {% endif %}
+    <span class="muted" style="padding: 0.4rem 0.9rem;">{{ page }} / {{ total_pages }}</span>
+    {% if page < total_pages %}
+    <a href="/matches?mode={{ mode }}&lang={{ lang }}&page={{ page + 1 }}">{{ t.next }}</a>
+    {% endif %}
+</div>
+{% endif %}
+{% endblock %}

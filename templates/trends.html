@@ -1,0 +1,149 @@
+{% extends "base.html" %}
+{% block title %}{{ t.nav_timeseries }} — CODM Stats{% endblock %}
+{% block nav_trends %}active{% endblock %}
+
+{% block content %}
+<h1>{{ t.timeseries_title }}</h1>
+<p class="muted">{{ t.timeseries_help }}</p>
+
+<div class="card" style="margin: 1.5rem 0;">
+    <form method="get" action="/trends" id="trendForm" style="display:flex; gap:1rem; flex-wrap:wrap; align-items:end;">
+        <input type="hidden" name="lang" value="{{ lang }}">
+
+        <div>
+            <label class="muted" style="font-size:0.8rem; display:block;">{{ t.mode_col }}</label>
+            <select name="mode" onchange="document.getElementById('trendForm').submit()">
+                <option value="HP" {{ 'selected' if mode == 'HP' else '' }}>🎯 {{ t.mode_hp }}</option>
+                <option value="SND" {{ 'selected' if mode == 'SND' else '' }}>🔍 {{ t.mode_snd }}</option>
+            </select>
+        </div>
+
+        <div>
+            <label class="muted" style="font-size:0.8rem; display:block;">{{ t.select_player }}</label>
+            <select name="player" onchange="document.getElementById('trendForm').submit()">
+                {% for p in players %}
+                <option value="{{ p }}" {{ 'selected' if p == selected else '' }}>{{ p }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div>
+            <label class="muted" style="font-size:0.8rem; display:block;">{{ t.select_metric }}</label>
+            <select name="metric" onchange="document.getElementById('trendForm').submit()">
+                <optgroup label="{{ t.kd }}/Score">
+                    <option value="kd" {{ 'selected' if metric == 'kd' else '' }}>{{ t.m_kd }}</option>
+                    <option value="score" {{ 'selected' if metric == 'score' else '' }}>{{ t.m_score }}</option>
+                    <option value="impact" {{ 'selected' if metric == 'impact' else '' }}>{{ t.m_impact }}</option>
+                </optgroup>
+                <optgroup label="{{ t.kills }}/{{ t.deaths }}">
+                    <option value="kills" {{ 'selected' if metric == 'kills' else '' }}>{{ t.m_kills }}</option>
+                    <option value="deaths" {{ 'selected' if metric == 'deaths' else '' }}>{{ t.m_deaths }}</option>
+                </optgroup>
+                {% if mode == 'HP' %}
+                <optgroup label="HP">
+                    <option value="obj" {{ 'selected' if metric == 'obj' else '' }}>{{ t.m_obj }}</option>
+                    <option value="dmg" {{ 'selected' if metric == 'dmg' else '' }}>{{ t.m_dmg }}</option>
+                    <option value="cap" {{ 'selected' if metric == 'cap' else '' }}>{{ t.m_cap }}</option>
+                </optgroup>
+                <optgroup label="{{ t.custom_metrics_title }}">
+                    <option value="dpd" {{ 'selected' if metric == 'dpd' else '' }}>{{ t.m_dpd }}</option>
+                    <option value="dpk" {{ 'selected' if metric == 'dpk' else '' }}>{{ t.m_dpk }}</option>
+                    <option value="impact_delta" {{ 'selected' if metric == 'impact_delta' else '' }}>{{ t.m_id }}</option>
+                    <option value="ap_pct" {{ 'selected' if metric == 'ap_pct' else '' }}>{{ t.m_ap_pct }}</option>
+                    <option value="zcs" {{ 'selected' if metric == 'zcs' else '' }}>{{ t.m_zcs }}</option>
+                </optgroup>
+                {% else %}
+                <optgroup label="SND">
+                    <option value="assists" {{ 'selected' if metric == 'assists' else '' }}>{{ t.assists }}</option>
+                    <option value="adr" {{ 'selected' if metric == 'adr' else '' }}>ADR</option>
+                    <option value="fk" {{ 'selected' if metric == 'fk' else '' }}>{{ t.fk }}</option>
+                    <option value="lww" {{ 'selected' if metric == 'lww' else '' }}>{{ t.lww }}</option>
+                </optgroup>
+                {% endif %}
+            </select>
+        </div>
+    </form>
+</div>
+
+{% if series %}
+<div class="card">
+    <h2 id="chartTitle">{{ selected }} — <span id="metricName"></span></h2>
+    <div class="chart-wrap" style="height: 400px;"><canvas id="trendChart"></canvas></div>
+</div>
+
+<div class="card" style="margin-top: 1.5rem;">
+    <h2>📋 {{ selected }} ({{ mode }}) — {{ t.matches }}</h2>
+    <table id="dataTable">
+        <thead id="tableHead"></thead>
+        <tbody id="tableBody"></tbody>
+    </table>
+</div>
+
+<script>
+const seriesData = {{ series | tojson }};
+const lang = "{{ lang }}";
+
+const metricLabels = {
+    ko: { kd:"K/D", score:"Score", impact:"Impact", kills:"킬", deaths:"데스",
+          obj:"OBJ", dmg:"딜", cap:"CapKill", dpd:"DPD", dpk:"DPK",
+          impact_delta:"ID", ap_pct:"AP%", zcs:"ZCS",
+          assists:"어시", adr:"ADR", fk:"FK", lww:"LWW" },
+    en: { kd:"K/D", score:"Score", impact:"Impact", kills:"Kills", deaths:"Deaths",
+          obj:"OBJ", dmg:"DMG", cap:"CapKill", dpd:"DPD", dpk:"DPK",
+          impact_delta:"ID", ap_pct:"AP%", zcs:"ZCS",
+          assists:"Assists", adr:"ADR", fk:"FK", lww:"LWW" },
+    es: { kd:"K/D", score:"Score", impact:"Impact", kills:"Bajas", deaths:"Muertes",
+          obj:"OBJ", dmg:"Daño", cap:"CapKill", dpd:"DPD", dpk:"DPK",
+          impact_delta:"ID", ap_pct:"AP%", zcs:"ZCS",
+          assists:"Asist.", adr:"ADR", fk:"FK", lww:"LWW" },
+};
+const L = metricLabels[lang] || metricLabels.ko;
+const currentMetric = "{{ metric }}";
+document.getElementById("metricName").textContent = L[currentMetric] || currentMetric;
+
+// 차트
+new Chart(document.getElementById('trendChart'), {
+    type: 'line',
+    data: {
+        labels: seriesData.map(d => d.date || ''),
+        datasets: [{
+            label: L[currentMetric] || currentMetric,
+            data: seriesData.map(d => d[currentMetric]),
+            borderColor: '#3182f6',
+            backgroundColor: 'rgba(49,130,246,0.08)',
+            fill: true, tension: 0.3, pointRadius: 3, pointHoverRadius: 6,
+        }]
+    },
+    options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { labels: { color: '#4e5968' } } },
+        scales: {
+            x: { grid: { color: '#e5e8eb' }, ticks: { color: '#8b95a1', maxTicksLimit: 10 } },
+            y: { grid: { color: '#e5e8eb' }, ticks: { color: '#8b95a1' }, beginAtZero: false },
+        }
+    }
+});
+
+// 데이터 표 (모든 지표)
+const cols = ['date','kd','kills','deaths','score','impact'];
+if ("{{ mode }}" === "HP") {
+    cols.push('obj','dmg','cap','dpd','dpk','impact_delta','ap_pct','zcs');
+} else {
+    cols.push('assists','adr','fk','lww');
+}
+const headLabels = { date: "{{ t.date }}" };
+const mergedHead = Object.assign({}, L, headLabels);
+document.getElementById('tableHead').innerHTML =
+    '<tr>' + cols.map(c => `<th class="num">${mergedHead[c] || c}</th>`).join('') + '</tr>';
+document.getElementById('tableBody').innerHTML = seriesData.slice().reverse().map(d =>
+    '<tr>' + cols.map(c => {
+        const v = d[c];
+        const cls = c === 'date' ? '' : ' class="num"';
+        return `<td${cls}>${v === null || v === undefined ? '-' : v}</td>`;
+    }).join('') + '</tr>'
+).join('');
+</script>
+{% else %}
+<div class="card"><p class="muted">{{ t.no_data }}</p></div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}{{ t.nav_leaderboard }} — CODM Stats{% endblock %}
+{% block nav_leaderboard %}active{% endblock %}
+
+{% block content %}
+<h1>{{ t.leaderboard_title }}</h1>
+
+<div class="filters">
+    <a href="/leaderboard?mode=HP&metric={{ metric }}&lang={{ lang }}" class="{{ 'active' if mode == 'HP' else '' }}">🎯 {{ t.mode_hp }}</a>
+    <a href="/leaderboard?mode=SND&metric={{ metric }}&lang={{ lang }}" class="{{ 'active' if mode == 'SND' else '' }}">🔍 {{ t.mode_snd }}</a>
+    <span style="width: 1rem;"></span>
+    {% set metric_opts_hp = [('avg_kd', t.kd), ('avg_k', t.avg_k), ('avg_dmg', t.m_dmg), ('avg_score', t.avg_score), ('avg_obj', t.avg_obj), ('dpd', t.m_dpd), ('dpk', t.m_dpk), ('id', t.m_id), ('ap_pct', t.m_ap_pct), ('zcs', t.m_zcs)] %}
+    {% set metric_opts_snd = [('avg_kd', t.kd), ('avg_k', t.avg_k), ('avg_dmg', t.m_dmg), ('avg_score', t.avg_score), ('avg_adr', t.avg_impact)] %}
+    {% set opts = metric_opts_hp if mode == 'HP' else metric_opts_snd %}
+    {% for key, label in opts %}
+    <a href="/leaderboard?mode={{ mode }}&metric={{ key }}&lang={{ lang }}" class="{{ 'active' if metric == key else '' }}">{{ label }}</a>
+    {% endfor %}
+</div>
+
+<div class="card">
+    <h2>{{ t.basis }}: {% for key, label in opts %}{% if metric == key %}{{ label }}{% endif %}{% endfor %}</h2>
+    <table>
+        <thead>
+            <tr>
+                <th class="num">{{ t.rank }}</th>
+                <th>{{ t.player }}</th>
+                <th class="num">{{ t.matches_col }}</th>
+                <th class="num">{{ t.basis }}</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for r in rows %}
+            <tr>
+                <td class="num">
+                    {% if loop.index == 1 %}🥇
+                    {% elif loop.index == 2 %}🥈
+                    {% elif loop.index == 3 %}🥉
+                    {% else %}{{ loop.index }}
+                    {% endif %}
+                </td>
+                <td><a href="/players/{{ r.name }}?lang={{ lang }}" class="player-link">{{ r.name }}</a></td>
+                <td class="num">{{ r.matches }}</td>
+                <td class="num"><strong style="color: var(--accent-2);">{{ r.value }}</strong></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

@@ -1,0 +1,87 @@
+# CODM 스탯 봇 설정값
+# make.com 시나리오에서 사용하던 값들을 그대로 가져왔다.
+import os
+
+# ── 디스코드 ────────────────────────────────────────────────────────────
+# 스탯 스크린샷을 감시할 채널 ID (make.com: scrim-result 채널)
+WATCH_CHANNEL_ID = 1481522059086532629
+
+DISCORD_TOKEN = os.environ["DISCORD_BOT_TOKEN"]
+
+# ── OpenAI ───────────────────────────────────────────────────────────────
+OPENAI_API_KEY = os.environ["OPENAI_API_KEY"]
+OPENAI_MODEL = "gpt-4.1"          # make.com 설정과 동일
+OPENAI_TEMPERATURE = 0.0          # make.com: temperature 0
+OPENAI_MAX_TOKENS = 2048          # make.com: max_tokens 2048
+
+# ── 구글 시트 ─────────────────────────────────────────────────────────────
+SPREADSHEET_ID = "1nnyzo7_mH1JgTF5yln2AR1HuUiVGc9c7ZctVyA8PlgE"
+SERVICE_ACCOUNT_FILE = os.environ["GOOGLE_SERVICE_ACCOUNT_FILE"]
+SHEET_HP = "Database_HP"          # make.com: sheetId Database_HP
+SHEET_SND = "Database_SND"        # make.com: sheetId Database_SND
+
+# ── 로스터 (이름 정규화용) ───────────────────────────────────────────────
+ROSTER = ["Shisui", "Cartels", "unravel", "Kingz", "Maozyn", "Exile"]
+
+# ── 칼럼 매핑 ─────────────────────────────────────────────────────────────
+# make.com의 google-sheets addRow 모듈 mapper.values 매핑을
+# 파이썬 리스트(append_row용)로 변환한 것이다.
+# 각 함수는 (player_dict, date_str) → list[str] 를 반환.
+#
+# HP 시트 헤더(make.com 기준):
+#   A IGN | B actual name | C Kills | D Deaths | E K/D
+#   F OBJ(time) | G Score | H Impact | I Total Damage | J Capture Kill | K Date(신규)
+#
+# SND 시트 헤더(make.com 기준):
+#   A IGN | B actual name | C Kills | D Deaths | E Assists | F K/D
+#   G Score | H Impact | I ADR | J First Kill | K Lone Wolf Win | L Date(신규)
+#
+# SND의 actual name(B열)은 make.com처럼 Alias 시트를 참조하는 VLOOKUP 수식을
+# 그대로 USER_ENTERED 모드로 넣는다.
+
+# SND actual name 열에 들어갈 VLOOKUP 수식 (행 번호는 gspread append_row 기준으로
+# 실제 행이 정해진 뒤 치환한다. sentinel {row} 사용).
+SND_ACTUAL_NAME_FORMULA = (
+    '=IFERROR(VLOOKUP(TRIM(INDIRECT("A"{row})), Alias!A:B, 2, FALSE), '
+    'INDIRECT("A"{row}))'
+)
+
+
+def hp_row(p: dict, date_str: str) -> list:
+    """HP 모드 선수 1명 → Database_HP 행 (K열 Date 자동 기록 포함)."""
+    return [
+        p.get("name", ""),
+        "",  # B: actual name (HP는 make.com에서도 빈칸)
+        p.get("k", ""),
+        p.get("d", ""),
+        p.get("kd_ratio", ""),
+        p.get("time", ""),       # F: OBJ
+        p.get("score", ""),
+        p.get("impact", ""),
+        p.get("total_damage", ""),
+        p.get("capture_kill", ""),
+        date_str,                # K: Date (메시지 작성일, 신규 추가)
+    ]
+
+
+def snd_row(p: dict, date_str: str, row_number: int) -> list:
+    """SND 모드 선수 1명 → Database_SND 행 (L열 Date 자동 기록 포함).
+
+    row_number: 이 행이 기록될 실제 시트 행 번호(1-based). VLOOKUP 수식의
+    INDIRECT("A"&ROW())를 명시적 행 번호로 치환한다.
+    """
+    formula = SND_ACTUAL_NAME_FORMULA.replace("{row}", str(row_number))
+    return [
+        p.get("name", ""),
+        formula,                  # B: actual name (VLOOKUP 수식)
+        p.get("k", ""),
+        p.get("d", ""),
+        p.get("a", ""),           # E: Assists
+        p.get("kd_ratio", ""),    # F: K/D
+        p.get("score", ""),
+        p.get("impact", ""),
+        p.get("adr", ""),
+        p.get("first_kill", ""),
+        p.get("lone_wolf_win", ""),
+        date_str,                 # L: Date (메시지 작성일, 신규 추가)
+    ]

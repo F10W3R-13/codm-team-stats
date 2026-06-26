@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+{% block title %}{{ t.nav_insights }} — CODM Stats{% endblock %}
+{% block nav_insights %}active{% endblock %}
+
+{% block content %}
+<h1>🧠 {{ t.team_insights_title }}</h1>
+
+<form method="get" action="/insights" id="insForm" style="display:flex; gap:1rem; flex-wrap:wrap; align-items:end; margin:1rem 0;">
+    <input type="hidden" name="lang" value="{{ lang }}">
+    <div>
+        <label class="muted" style="font-size:0.8rem; display:block;">{{ t.mode_col }}</label>
+        <select name="mode" onchange="document.getElementById('insForm').submit()">
+            <option value="HP" {{ 'selected' if mode == 'HP' else '' }}>🎯 {{ t.mode_hp }}</option>
+            <option value="SND" {{ 'selected' if mode == 'SND' else '' }}>🔍 {{ t.mode_snd }}</option>
+        </select>
+    </div>
+    <div>
+        <label class="muted" style="font-size:0.8rem; display:block;">{{ t.trend_days }}</label>
+        <select name="days" onchange="document.getElementById('insForm').submit()">
+            {% for d in [14, 30, 60, 90] %}
+            <option value="{{ d }}" {{ 'selected' if days == d else '' }}>{{ d }}{{ t.days_suffix }}</option>
+            {% endfor %}
+        </select>
+    </div>
+</form>
+
+<!-- 팀 추세 -->
+<div class="card" style="margin-bottom: 1.5rem;">
+    <h2>📈 {{ t.team_trend_title }}</h2>
+    {% set tr = data.trend %}
+    <table>
+        <thead>
+            <tr>
+                <th>{{ t.metric_label }}</th>
+                <th class="num">{{ t.recent_period }} ({{ tr.recent.matches if tr.recent else 0 }})</th>
+                <th class="num">{{ t.season }} ({{ tr.season.matches if tr.season else 0 }})</th>
+                <th class="num">±%</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for key, label in [('avg_kd', t.kd), ('avg_k', t.m_kills), ('avg_dmg', t.m_dmg)] %}
+            <tr>
+                <td>{{ label }}</td>
+                <td class="num">{{ tr.recent.get(key) if tr.recent else '-' }}</td>
+                <td class="num muted">{{ tr.season.get(key) if tr.season else '-' }}</td>
+                <td class="num">
+                    {% set pct = tr.delta_pct.get(key) %}
+                    {% if pct is not none %}
+                        {% if pct > 0 %}<span style="color:var(--accent-2);">+{{ pct }}%</span>
+                        {% elif pct < 0 %}<span style="color:#e74c3c;">{{ pct }}%</span>
+                        {% else %}{{ pct }}%{% endif %}
+                    {% else %}-{% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<!-- AI 팀 인사이트 -->
+{% if insight %}
+<div class="card" style="margin-bottom: 1.5rem; border-left: 4px solid var(--accent);">
+    <h2>🧠 AI {{ t.insight_title }}</h2>
+    <p style="line-height:1.7; white-space:pre-wrap;">{{ insight }}</p>
+</div>
+{% endif %}
+
+<!-- 맵별 팀 성적 + 선수 -->
+<div class="card">
+    <h2>🗺️ {{ t.map_team_title }} ({{ mode }})</h2>
+    {% if data.maps %}
+    <table>
+        <thead>
+            <tr>
+                <th>{{ t.map }}</th>
+                <th class="num">{{ t.matches }}</th>
+                <th class="num">{{ t.kd }}</th>
+                <th class="num">{{ t.m_kills }}</th>
+                {% if mode == 'HP' %}<th class="num">{{ t.m_dmg }}</th>{% endif %}
+                <th>{{ t.map_ace }}</th>
+                <th>{{ t.map_weak }}</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for m in data.maps %}
+            <tr>
+                <td><a href="/trends?player={{ m.top_player.name if m.top_player else '' }}&lang={{ lang }}" class="player-link"><strong>{{ m.map_name }}</strong></a></td>
+                <td class="num">{{ m.matches }}</td>
+                <td class="num"><strong style="color:var(--accent-2);">{{ m.avg_kd }}</strong></td>
+                <td class="num">{{ m.avg_k }}</td>
+                {% if mode == 'HP' %}<td class="num">{{ m.avg_dmg }}</td>{% endif %}
+                <td>{% if m.top_player %}<span style="color:var(--accent-2);">🥇 {{ m.top_player.name }} ({{ m.top_player.kd }})</span>{% else %}-{% endif %}</td>
+                <td>{% if m.weak_player %}<span style="color:#e74c3c;">🔻 {{ m.weak_player.name }} ({{ m.weak_player.kd }})</span>{% else %}-{% endif %}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <!-- 맵별 상세 선수 (펼침) -->
+    {% if selected_map_detail is defined %}
+    <details style="margin-top:1.5rem;">
+        <summary style="cursor:pointer; font-weight:600;">{{ t.map_detail_expand }}</summary>
+        {% for m in data.maps %}
+        <h3 style="margin:1.5rem 0 0.5rem;">🗺️ {{ m.map_name }}</h3>
+        <table>
+            <thead><tr><th>{{ t.player }}</th><th class="num">{{ t.matches }}</th><th class="num">{{ t.kd }}</th><th class="num">{{ t.m_kills }}</th>{% if mode == 'HP' %}<th class="num">{{ t.m_dmg }}</th>{% endif %}</tr></thead>
+            <tbody>
+            {% for p in m.players %}
+            <tr>
+                <td><a href="/players/{{ p.player_name }}?lang={{ lang }}" class="player-link">{{ p.player_name }}</a></td>
+                <td class="num">{{ p.matches }}</td>
+                <td class="num"><strong>{{ p.avg_kd }}</strong></td>
+                <td class="num">{{ p.avg_k }}</td>
+                {% if mode == 'HP' %}<td class="num">{{ p.avg_dmg }}</td>{% endif %}
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        {% endfor %}
+    </details>
+    {% endif %}
+    {% else %}
+    <p class="muted">{{ t.no_data }}</p>
+    {% endif %}
+</div>
+{% endblock %}
