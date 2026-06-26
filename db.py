@@ -22,23 +22,23 @@ USE_POSTGRES = bool(DATABASE_URL)
 DB_PATH = os.environ.get("CODM_DB_PATH", "codm.db")
 
 
-# ── 스키마 (Postgres/SQLite 공통, 방언은 _adapt 처리) ─────────────────────
+# ── 스키마 (SQLite 기본 작성, _adapt_sql이 Postgres로 변환) ───────────────
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS players (
-    id          SERIAL PRIMARY KEY,
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
     name        TEXT NOT NULL UNIQUE,
-    created_at  TEXT NOT NULL DEFAULT (NOW())
+    created_at  TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
 CREATE TABLE IF NOT EXISTS aliases (
-    id          SERIAL PRIMARY KEY,
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
     ign         TEXT NOT NULL,
     player_id   INTEGER NOT NULL REFERENCES players(id),
     UNIQUE(ign)
 );
 
 CREATE TABLE IF NOT EXISTS matches (
-    id              SERIAL PRIMARY KEY,
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
     mode            TEXT NOT NULL CHECK (mode IN ('HP', 'SND')),
     map_name        TEXT,
     match_date      TEXT,
@@ -46,7 +46,7 @@ CREATE TABLE IF NOT EXISTS matches (
     result          TEXT,
     team_score      INTEGER,
     opponent_score  INTEGER,
-    created_at      TEXT NOT NULL DEFAULT (NOW())
+    created_at      TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
 CREATE INDEX IF NOT EXISTS idx_matches_mode  ON matches(mode);
@@ -54,7 +54,7 @@ CREATE INDEX IF NOT EXISTS idx_matches_date  ON matches(match_date);
 CREATE INDEX IF NOT EXISTS idx_matches_result ON matches(result);
 
 CREATE TABLE IF NOT EXISTS player_stats_hp (
-    id              SERIAL PRIMARY KEY,
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
     match_id        INTEGER NOT NULL REFERENCES matches(id),
     player_id       INTEGER NOT NULL REFERENCES players(id),
     ign_raw         TEXT,
@@ -70,7 +70,7 @@ CREATE TABLE IF NOT EXISTS player_stats_hp (
 );
 
 CREATE TABLE IF NOT EXISTS player_stats_snd (
-    id              SERIAL PRIMARY KEY,
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
     match_id        INTEGER NOT NULL REFERENCES matches(id),
     player_id       INTEGER NOT NULL REFERENCES players(id),
     ign_raw         TEXT,
@@ -92,17 +92,50 @@ CREATE INDEX IF NOT EXISTS idx_snd_player ON player_stats_snd(player_id);
 
 
 def _adapt_sql(sql: str) -> str:
-    """SQL 方言 변환.
-    Postgres: SERIAL, NOW(), %s, GROUP BY LOWER 등은 그대로.
-    SQLite: SERIAL → INTEGER ... AUTOINCREMENT, NOW() → datetime('now'), %s → ?
+    """SQL 方言 변환. 코드는 SQLite 스타일(기본)로 작성하고 Postgres로 변환.
+
+    SQLite(코드 원본) → Postgres 변환 규칙:
+      - ? → %s (플레이스홀더)
+      - datetime('now') → NOW()
+      - date('now', '-N days') → CURRENT_DATE - INTERVAL 'N days'
+      - INTEGER PRIMARY KEY AUTOINCREMENT → SERIAL (SCHEMA 전용)
+      - INSERT OR REPLACE → ON CONFLICT DO UPDATE (upsert 헬퍼에서 처리)
+      - INSERT OR IGNORE → ON CONFLICT DO NOTHING
+      - COLLATE NOCASE → 제거 (Postgres 미지원)
+      - PRAGMA table_info → Postgres information_schema (호출부 분기)
+
+    SQLite 로컬에서는 원본 그대로 통과.
     """
-    if USE_POSTGRES:
-        return sql
-    # SQLite 변환
-    return (sql
-            .replace("SERIAL PRIMARY KEY", "INTEGER PRIMARY KEY AUTOINCREMENT")
-            .replace("NOW()", "datetime('now')")
-            .replace("%s", "?"))
+    if not USE_POSTGRES:
+        return sql  # SQLite 원본 그대로
+
+    # SQLite → Postgres 변환
+    import re
+    out = sql
+    # SCHEMA 전용: SQLite AUTOINCREMENT → Postgres SERIAL
+    out = out.replace("INTEGER PRIMARY KEY AUTOINCREMENT", "SERIAL PRIMARY KEY")
+    out = out.replace("?", "%s")
+    out = out.replace("datetime('now')", "NOW()")
+    # date('now', '-N days') → CURRENT_DATE - INTERVAL 'N days'
+    out = re.sub(
+        r"date\('now',\s*'-(\d+) days'\)",
+        r"CURRENT_DATE - INTERVAL '\1 days'",
+        out,
+    )
+    out = re.sub(
+        r"date\('now'\)",
+        "CURRENT_DATE",
+        out,
+    )
+    # INSERT OR IGNORE → ON CONFLICT DO NOTHING
+    out = re.sub(
+        r"INSERT OR IGNORE INTO (\w+)",
+        r"INSERT INTO \1",
+        out,
+    )
+    # COLLATE NOCASE → Postgres 미지원, 제거
+    out = out.replace(" COLLATE NOCASE", "")
+    return out
 
 
 def _adapt_params(params):
@@ -129,7 +162,7 @@ def init_db() -> None:
                 "CREATE INDEX IF NOT EXISTS idx_matches_result ON matches(result);", ""
             )
             conn.executescript(_adapt_sql(schema_no_result_idx))
-            # 마이그레이션: 새 컬럼 추가
+            # 마이그레이션: 새 컬럼 추가 (SQLite 전용 — Postgres는 SCHEMA에 이미 포함)
             cols = {row[1] for row in conn.execute("PRAGMA table_info(matches)").fetchall()}
             for col, decl in [("result", "TEXT"), ("team_score", "INTEGER"),
                               ("opponent_score", "INTEGER")]:
@@ -168,6 +201,55 @@ class _ConnAdapter:
         else:
             self._conn.row_factory = sqlite3.Row
             return self._conn.execute(sql, _adapt_params(params))
+
+    def execute_returning_id(self, sql, params=()):
+        """INSERT 후 새 행의 id를 반환. SQLite는 lastrowid, Postgres는 RETURNING.
+
+        SQL은 'INSERT INTO ... VALUES (...)' 형태여야 하며,
+        Postgres용으로 자동으로 'RETURNING id'가 붙는다.
+        """
+        sql = _adapt_sql(sql)
+        if USE_POSTGRES:
+            if "returning" not in sql.lower():
+                sql = sql.rstrip(";") + " RETURNING id"
+            import psycopg2.extras
+            cur = self._conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+            cur.execute(sql, _adapt_params(params))
+            row = cur.fetchone()
+            return row["id"] if row else None
+        else:
+            self._conn.row_factory = sqlite3.Row
+            cur = self._conn.execute(sql, _adapt_params(params))
+            return cur.lastrowid
+
+    def upsert(self, table: str, columns: list, values: tuple,
+               conflict_col: str, update_cols: list = None):
+        """UPSERT (있으면 업데이트, 없으면 삽입). 새 id 반환.
+
+        SQLite: INSERT OR REPLACE
+        Postgres: INSERT ... ON CONFLICT(conflict_col) DO UPDATE SET ...
+        """
+        placeholders = ", ".join(["?"] * len(columns))
+        col_list = ", ".join(columns)
+        if USE_POSTGRES:
+            placeholders = ", ".join(["%s"] * len(columns))
+            if update_cols:
+                set_clause = ", ".join(f"{c}=EXCLUDED.{c}" for c in update_cols)
+                sql = (f"INSERT INTO {table} ({col_list}) VALUES ({placeholders}) "
+                       f"ON CONFLICT ({conflict_col}) DO UPDATE SET {set_clause} RETURNING id")
+            else:
+                sql = (f"INSERT INTO {table} ({col_list}) VALUES ({placeholders}) "
+                       f"ON CONFLICT ({conflict_col}) DO NOTHING RETURNING id")
+            import psycopg2.extras
+            cur = self._conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+            cur.execute(sql, values)
+            row = cur.fetchone()
+            return row["id"] if row else None
+        else:
+            sql = f"INSERT OR REPLACE INTO {table} ({col_list}) VALUES ({placeholders})"
+            self._conn.row_factory = sqlite3.Row
+            cur = self._conn.execute(sql, values)
+            return cur.lastrowid
 
     def executescript(self, script):
         script = _adapt_sql(script)
@@ -211,18 +293,19 @@ def resolve_player_id(conn, name: str, ign_raw: str = None) -> int:
     if row:
         player_id = row["id"]
     else:
-        cur = conn.execute("INSERT INTO players(name) VALUES (?)", (name,))
-        player_id = cur.lastrowid
+        # Postgres는 lastrowid 미지원 → execute_returning_id (RETURNING id) 사용
+        player_id = conn.execute_returning_id(
+            "INSERT INTO players(name) VALUES (?)", (name,)
+        )
 
     if ign_raw and ign_raw.strip() and ign_raw.strip() != name:
         try:
+            # SQLite: INSERT OR IGNORE, Postgres: ON CONFLICT DO NOTHING (_adapt_sql이 처리)
             conn.execute(
                 "INSERT OR IGNORE INTO aliases(ign, player_id) VALUES (?, ?)",
                 (ign_raw.strip(), player_id),
             )
         except Exception:
-            # Postgres 는 INSERT OR IGNORE 미지원 → ON CONFLICT 로 처리되어야 하지만
-            # 여기서는 UNIQUE 위반 시 무시하도록 예외 흡수
             pass
     return player_id
 

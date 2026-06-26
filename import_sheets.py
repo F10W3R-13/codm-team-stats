@@ -187,11 +187,10 @@ def insert_stat_rows(conn, rows, mode):
 
     for date_raw, map_hint, player_rows in group_matches(rows, mode):
         iso_date = parse_date(date_raw)
-        cur = conn.execute(
+        match_id = conn.execute_returning_id(
             "INSERT INTO matches(mode, map_name, match_date, raw_date) VALUES (?,?,?,?)",
             (mode, map_hint, iso_date, date_raw or None),
         )
-        match_id = cur.lastrowid
         n_matches += 1
 
         for row in player_rows:
@@ -202,11 +201,10 @@ def insert_stat_rows(conn, rows, mode):
             pid = db.resolve_player_id(conn, name_for_id, ign_raw=ign if ign and normalize_name(ign) != actual else None)
 
             if mode == "HP":
-                conn.execute(
-                    """INSERT OR REPLACE INTO player_stats_hp
-                       (match_id, player_id, ign_raw, kills, deaths, kd_ratio,
-                        obj_time, score, impact, total_damage, capture_kill)
-                       VALUES (?,?,?,?,?,?,?,?,?,?,?)""",
+                conn.upsert(
+                    "player_stats_hp",
+                    ["match_id", "player_id", "ign_raw", "kills", "deaths", "kd_ratio",
+                     "obj_time", "score", "impact", "total_damage", "capture_kill"],
                     (
                         match_id, pid, ign or None,
                         to_int(row[2]) if len(row) > 2 else None,
@@ -218,13 +216,15 @@ def insert_stat_rows(conn, rows, mode):
                         to_int(row[8]) if len(row) > 8 else None,
                         to_int(row[9]) if len(row) > 9 else None,
                     ),
+                    conflict_col="match_id, player_id",
+                    update_cols=["ign_raw", "kills", "deaths", "kd_ratio",
+                                 "obj_time", "score", "impact", "total_damage", "capture_kill"],
                 )
             else:  # SND
-                conn.execute(
-                    """INSERT OR REPLACE INTO player_stats_snd
-                       (match_id, player_id, ign_raw, kills, deaths, assists,
-                        kd_ratio, score, impact, adr, first_kill, lone_wolf_win)
-                       VALUES (?,?,?,?,?,?,?,?,?,?,?,?)""",
+                conn.upsert(
+                    "player_stats_snd",
+                    ["match_id", "player_id", "ign_raw", "kills", "deaths", "assists",
+                     "kd_ratio", "score", "impact", "adr", "first_kill", "lone_wolf_win"],
                     (
                         match_id, pid, ign or None,
                         to_int(row[2]) if len(row) > 2 else None,
@@ -237,6 +237,9 @@ def insert_stat_rows(conn, rows, mode):
                         to_int(row[9]) if len(row) > 9 else None,
                         to_int(row[10]) if len(row) > 10 else None,
                     ),
+                    conflict_col="match_id, player_id",
+                    update_cols=["ign_raw", "kills", "deaths", "assists", "kd_ratio",
+                                 "score", "impact", "adr", "first_kill", "lone_wolf_win"],
                 )
             n_stats += 1
 

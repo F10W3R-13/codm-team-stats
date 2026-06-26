@@ -22,12 +22,11 @@ def save_match(mode: str, players: list, match_date: str, map_name: str = None,
     반환: {"match_id": int, "saved": int, "mode": str}
     """
     with db.get_conn() as conn:
-        cur = conn.execute(
+        match_id = conn.execute_returning_id(
             """INSERT INTO matches(mode, map_name, match_date, result, team_score, opponent_score)
                VALUES (?,?,?,?,?,?)""",
             (mode, map_name, match_date, result, team_score, opponent_score),
         )
-        match_id = cur.lastrowid
 
         if mode == "HP":
             for p in players:
@@ -52,11 +51,10 @@ def _insert_hp(conn, match_id, p):
     # 표준 이름(actual name)으로 player 매핑. GPT가 이미 로스터 기준 정규화해줌.
     name = p.get("name", "").strip() or "Unknown"
     pid = db.resolve_player_id(conn, name, ign_raw=p.get("ign_raw"))
-    conn.execute(
-        """INSERT OR REPLACE INTO player_stats_hp
-           (match_id, player_id, ign_raw, kills, deaths, kd_ratio,
-            obj_time, score, impact, total_damage, capture_kill)
-           VALUES (?,?,?,?,?,?,?,?,?,?,?)""",
+    conn.upsert(
+        "player_stats_hp",
+        ["match_id", "player_id", "ign_raw", "kills", "deaths", "kd_ratio",
+         "obj_time", "score", "impact", "total_damage", "capture_kill"],
         (
             match_id, pid, p.get("name"),
             _to_int(p.get("k")), _to_int(p.get("d")), _to_float(p.get("kd_ratio")),
@@ -64,17 +62,19 @@ def _insert_hp(conn, match_id, p):
             _to_float(p.get("impact")), _to_int(p.get("total_damage")),
             _to_int(p.get("capture_kill")),
         ),
+        conflict_col="match_id, player_id",
+        update_cols=["ign_raw", "kills", "deaths", "kd_ratio",
+                     "obj_time", "score", "impact", "total_damage", "capture_kill"],
     )
 
 
 def _insert_snd(conn, match_id, p):
     name = p.get("name", "").strip() or "Unknown"
     pid = db.resolve_player_id(conn, name, ign_raw=p.get("ign_raw"))
-    conn.execute(
-        """INSERT OR REPLACE INTO player_stats_snd
-           (match_id, player_id, ign_raw, kills, deaths, assists,
-            kd_ratio, score, impact, adr, first_kill, lone_wolf_win)
-           VALUES (?,?,?,?,?,?,?,?,?,?,?,?)""",
+    conn.upsert(
+        "player_stats_snd",
+        ["match_id", "player_id", "ign_raw", "kills", "deaths", "assists",
+         "kd_ratio", "score", "impact", "adr", "first_kill", "lone_wolf_win"],
         (
             match_id, pid, p.get("name"),
             _to_int(p.get("k")), _to_int(p.get("d")), _to_int(p.get("a")),
@@ -82,6 +82,9 @@ def _insert_snd(conn, match_id, p):
             _to_float(p.get("impact")), _to_float(p.get("adr")),
             _to_int(p.get("first_kill")), _to_int(p.get("lone_wolf_win")),
         ),
+        conflict_col="match_id, player_id",
+        update_cols=["ign_raw", "kills", "deaths", "assists", "kd_ratio",
+                     "score", "impact", "adr", "first_kill", "lone_wolf_win"],
     )
 
 
