@@ -38,9 +38,10 @@
     </div>
     <div class="card">
         <h2>{{ t.recent_matches }}</h2>
+        <div class="table-wrap">
         <table>
             <thead>
-                <tr><th>#</th><th>{{ t.mode_col }}</th><th>{{ t.result_col }}</th><th>{{ t.map }}</th><th class="num">{{ t.zcs_label }}</th><th>{{ t.date }}</th><th class="num">{{ t.players }}</th></tr>
+                <tr><th>#</th><th>{{ t.mode_col }}</th><th>{{ t.result_col }}</th><th>{{ t.map }}</th><th class="num">{{ t.zcs_label }}</th><th data-mobile-hide>{{ t.date }}</th><th class="num" data-mobile-hide>{{ t.players }}</th></tr>
             </thead>
             <tbody>
                 {% for m in data.recent_matches %}
@@ -55,12 +56,13 @@
                     </td>
                     <td>{{ m.map_name or '-' }}</td>
                     <td class="num">{% if m.avg_zcs is not none %}<strong style="color: var(--accent);">{{ m.avg_zcs }}</strong>{% else %}-{% endif %}</td>
-                    <td>{{ m.match_date or '-' }}</td>
-                    <td class="num">{{ m.players }}</td>
+                    <td data-mobile-hide>{{ m.match_date or '-' }}</td>
+                    <td class="num" data-mobile-hide>{{ m.players }}</td>
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
+        </div>
     </div>
 </div>
 

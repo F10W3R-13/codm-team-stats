@@ -13,6 +13,7 @@
 </div>
 
 <div class="card">
+    <div class="table-wrap">
     <table>
         <thead>
             <tr>
@@ -21,8 +22,8 @@
                 <th>{{ t.result_col }}</th>
                 <th class="num">{{ t.score_col }}</th>
                 <th>{{ t.map }}</th>
-                <th>{{ t.date }}</th>
-                <th class="num">{{ t.players }}</th>
+                <th data-mobile-hide>{{ t.date }}</th>
+                <th class="num" data-mobile-hide>{{ t.players }}</th>
                 <th class="num">{{ t.zcs_label }}</th>
                 <th class="num">{{ t.avg_kd_col }}</th>
             </tr>
@@ -41,13 +42,14 @@
                 <td class="num">{{ m.team_score }}-{{ m.opponent_score }}</td>
                 <td>{{ m.map_name or '-' }}</td>
                 <td>{{ m.match_date or '-' }}</td>
-                <td class="num">{{ m.players }}</td>
+                <td class="num" data-mobile-hide>{{ m.players }}</td>
                 <td class="num">{% if m.avg_zcs is not none %}<strong style="color: var(--accent);">{{ m.avg_zcs }}</strong>{% else %}-{% endif %}</td>
                 <td class="num">{{ m.avg_kd or '-' }}</td>
             </tr>
             {% endfor %}
         </tbody>
     </table>
+    </div>
 </div>
 
 {% if total_pages > 1 %}

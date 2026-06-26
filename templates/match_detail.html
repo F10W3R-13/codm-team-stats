@@ -53,12 +53,13 @@
 <div class="card">
     <h2>{{ t.player_stats_title }}</h2>
     {% if report.mode == 'HP' %}
+    <div class="table-wrap">
     <table>
         <thead>
             <tr>
-                <th>{{ t.player }}</th><th class="num">{{ t.kills }}</th><th class="num">{{ t.deaths }}</th>
-                <th class="num">{{ t.kd }}</th><th class="num">{{ t.obj }}</th>
-                <th class="num">{{ t.score }}</th><th class="num">{{ t.dmg }}</th><th class="num">{{ t.cap }}</th><th class="num">{{ t.zcs_label }}</th>
+                <th>{{ t.player }}</th><th class="num">{{ t.kills }}</th><th class="num" data-mobile-hide>{{ t.deaths }}</th>
+                <th class="num">{{ t.kd }}</th><th class="num" data-mobile-hide>{{ t.obj }}</th>
+                <th class="num" data-mobile-hide>{{ t.score }}</th><th class="num" data-mobile-hide>{{ t.dmg }}</th><th class="num" data-mobile-hide>{{ t.cap }}</th><th class="num">{{ t.zcs_label }}</th>
             </tr>
         </thead>
         <tbody>
@@ -66,24 +67,26 @@
             <tr>
                 <td><a href="/players/{{ p.name }}?lang={{ lang }}" class="player-link">{{ p.name }}</a></td>
                 <td class="num">{{ p.k }}</td>
-                <td class="num">{{ p.d }}</td>
+                <td class="num" data-mobile-hide>{{ p.d }}</td>
                 <td class="num"><strong style="color: var(--accent-2);">{{ p.kd }}</strong></td>
-                <td class="num">{{ p.obj }}</td>
-                <td class="num">{{ p.score }}</td>
-                <td class="num">{{ p.dmg }}</td>
-                <td class="num">{{ p.cap }}</td>
+                <td class="num" data-mobile-hide>{{ p.obj }}</td>
+                <td class="num" data-mobile-hide>{{ p.score }}</td>
+                <td class="num" data-mobile-hide>{{ p.dmg }}</td>
+                <td class="num" data-mobile-hide>{{ p.cap }}</td>
                 <td class="num"><strong style="color: var(--accent);">{{ p.zcs }}</strong></td>
             </tr>
             {% endfor %}
         </tbody>
     </table>
+    </div>
     {% else %}
+    <div class="table-wrap">
     <table>
         <thead>
             <tr>
-                <th>{{ t.player }}</th><th class="num">{{ t.kills }}</th><th class="num">{{ t.deaths }}</th><th class="num">{{ t.assists }}</th>
-                <th class="num">{{ t.kd }}</th><th class="num">{{ t.score }}</th>
-                <th class="num">ADR</th><th class="num">{{ t.fk }}</th><th class="num">{{ t.lww }}</th>
+                <th>{{ t.player }}</th><th class="num">{{ t.kills }}</th><th class="num" data-mobile-hide>{{ t.deaths }}</th><th class="num" data-mobile-hide>{{ t.assists }}</th>
+                <th class="num">{{ t.kd }}</th><th class="num" data-mobile-hide>{{ t.score }}</th>
+                <th class="num" data-mobile-hide>ADR</th><th class="num" data-mobile-hide>{{ t.fk }}</th><th class="num" data-mobile-hide>{{ t.lww }}</th>
             </tr>
         </thead>
         <tbody>
@@ -91,17 +94,18 @@
             <tr>
                 <td><a href="/players/{{ p.name }}?lang={{ lang }}" class="player-link">{{ p.name }}</a></td>
                 <td class="num">{{ p.k }}</td>
-                <td class="num">{{ p.d }}</td>
-                <td class="num">{{ p.a }}</td>
+                <td class="num" data-mobile-hide>{{ p.d }}</td>
+                <td class="num" data-mobile-hide>{{ p.a }}</td>
                 <td class="num"><strong style="color: var(--accent-2);">{{ p.kd }}</strong></td>
-                <td class="num">{{ p.score }}</td>
-                <td class="num">{{ p.adr }}</td>
-                <td class="num">{{ p.fk }}</td>
-                <td class="num">{{ p.lww }}</td>
+                <td class="num" data-mobile-hide>{{ p.score }}</td>
+                <td class="num" data-mobile-hide>{{ p.adr }}</td>
+                <td class="num" data-mobile-hide>{{ p.fk }}</td>
+                <td class="num" data-mobile-hide>{{ p.lww }}</td>
             </tr>
             {% endfor %}
         </tbody>
     </table>
+    </div>
     {% endif %}
 </div>
 {% endblock %}

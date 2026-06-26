@@ -71,6 +71,7 @@
 <div class="card" style="margin: 1.5rem 0; border-left: 4px solid #f04452;">
     <h2>⚠️ {{ t.hub_form_alerts }}</h2>
     <p class="muted" style="font-size:.85rem;">{{ t.hub_form_help }}</p>
+    <div class="table-wrap">
     <table style="margin-top:0.8rem;">
         <thead>
             <tr><th>{{ t.player }}</th><th class="num">{{ t.hub_season_kd }}</th><th class="num">{{ t.hub_recent_kd }}</th><th class="num">{{ t.zcs_label }}</th><th class="num">Δ</th></tr>
@@ -87,6 +88,7 @@
             {% endfor %}
         </tbody>
     </table>
+    </div>
 </div>
 {% endif %}
 
@@ -117,6 +119,7 @@
 <div class="card" style="margin: 1.5rem 0;">
     <h2>👥 {{ t.role_title }}</h2>
     <p class="muted" style="font-size:.85rem;">{{ t.role_help }}</p>
+    <div class="table-wrap">
     <table style="margin-top:0.8rem;">
         <thead>
             <tr><th>{{ t.player }}</th><th>{{ t.role_badge }}</th><th class="num">{{ t.m_kills }}</th><th class="num">{{ t.m_obj }}</th><th class="num">{{ t.m_dmg }}</th><th class="num">Cap</th></tr>
@@ -138,6 +141,7 @@
             {% endfor %}
         </tbody>
     </table>
+    </div>
 </div>
 {% endif %}
 

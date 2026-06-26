@@ -44,6 +44,7 @@
 <div class="card" style="margin-bottom: 1.5rem;">
     <h2>{{ t.player_stats }}</h2>
     {% if match.mode == 'HP' %}
+    <div class="table-wrap">
     <table>
         <thead>
             <tr>
@@ -70,7 +71,9 @@
             {% endfor %}
         </tbody>
     </table>
+    </div>
     {% else %}
+    <div class="table-wrap">
     <table>
         <thead>
             <tr>
@@ -98,6 +101,7 @@
             {% endfor %}
         </tbody>
     </table>
+    </div>
     {% endif %}
 </div>
 

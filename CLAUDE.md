@@ -69,6 +69,37 @@
 - 새 선수 평가/표시 로직을 짤 때, HP라면 **K/D와 ZCS를 함께 노출**하는 것을 기본으로 한다. SND에는 ZCS를 억지로 넣지 않는다.
 - 진실 공식은 `metrics.py`의 `compute_zcs()`. SQL에서도 동일 공식(`MAX(0, 1.1*obj_time + 8*capture_kill + 4.1*kills - 5*deaths)`)을 쓰며, `_adapt_sql`이 Postgres용으로 `GREATEST(0, ...)`로 변환한다.
 
+### 커스텀 지표 전체 (metrics.py) — 출처 고정, 함부로 수정 금지
+모두 HP 전용. ZCS가 최우선, 나머지 보조:
+- **ZCS** ⭐ — 존 컨트롤 종합 (제1 지표). 위 공식 참조.
+- **Impact** = `min(200, 73 + 2.6K − 3.1D + 0.92·OBJ + 0.009·딜)` — 종합 기여도.
+- **DPD** = `딜 / 데스` — 라이프당 딜 (높을수록 좋음).
+- **DPK** = `딜 / 킬` — 킬당 필요 딜 (**낮을수록** 좋음, 피니시력).
+- **ID** = `Impact − Score/34` — 점수 대비 숨은 임팩트 초과분.
+- **AP%** = `(캡처킬 / 킬) × 100` — **킬당 보너스 점수 밀도**. "캡처킬" 필드는 거점 점령·멀티킬·트레이드 킬·적 1등 킬 등 **순수 킬(100점)이 아닌 모든 보너스 점수의 합** (단순 목표 기여도가 아님). 높을수록 킬의 질이 좋음.
+- DPK, 데스는 "낮을수록 좋음"으로 평균/비교 로직에서 방향 처리.
+
+### 웹 페이지 구조 (현재)
+- `/` — **코칭 허브** (홈): 트렌드, ZCS 카드+추이, 폼 경고, 강한/약한 맵(→`/maps/{name}` 링크), 역할 분포, 승률.
+- `/overview` — 종합 대시보드 (기존 홈에서 이동).
+- `/players`, `/players/{name}` — HP 표에 ZCS 컬럼, 상세에 역할 배지(slayer/objective/balanced).
+- `/leaderboard` — 순위 (기본 K/D).
+- `/compare` — 두 선수 비교 (레이더+표, HP는 ZCS 첫 행).
+- `/matches`, `/matches/{id}` — 승패 배지 + ZCS + AI 매치 분석.
+- `/maps`, `/maps/{name}` — **맵 탭**: ZCS 중심 카드 그리드 → 맵 상세(승률/전지표 최근vs시즌/AI 수치경향/선수별).
+- `/trends` — 시계열. `/admin` — 관리 (승패·스코어 입력).
+- **`/insights` 삭제됨** (팀 인사이트 탭 제거, 맵 탭으로 통합). `team_insights_data()`/`team_insight()` 함수는 coaching_hub 호환성 위해 잔존.
+
+### AI 인사이트 정책
+- 매치 분석, 선수 프로필, 팀 허브, 맵 상세에서 AI 인사이트 노출.
+- **맵 상세 AI는 "간접적 수치 경향"만** — 직접 지시/전술 명령 금지 (예: "이 맵에서 팀 K/D 시즌 대비 -12%").
+- 캐싱: `insight_cache.py` (1시간 TTL, 매치 기록 시 무효화).
+
+### 데이터 현황 메모
+- 승패(`result`/`team_score`/`opponent_score`)는 대부분 NULL → `/admin`에서 수동 입력 필요. 입력 전까지 승률/폼 차트 비활성.
+- 역할 분류(`metrics.classify_role`): 팀 평균 대비 킬+딜 vs OBJ+캡처 비율 (threshold 1.08x). HP 전용.
+- `service-account.json`: 로컬 파일 + 배포 `GOOGLE_SERVICE_ACCOUNT_JSON` 환경변수 양쪽 지원.
+
 ---
 
 ## 7. Git 워크플로우 ⭐ (중요)
@@ -146,5 +177,5 @@ git push origin main
 - PaaS: Railway.app, GitHub 연동 (`F10W3R-13/codm-team-stats`).
 - DB: Railway Postgres (`DATABASE_URL` 자동 주입).
 - 실행: Procfile → `python start.py` (봇+웹 subprocess).
-- 환경변수: `DISCORD_BOT_TOKEN`, `OPENAI_API_KEY`, `DATABASE_URL`, `PORT`.
+- 환경변수: `DISCORD_BOT_TOKEN`, `OPENAI_API_KEY`, `DATABASE_URL`(자동), `PORT`(자동), `GOOGLE_SERVICE_ACCOUNT_JSON`(서비스 계정 JSON 통째로; 로컬은 `GOOGLE_SERVICE_ACCOUNT_FILE` 파일 경로).
 - 배포 후 DB는 비어있음 → `import_sheets.py`로 구글 시트 → Postgres 마이그레이션 필요.

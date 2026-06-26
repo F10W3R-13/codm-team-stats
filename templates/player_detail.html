@@ -48,6 +48,7 @@
 <div class="card" style="margin-top: 1.5rem; border-left: 4px solid var(--accent);">
     <h2>📊 {{ t.consistency_title }}</h2>
     <p class="muted" style="font-size:0.85rem; margin-bottom:1rem;">{{ t.consistency_help }}</p>
+    <div class="table-wrap">
     <table>
         <thead>
             <tr>
@@ -76,6 +77,7 @@
             {% endif %}
         </tbody>
     </table>
+    </div>
 </div>
 {% endif %}
 
@@ -94,6 +96,7 @@
     </div>
     <div class="card">
         <h2>📊 {{ t.vs_team_title }}</h2>
+        <div class="table-wrap">
         <table>
             <thead>
                 <tr><th>{{ t.metric_label }}</th><th class="num">{{ t.player }}</th><th class="num">{{ t.team_avg }}</th><th class="num">±%</th></tr>
@@ -128,6 +131,7 @@
             {% endfor %}
             </tbody>
         </table>
+        </div>
     </div>
 </div>
 {% endif %}

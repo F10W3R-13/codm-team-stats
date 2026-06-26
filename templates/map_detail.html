@@ -36,6 +36,7 @@
 <div class="card" style="margin: 1.5rem 0;">
     <h2>{{ t.map_recent_vs_season }}</h2>
     <p class="muted" style="font-size:.85rem;">{{ t.hub_recent }} {{ data.days }}{{ t.days_suffix }} · {{ t.hub_season }} {{ data.trend.season.matches }}{{ t.matches }} · {{ t.hub_recent }} {{ data.trend.recent.matches }}{{ t.matches }}</p>
+    <div class="table-wrap">
     <table style="margin-top:0.8rem;">
         <thead>
             <tr>
@@ -66,6 +67,7 @@
             {% endfor %}
         </tbody>
     </table>
+    </div>
 </div>
 {% endif %}
 
@@ -80,6 +82,7 @@
 {# ── 선수별 퍼포먼스 ── #}
 <div class="card" style="margin: 1.5rem 0;">
     <h2>{{ t.nav_players }}</h2>
+    <div class="table-wrap">
     <table>
         <thead>
             <tr>
@@ -88,9 +91,9 @@
                 <th class="num">{{ t.kd }}</th>
                 {% if data.mode == 'HP' %}
                 <th class="num">{{ t.zcs_label }}</th>
-                <th class="num">{{ t.m_kills }}</th>
-                <th class="num">{{ t.m_dmg }}</th>
-                <th class="num">{{ t.m_obj }}</th>
+                <th class="num" data-mobile-hide>{{ t.m_kills }}</th>
+                <th class="num" data-mobile-hide>{{ t.m_dmg }}</th>
+                <th class="num" data-mobile-hide>{{ t.m_obj }}</th>
                 {% else %}
                 <th class="num">{{ t.m_kills }}</th>
                 {% endif %}
@@ -104,9 +107,9 @@
                 <td class="num"><strong style="color:var(--accent-2);">{{ p.avg_kd }}</strong></td>
                 {% if data.mode == 'HP' %}
                 <td class="num"><strong style="color:var(--accent);">{{ p.avg_zcs or '-' }}</strong></td>
-                <td class="num">{{ p.avg_k }}</td>
-                <td class="num">{{ p.avg_dmg }}</td>
-                <td class="num">{{ p.avg_obj }}</td>
+                <td class="num" data-mobile-hide>{{ p.avg_k }}</td>
+                <td class="num" data-mobile-hide>{{ p.avg_dmg }}</td>
+                <td class="num" data-mobile-hide>{{ p.avg_obj }}</td>
                 {% else %}
                 <td class="num">{{ p.avg_k }}</td>
                 {% endif %}
@@ -114,5 +117,6 @@
             {% endfor %}
         </tbody>
     </table>
+    </div>
 </div>
 {% endblock %}

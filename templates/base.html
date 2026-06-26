@@ -194,25 +194,120 @@
             color: white;
             border-color: var(--accent);
         }
+
+        /* ── 표 가로 스크롤 래퍼 ─────────────────────────── */
+        .table-wrap {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+        .table-wrap table { min-width: 560px; }
+
+        /* ── 햄버거 버튼 (모바일 전용) ──────────────────── */
+        .nav-toggle {
+            display: none;
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 0.4rem;
+            margin-left: auto;
+            align-items: center;
+            justify-content: center;
+        }
+        .nav-toggle span {
+            display: block;
+            width: 22px;
+            height: 2px;
+            background: var(--text);
+            border-radius: 2px;
+            transition: 0.25s;
+        }
+        .nav-toggle span + span { margin-top: 5px; }
+        .nav-toggle.open span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+        .nav-toggle.open span:nth-child(2) { opacity: 0; }
+        .nav-toggle.open span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+
+        /* ═══ 반응형: 태블릿 이하 (≤768px) ═══ */
+        @media (max-width: 768px) {
+            .nav {
+                padding: 0.75rem 1rem;
+                flex-wrap: wrap;
+            }
+            .nav-brand { font-size: 1.05rem; margin-right: 0; }
+            .nav-toggle { display: inline-flex; }
+            /* 메뉴는 기본 숨김, 토글 시 드롭다운 */
+            .nav-links {
+                display: none;
+                flex-basis: 100%;
+                flex-direction: column;
+                gap: 0.15rem;
+                padding-top: 0.5rem;
+                order: 3;
+            }
+            .nav.open .nav-links { display: flex; }
+            .nav-links a {
+                padding: 0.6rem 0.75rem;
+                border-radius: 10px;
+                font-size: 0.95rem;
+                margin-left: 0 !important;  /* admin 여백 제거 */
+            }
+            /* 언어 스위치는 햄버거 옆(상단 우측) 유지 */
+            .lang-switcher { order: 2; }
+            .lang-switcher a { padding: 0.3rem 0.55rem; font-size: 0.75rem; }
+
+            .container { padding: 1rem; }
+            h1 { font-size: 1.45rem; }
+            h2 { font-size: 1.15rem; }
+        }
+
+        /* ═══ 반응형: 폰 (≤600px) ═══ */
+        @media (max-width: 600px) {
+            .container { padding: 0.85rem; }
+            .card { padding: 1.1rem; border-radius: 14px; }
+            .stat-card .value { font-size: 1.9rem; }
+            /* 카드 그리드 강제 1단 */
+            .grid-2, .grid-3, .grid-4 {
+                grid-template-columns: 1fr;
+            }
+            .chart-wrap { height: 220px; }
+            .pagination { flex-wrap: wrap; }
+            .pagination a { padding: 0.4rem 0.7rem; font-size: 0.9rem; }
+            .filters a { padding: 0.4rem 0.85rem; font-size: 0.85rem; }
+            /* 표 부가 컬럼 숨김 */
+            [data-mobile-hide] { display: none; }
+            th, td { padding: 0.65rem 0.45rem; }
+            .table-wrap table { min-width: 460px; }
+        }
+
+        /* ═══ 반응형: 소형폰 (≤400px) ═══ */
+        @media (max-width: 400px) {
+            .container { padding: 0.7rem; }
+            .card { padding: 0.95rem; }
+            .stat-card .value { font-size: 1.7rem; }
+        }
     </style>
 </head>
 <body>
-    <nav class="nav">
+    <nav class="nav" id="nav">
         <div class="nav-brand">{{ t.nav_brand }}</div>
-        <a href="/?lang={{ lang }}" class="{% block nav_dashboard %}{% endblock %}">{{ t.nav_hub }}</a>
-        <a href="/overview?lang={{ lang }}" class="{% block nav_overview %}{% endblock %}">{{ t.nav_dashboard }}</a>
-        <a href="/players?lang={{ lang }}" class="{% block nav_players %}{% endblock %}">{{ t.nav_players }}</a>
-        <a href="/leaderboard?lang={{ lang }}" class="{% block nav_leaderboard %}{% endblock %}">{{ t.nav_leaderboard }}</a>
-        <a href="/compare?lang={{ lang }}" class="{% block nav_compare %}{% endblock %}">{{ t.nav_compare }}</a>
-        <a href="/matches?lang={{ lang }}" class="{% block nav_matches %}{% endblock %}">{{ t.nav_matches }}</a>
-        <a href="/trends?lang={{ lang }}" class="{% block nav_trends %}{% endblock %}">{{ t.nav_timeseries }}</a>
-        <a href="/maps?lang={{ lang }}" class="{% block nav_maps %}{% endblock %}">{{ t.nav_maps }}</a>
-        <a href="/admin?lang={{ lang }}" class="{% block nav_admin %}{% endblock %}" style="margin-left:1rem;">{{ t.nav_admin }}</a>
+        <div class="nav-links">
+            <a href="/?lang={{ lang }}" class="{% block nav_dashboard %}{% endblock %}">{{ t.nav_hub }}</a>
+            <a href="/overview?lang={{ lang }}" class="{% block nav_overview %}{% endblock %}">{{ t.nav_dashboard }}</a>
+            <a href="/players?lang={{ lang }}" class="{% block nav_players %}{% endblock %}">{{ t.nav_players }}</a>
+            <a href="/leaderboard?lang={{ lang }}" class="{% block nav_leaderboard %}{% endblock %}">{{ t.nav_leaderboard }}</a>
+            <a href="/compare?lang={{ lang }}" class="{% block nav_compare %}{% endblock %}">{{ t.nav_compare }}</a>
+            <a href="/matches?lang={{ lang }}" class="{% block nav_matches %}{% endblock %}">{{ t.nav_matches }}</a>
+            <a href="/trends?lang={{ lang }}" class="{% block nav_trends %}{% endblock %}">{{ t.nav_timeseries }}</a>
+            <a href="/maps?lang={{ lang }}" class="{% block nav_maps %}{% endblock %}">{{ t.nav_maps }}</a>
+            <a href="/admin?lang={{ lang }}" class="{% block nav_admin %}{% endblock %}" style="margin-left:1rem;">{{ t.nav_admin }}</a>
+        </div>
         <div class="lang-switcher">
             <a href="javascript:setLang('ko')" class="{{ 'active' if lang == 'ko' else '' }}">한국어</a>
             <a href="javascript:setLang('en')" class="{{ 'active' if lang == 'en' else '' }}">EN</a>
             <a href="javascript:setLang('es')" class="{{ 'active' if lang == 'es' else '' }}">ES</a>
         </div>
+        <button class="nav-toggle" id="navToggle" aria-label="menu">
+            <span></span><span></span><span></span>
+        </button>
     </nav>
     <div class="container">
         {% block content %}{% endblock %}
@@ -224,6 +319,23 @@
         url.searchParams.set('lang', lang);
         window.location.href = url.toString();
     }
+    // 햄버거 네비 토글 (모바일)
+    (function() {
+        const nav = document.getElementById('nav');
+        const btn = document.getElementById('navToggle');
+        if (!btn) return;
+        btn.addEventListener('click', () => {
+            nav.classList.toggle('open');
+            btn.classList.toggle('open');
+        });
+        // 메뉴 링크 클릭 시 자동 닫힘
+        nav.querySelectorAll('.nav-links a').forEach(a => {
+            a.addEventListener('click', () => {
+                nav.classList.remove('open');
+                btn.classList.remove('open');
+            });
+        });
+    })();
     </script>
 </body>
 </html>
