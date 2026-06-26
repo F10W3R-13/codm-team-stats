@@ -327,7 +327,7 @@ def overview_stats() -> dict:
 
         # 맵 분포 (대소문자 정규화)
         maps = conn.execute(
-            """SELECT map_name, COUNT(*) n FROM matches
+            """SELECT LOWER(map_name) map_name, COUNT(*) n FROM matches
                WHERE map_name IS NOT NULL AND map_name != ''
                GROUP BY LOWER(map_name) ORDER BY n DESC LIMIT 10"""
         ).fetchall()
@@ -407,6 +407,12 @@ def all_players_overview(mode: str = "HP") -> list:
                  GROUP BY p.id ORDER BY avg_kd DESC"""
     with db.get_conn() as conn:
         rows = [dict(r) for r in conn.execute(sql).fetchall()]
+
+    # Postgres는 ROUND(numeric)이 Decimal 반환 → metrics 계산을 위해 float 변환
+    for r in rows:
+        for k, v in list(r.items()):
+            if hasattr(v, "as_tuple"):  # Decimal
+                r[k] = float(v)
 
     # HP는 커스텀 지표(DPD/DPK/ID/AP%/ZCS)를 평균 스탯 기반으로 계산해 추가
     if mode == "HP":
@@ -675,13 +681,18 @@ def team_trend(days: int = 30) -> dict:
     """
     with db.get_conn() as conn:
         # 최근 N일 팀 평균
+        # SQLite: date('now','-N days'). Postgres: CURRENT_DATE - INTERVAL (TEXT 비교를 위해 ::text 캐스팅)
+        if db.USE_POSTGRES:
+            date_cond = f"m.match_date >= (CURRENT_DATE - INTERVAL '{int(days)} days')::text"
+        else:
+            date_cond = f"m.match_date >= date('now', '-{int(days)} days')"
         r = conn.execute(
             f"""SELECT COUNT(*) matches,
                        ROUND(AVG(s.kd_ratio),2) avg_kd,
                        ROUND(AVG(s.kills),1) avg_k,
                        ROUND(AVG(s.total_damage),0) avg_dmg
                 FROM player_stats_hp s JOIN matches m ON m.id=s.match_id
-                WHERE m.match_date >= date('now', '-{int(days)} days')"""
+                WHERE {date_cond}"""
         ).fetchone()
         recent = dict(r) if r else {}
 
@@ -714,31 +725,32 @@ def map_team_stats(mode: str = "HP", min_matches: int = 2) -> list:
     반환: [{map_name, matches, avg_kd, avg_k, avg_dmg}, ...] avg_kd 내림차순
     """
     if mode == "HP":
-        sql = """SELECT m.map_name map_name,
-                        COUNT(*) matches,
+        sql = """SELECT LOWER(m.map_name) map_name,
+                        COUNT(*) n_matches,
                         ROUND(AVG(s.kd_ratio),2) avg_kd,
                         ROUND(AVG(s.kills),1) avg_k,
                         ROUND(AVG(s.total_damage),0) avg_dmg
                  FROM player_stats_hp s JOIN matches m ON m.id=s.match_id
                  WHERE m.map_name IS NOT NULL AND m.map_name != '' AND m.mode='HP'
                  GROUP BY LOWER(m.map_name)
-                 HAVING matches >= ?
+                 HAVING COUNT(*) >= ?
                  ORDER BY avg_kd DESC"""
     else:
-        sql = """SELECT m.map_name map_name,
-                        COUNT(*) matches,
+        sql = """SELECT LOWER(m.map_name) map_name,
+                        COUNT(*) n_matches,
                         ROUND(AVG(s.kd_ratio),2) avg_kd,
                         ROUND(AVG(s.kills),1) avg_k,
                         ROUND(AVG(s.adr),0) avg_adr
                  FROM player_stats_snd s JOIN matches m ON m.id=s.match_id
                  WHERE m.map_name IS NOT NULL AND m.map_name != '' AND m.mode='SND'
                  GROUP BY LOWER(m.map_name)
-                 HAVING matches >= ?
+                 HAVING COUNT(*) >= ?
                  ORDER BY avg_kd DESC"""
     with db.get_conn() as conn:
         rows = [dict(r) for r in conn.execute(sql, (min_matches,)).fetchall()]
-    # 맵 이름 Title Case 정규화
+    # 맵 이름 Title Case 정규화 (n_matches → matches 별칭)
     for r in rows:
+        r["matches"] = r.pop("n_matches")
         r["map_name"] = r["map_name"].strip().title()
     return rows
 
@@ -758,8 +770,8 @@ def map_player_stats(map_name: str, mode: str = "HP", min_matches: int = 2) -> l
                  JOIN matches m ON m.id=s.match_id
                  JOIN players p ON p.id=s.player_id
                  WHERE LOWER(m.map_name)=LOWER(?) AND m.mode='HP'
-                 GROUP BY p.id
-                 HAVING matches >= ?
+                 GROUP BY p.id, p.name
+                 HAVING COUNT(*) >= ?
                  ORDER BY avg_kd DESC"""
     else:
         sql = """SELECT p.name player_name,
@@ -771,8 +783,8 @@ def map_player_stats(map_name: str, mode: str = "HP", min_matches: int = 2) -> l
                  JOIN matches m ON m.id=s.match_id
                  JOIN players p ON p.id=s.player_id
                  WHERE LOWER(m.map_name)=LOWER(?) AND m.mode='SND'
-                 GROUP BY p.id
-                 HAVING matches >= ?
+                 GROUP BY p.id, p.name
+                 HAVING COUNT(*) >= ?
                  ORDER BY avg_kd DESC"""
     with db.get_conn() as conn:
         return [dict(r) for r in conn.execute(sql, (map_name, min_matches)).fetchall()]

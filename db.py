@@ -116,6 +116,13 @@ def _adapt_sql(sql: str) -> str:
     out = out.replace("INTEGER PRIMARY KEY AUTOINCREMENT", "SERIAL PRIMARY KEY")
     out = out.replace("?", "%s")
     out = out.replace("datetime('now')", "NOW()")
+    # AVG(...) → AVG(...)::numeric — Postgres는 ROUND(double) 불가, numeric 캐스팅 필요.
+    # AVG 내부는 단순 컬럼(중첩 괄호 없음)으로 가정.
+    out = re.sub(
+        r"(AVG\([^()]*\))",
+        r"\1::numeric",
+        out,
+    )
     # date('now', '-N days') → CURRENT_DATE - INTERVAL 'N days'
     out = re.sub(
         r"date\('now',\s*'-(\d+) days'\)",
@@ -300,11 +307,18 @@ def resolve_player_id(conn, name: str, ign_raw: str = None) -> int:
 
     if ign_raw and ign_raw.strip() and ign_raw.strip() != name:
         try:
-            # SQLite: INSERT OR IGNORE, Postgres: ON CONFLICT DO NOTHING (_adapt_sql이 처리)
-            conn.execute(
-                "INSERT OR IGNORE INTO aliases(ign, player_id) VALUES (?, ?)",
-                (ign_raw.strip(), player_id),
-            )
+            if USE_POSTGRES:
+                # Postgres: 명시적으로 conflict 컬럼(ign) 지정 — _adapt_sql 변환 불완전 방지
+                conn.execute(
+                    "INSERT INTO aliases(ign, player_id) VALUES (%s, %s) "
+                    "ON CONFLICT (ign) DO NOTHING",
+                    (ign_raw.strip(), player_id),
+                )
+            else:
+                conn.execute(
+                    "INSERT OR IGNORE INTO aliases(ign, player_id) VALUES (?, ?)",
+                    (ign_raw.strip(), player_id),
+                )
         except Exception:
             pass
     return player_id
