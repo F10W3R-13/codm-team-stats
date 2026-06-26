@@ -78,6 +78,10 @@ def player_overall_stats(player_id: int) -> dict:
         ).fetchone()
         if r and r["matches"]:
             result["hp"] = dict(r)
+            # Postgres Decimal → float (metrics 계산/JSON 직렬화 위해)
+            for k, v in list(result["hp"].items()):
+                if hasattr(v, "as_tuple"):
+                    result["hp"][k] = float(v)
             # 기복(표준편차) 별도 계산 — 값이 작을수록 일정한 폼
             rows = conn.execute(
                 "SELECT kd_ratio, kills, total_damage FROM player_stats_hp WHERE player_id=?",
@@ -104,6 +108,9 @@ def player_overall_stats(player_id: int) -> dict:
         ).fetchone()
         if r and r["matches"]:
             result["snd"] = dict(r)
+            for k, v in list(result["snd"].items()):
+                if hasattr(v, "as_tuple"):
+                    result["snd"][k] = float(v)
             rows = conn.execute(
                 "SELECT kd_ratio, kills FROM player_stats_snd WHERE player_id=?",
                 (player_id,),
@@ -899,3 +906,84 @@ def recent_zcs_trend(limit: int = 10) -> list:
         {"id": r["id"], "match_date": r["match_date"], "avg_zcs": r["avg_zcs"]}
         for r in reversed(rows)
     ]
+
+
+# ── 선수 비교 ────────────────────────────────────────────────────────────────
+
+# 비교에 쓸 지표 정의. (키, 라벨키, 높을수록 좋은가)
+# HP 지표 — ZCS를 최우선으로 배치
+_COMPARE_HP = [
+    ("zcs", "zcs_label", True),
+    ("avg_kd", "kd", True),
+    ("avg_k", "avg_k", True),
+    ("avg_d", "avg_d", False),
+    ("avg_dmg", "avg_total_dmg", True),
+    ("avg_obj", "avg_obj", True),
+    ("avg_score", "avg_score", True),
+    ("avg_impact", "avg_impact", True),
+    ("dpd", "m_dpd", True),
+    ("ap_pct", "m_ap_pct", True),
+]
+_COMPARE_SND = [
+    ("avg_kd", "kd", True),
+    ("avg_k", "avg_k", True),
+    ("avg_d", "avg_d", False),
+    ("avg_a", "avg_a", True),
+    ("avg_adr", "avg_adr", True),
+    ("avg_score", "avg_score", True),
+    ("avg_impact", "avg_impact", True),
+]
+
+
+def compare_players(name_a: str, name_b: str, mode: str = "HP") -> dict:
+    """두 선수의 모드별 평균 스탯 비교.
+
+    반환: {
+        a: {name, pid, stats}, b: {...},
+        mode,
+        rows: [{key, label, higher_better, a, b, winner: 'a'|'b'|'tie'|None}],
+        chart: [{metric, a, b}],  # 레이더 차트용 (정규화된 값)
+    }
+    """
+    pid_a = get_player_id(name_a)
+    pid_b = get_player_id(name_b)
+    if not pid_a or not pid_b:
+        return None
+
+    stats_a = player_overall_stats(pid_a)
+    stats_b = player_overall_stats(pid_b)
+
+    block_a = stats_a.get("hp" if mode == "HP" else "snd") or {}
+    block_b = stats_b.get("hp" if mode == "HP" else "snd") or {}
+
+    defs = _COMPARE_HP if mode == "HP" else _COMPARE_SND
+    rows = []
+    chart = []
+    for key, label_key, higher in defs:
+        va = block_a.get(key)
+        vb = block_b.get(key)
+        # Postgres Decimal → float
+        if hasattr(va, "as_tuple"): va = float(va)
+        if hasattr(vb, "as_tuple"): vb = float(vb)
+        winner = None
+        if va is not None and vb is not None:
+            if va == vb:
+                winner = "tie"
+            elif (va > vb) == higher:
+                winner = "a"
+            else:
+                winner = "b"
+        rows.append({"key": key, "label_key": label_key,
+                     "higher_better": higher, "a": va, "b": vb, "winner": winner})
+        # 차트용 (원시 값 — JS에서 정규화)
+        chart.append({"metric": label_key, "a": va, "b": vb})
+
+    return {
+        "a": {"name": stats_a["name"], "pid": pid_a},
+        "b": {"name": stats_b["name"], "pid": pid_b},
+        "mode": mode,
+        "rows": rows,
+        "chart": chart,
+        "matches_a": block_a.get("matches", 0),
+        "matches_b": block_b.get("matches", 0),
+    }

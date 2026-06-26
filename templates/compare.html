@@ -1,0 +1,151 @@
+{% extends "base.html" %}
+{% block title %}{{ t.compare_title }} — CODM Stats{% endblock %}
+{% block nav_compare %}active{% endblock %}
+
+{% block content %}
+<h1>⚔️ {{ t.compare_title }}</h1>
+<p class="muted">{{ t.compare_help }}</p>
+
+<form method="get" style="margin: 1.5rem 0;">
+    <input type="hidden" name="lang" value="{{ lang }}">
+    <div style="display:flex; gap:0.8rem; flex-wrap:wrap; align-items:flex-end;">
+        <div>
+            <label class="muted" style="font-size:.85rem;">{{ t.compare_player_a }}</label><br>
+            <select name="a" onchange="this.form.submit()">
+                <option value="">—</option>
+                {% for p in players %}
+                <option value="{{ p }}" {{ 'selected' if a == p }}>{{ p }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div>
+            <label class="muted" style="font-size:.85rem;">{{ t.compare_player_b }}</label><br>
+            <select name="b" onchange="this.form.submit()">
+                <option value="">—</option>
+                {% for p in players %}
+                <option value="{{ p }}" {{ 'selected' if b == p }}>{{ p }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div>
+            <label class="muted" style="font-size:.85rem;">{{ t.mode_col }}</label><br>
+            <select name="mode" onchange="this.form.submit()">
+                <option value="HP" {{ 'selected' if mode == 'HP' }}>🎯 {{ t.mode_hp }}</option>
+                <option value="SND" {{ 'selected' if mode == 'SND' }}>🔍 {{ t.mode_snd }}</option>
+            </select>
+        </div>
+    </div>
+</form>
+
+{% if not a or not b %}
+<div class="card"><p class="muted" style="text-align:center; padding:2rem;">{{ t.compare_select_two }}</p></div>
+{% elif a == b %}
+<div class="card"><p class="muted" style="text-align:center; padding:2rem;">{{ t.compare_same }}</p></div>
+{% elif not data %}
+<div class="card"><p class="muted" style="text-align:center; padding:2rem;">{{ t.compare_not_found }}</p></div>
+{% else %}
+
+<div class="card" style="margin-bottom: 1.5rem;">
+    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:1rem;">
+        <div style="text-align:center; flex:1;">
+            <div style="font-size:1.4rem; font-weight:700;"><a href="/players/{{ data.a.name }}?lang={{ lang }}" class="player-link">{{ data.a.name }}</a></div>
+            <div class="muted" style="font-size:.85rem;">{{ data.matches_a }} {{ t.games }}</div>
+        </div>
+        <div style="font-size:1.5rem; color: var(--muted);">VS</div>
+        <div style="text-align:center; flex:1;">
+            <div style="font-size:1.4rem; font-weight:700;"><a href="/players/{{ data.b.name }}?lang={{ lang }}" class="player-link">{{ data.b.name }}</a></div>
+            <div class="muted" style="font-size:.85rem;">{{ data.matches_b }} {{ t.games }}</div>
+        </div>
+    </div>
+</div>
+
+<div class="grid grid-2" style="margin-bottom: 1.5rem;">
+    <div class="card">
+        <h2>{{ t.compare_radar_title }}</h2>
+        <div class="chart-wrap"><canvas id="radarChart"></canvas></div>
+    </div>
+    <div class="card">
+        <h2>{{ t.compare_detail }}</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>{{ t.metric_label }}</th>
+                    <th class="num">{{ data.a.name }}</th>
+                    <th class="num">{{ data.b.name }}</th>
+                    <th class="num">Δ</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in data.rows %}
+                <tr>
+                    <td>{{ t[row.label_key] if t[row.label_key] else row.label_key }}</td>
+                    <td class="num" style="{{ 'color:var(--accent-2);font-weight:600;' if row.winner == 'a' else '' }}">
+                        {{ row.a if row.a is not none else '-' }}
+                    </td>
+                    <td class="num" style="{{ 'color:var(--accent-2);font-weight:600;' if row.winner == 'b' else '' }}">
+                        {{ row.b if row.b is not none else '-' }}
+                    </td>
+                    <td class="num muted">
+                        {% if row.a is not none and row.b is not none %}
+                            {% set d = (row.a - row.b) | round(1) %}
+                            <span style="color: {{ 'var(--accent-2)' if d > 0 else ('#f04452' if d < 0 else 'var(--muted)') }};">
+                                {{ '+' if d > 0 }}{{ d }}
+                            </span>
+                        {% else %}-{% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+const chartData = {{ data.chart | tojson }};
+const labels = chartData.map(d => d.metric);
+// 각 지표별로 두 값 정규화 (최대값 기준) — 레이더 가시성
+const allVals = chartData.flatMap(d => [d.a, d.b]).filter(v => v != null && v > 0);
+const norm = v => {
+    if (v == null) return 0;
+    // 지표별 최대치로 정규화 (0~100)
+    return v;
+};
+// 단순히 raw 값 사용 — 차트 스케일이 다르면 각자 정규화
+const maxByMetric = {};
+labels.forEach((m, i) => {
+    const a = chartData[i].a, b = chartData[i].b;
+    const vals = [a, b].filter(v => v != null && v > 0);
+    maxByMetric[m] = vals.length ? Math.max(...vals) : 1;
+});
+new Chart(document.getElementById('radarChart'), {
+    type: 'radar',
+    data: {
+        labels: labels,
+        datasets: [
+            {
+                label: '{{ data.a.name }}',
+                data: chartData.map(d => d.a == null ? 0 : (d.a / maxByMetric[d.metric] * 100)),
+                borderColor: '#3182f6',
+                backgroundColor: 'rgba(49,130,246,0.15)',
+            },
+            {
+                label: '{{ data.b.name }}',
+                data: chartData.map(d => d.b == null ? 0 : (d.b / maxByMetric[d.metric] * 100)),
+                borderColor: '#f04452',
+                backgroundColor: 'rgba(240,68,82,0.15)',
+            }
+        ]
+    },
+    options: {
+        responsive: true, maintainAspectRatio: false,
+        scales: {
+            r: { beginAtZero: true, max: 100,
+                 ticks: { display: false },
+                 pointLabels: { font: { size: 10 } } }
+        },
+        plugins: { legend: { position: 'bottom' } }
+    }
+});
+</script>
+{% endif %}
+{% endblock %}

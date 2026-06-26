@@ -98,6 +98,25 @@ async def player_detail(request: Request, name: str, lang: str = Query("ko")):
     )
 
 
+# ── 팀 인사이트 페이지 ───────────────────────────────────────────────────
+@app.get("/compare", response_class=HTMLResponse)
+async def compare_page(
+    request: Request,
+    a: str = Query(None),
+    b: str = Query(None),
+    mode: str = Query("HP", pattern="^(HP|SND)$"),
+    lang: str = Query("ko"),
+):
+    players = queries.list_players()
+    data = None
+    if a and b and a != b:
+        data = queries.compare_players(a, b, mode)
+    return render(
+        "compare.html", lang=lang,
+        players=players, a=a, b=b, mode=mode, data=data,
+    )
+
+
 @app.get("/leaderboard", response_class=HTMLResponse)
 async def leaderboard_page(
     request: Request,
