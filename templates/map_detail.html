@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+{% block title %}{{ data.map_name }} — CODM Stats{% endblock %}
+{% block nav_maps %}active{% endblock %}
+
+{% block content %}
+<a href="/maps?mode={{ data.mode }}&lang={{ lang }}" class="muted" style="text-decoration:none;">← {{ t.nav_maps }}</a>
+<h1>🗺️ {{ data.map_name }} <span class="badge {{ data.mode|lower }}">{{ t['mode_' + data.mode.lower()] }}</span></h1>
+
+{# ── 승률 + 헤더 요약 ── #}
+<div class="grid grid-3" style="margin: 1.5rem 0;">
+    <div class="card stat-card">
+        <div class="value">{{ data.win_loss.total }}</div>
+        <div class="label">{{ t.matches }}</div>
+    </div>
+    {% if data.win_loss.win_rate is not none %}
+    <div class="card stat-card" style="border-left:4px solid #04c09e;">
+        <div class="value" style="color:#04c09e;">{{ data.win_loss.win_rate }}%</div>
+        <div class="label">{{ t.map_win_rate }} ({{ data.win_loss.wins }}{{ t.win }} {{ data.win_loss.losses }}{{ t.loss }})</div>
+    </div>
+    {% else %}
+    <div class="card stat-card">
+        <div class="value muted">—</div>
+        <div class="label">{{ t.map_win_rate }}</div>
+    </div>
+    {% endif %}
+    {% if data.trend.season.avg_zcs is not none %}
+    <div class="card stat-card" style="border-left:4px solid var(--accent);">
+        <div class="value" style="color:var(--accent);">{{ data.trend.season.avg_zcs }}</div>
+        <div class="label">{{ t.zcs_label }} ({{ t.hub_season }})</div>
+    </div>
+    {% endif %}
+</div>
+
+{# ── 팀 지표 변화 (최근 vs 시즌) ── #}
+{% if data.trend.delta_pct.avg_kd is not none or data.trend.delta_pct.avg_zcs is not none %}
+<div class="card" style="margin: 1.5rem 0;">
+    <h2>{{ t.map_recent_vs_season }}</h2>
+    <p class="muted" style="font-size:.85rem;">{{ t.hub_recent }} {{ data.days }}{{ t.days_suffix }} · {{ data.trend.recent.matches }}{{ t.matches }}</p>
+    <div class="grid grid-2" style="margin-top:1rem;">
+        {% if data.trend.delta_pct.avg_kd is not none %}
+        <div>
+            <div class="muted" style="font-size:.85rem;">{{ t.kd }}</div>
+            <div style="font-size:1.4rem;font-weight:700;">
+                {{ data.trend.recent.avg_kd }}
+                <span style="font-size:.95rem; color: {{ 'var(--accent-2)' if data.trend.delta_pct.avg_kd >= 0 else '#f04452' }};">
+                    {{ '+' if data.trend.delta_pct.avg_kd >= 0 }}{{ data.trend.delta_pct.avg_kd }}%
+                </span>
+            </div>
+            <div class="muted" style="font-size:.8rem;">{{ t.hub_season }} {{ data.trend.season.avg_kd }}</div>
+        </div>
+        {% endif %}
+        {% if data.trend.delta_pct.avg_zcs is not none %}
+        <div>
+            <div class="muted" style="font-size:.85rem;">{{ t.zcs_label }}</div>
+            <div style="font-size:1.4rem;font-weight:700;">
+                {{ data.trend.recent.avg_zcs }}
+                <span style="font-size:.95rem; color: {{ 'var(--accent-2)' if data.trend.delta_pct.avg_zcs >= 0 else '#f04452' }};">
+                    {{ '+' if data.trend.delta_pct.avg_zcs >= 0 }}{{ data.trend.delta_pct.avg_zcs }}%
+                </span>
+            </div>
+            <div class="muted" style="font-size:.8rem;">{{ t.hub_season }} {{ data.trend.season.avg_zcs }}</div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+
+{# ── AI 간접 제언 ── #}
+{% if advice %}
+<div class="card" style="margin: 1.5rem 0; border-left: 4px solid var(--accent);">
+    <h2>{{ t.map_advice_title }}</h2>
+    <p style="line-height:1.7;">{{ advice }}</p>
+</div>
+{% endif %}
+
+{# ── 선수별 퍼포먼스 ── #}
+<div class="card" style="margin: 1.5rem 0;">
+    <h2>{{ t.nav_players }}</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>{{ t.player }}</th>
+                <th class="num">{{ t.matches }}</th>
+                <th class="num">{{ t.kd }}</th>
+                {% if data.mode == 'HP' %}
+                <th class="num">{{ t.zcs_label }}</th>
+                <th class="num">{{ t.m_kills }}</th>
+                <th class="num">{{ t.m_dmg }}</th>
+                <th class="num">{{ t.m_obj }}</th>
+                {% else %}
+                <th class="num">{{ t.m_kills }}</th>
+                {% endif %}
+            </tr>
+        </thead>
+        <tbody>
+            {% for p in data.players %}
+            <tr>
+                <td><a href="/players/{{ p.player_name }}?lang={{ lang }}" class="player-link">{{ p.player_name }}</a></td>
+                <td class="num">{{ p.matches }}</td>
+                <td class="num"><strong style="color:var(--accent-2);">{{ p.avg_kd }}</strong></td>
+                {% if data.mode == 'HP' %}
+                <td class="num"><strong style="color:var(--accent);">{{ p.avg_zcs or '-' }}</strong></td>
+                <td class="num">{{ p.avg_k }}</td>
+                <td class="num">{{ p.avg_dmg }}</td>
+                <td class="num">{{ p.avg_obj }}</td>
+                {% else %}
+                <td class="num">{{ p.avg_k }}</td>
+                {% endif %}
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

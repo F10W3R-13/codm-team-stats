@@ -215,26 +215,34 @@ async def api_player_timeseries(name: str, mode: str = "HP", limit: int = 50):
     return queries.player_metric_timeseries(pid, mode, limit)
 
 
-# ── 팀 인사이트 페이지 ───────────────────────────────────────────────────
-@app.get("/insights", response_class=HTMLResponse)
-async def team_insights_page(
+# ── 맵 페이지 ─────────────────────────────────────────────────────────────
+@app.get("/maps", response_class=HTMLResponse)
+async def maps_page(
     request: Request,
     mode: str = Query("HP", pattern="^(HP|SND)$"),
-    days: int = Query(30),
     lang: str = Query("ko"),
 ):
-    data = analytics.team_insights_data(days=days, mode=mode)
-    # AI 팀 인사이트 (캐싱 — mode+days+lang 키)
-    cache_key = f"{mode}_{days}"
-    insight = insight_cache.get("team", cache_key, lang)
-    if insight is None and data.get("maps"):
-        insight = analytics_insights.team_insight(data, lang=lang)
-        insight_cache.set("team", cache_key, lang, insight)
-    return render(
-        "team_insights.html", lang=lang,
-        data=data, mode=mode, days=days, insight=insight,
-        selected_map_detail=True,
-    )
+    maps = queries.map_team_stats(mode, min_matches=2)
+    return render("maps.html", lang=lang, maps=maps, mode=mode)
+
+
+@app.get("/maps/{map_name}", response_class=HTMLResponse)
+async def map_detail_page(
+    request: Request,
+    map_name: str,
+    mode: str = Query("HP", pattern="^(HP|SND)$"),
+    lang: str = Query("ko"),
+):
+    data = analytics.map_detail(map_name, mode)
+    if not data:
+        raise HTTPException(404, "맵 데이터를 찾을 수 없습니다")
+    # AI 간접 제언 (캐싱 — map+mode+lang 키)
+    cache_key = f"{map_name}_{mode}"
+    advice = insight_cache.get("map", cache_key, lang)
+    if advice is None:
+        advice = analytics_insights.map_advice(data, lang=lang)
+        insight_cache.set("map", cache_key, lang, advice)
+    return render("map_detail.html", lang=lang, data=data, advice=advice)
 
 
 # ── 관리(Admin) 페이지 ───────────────────────────────────────────────────

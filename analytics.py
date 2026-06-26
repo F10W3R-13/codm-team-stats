@@ -345,6 +345,50 @@ def team_insights_data(days: int = 30, mode: str = "HP") -> dict:
     return {"trend": trend, "maps": maps, "mode": mode}
 
 
+def map_detail(map_name: str, mode: str = "HP", days: int = 30) -> dict:
+    """단일 맵의 종합 상세 데이터 조립 (맵 상세 페이지용).
+
+    반환: {
+        map_name, mode,
+        players: [map_player_stats 결과],   # ZCS 포함 (HP)
+        win_loss: map_win_loss 결과,
+        trend: map_trend 결과 (최근 vs 시즌),
+        team_avg: {avg_kd, avg_k, avg_dmg, avg_obj, avg_capture, avg_zcs},  # 선수별 ±% 벤치마크
+    }
+    데이터가 없으면 None.
+    """
+    import queries
+    players = queries.map_player_stats(map_name, mode, min_matches=1)
+    if not players:
+        return None
+
+    win_loss = queries.map_win_loss(map_name, mode)
+    trend = queries.map_trend(map_name, mode, days)
+
+    # 팀 전체 평균 — 선수별 vs ±% 계산용
+    team_players = queries.all_players_overview(mode)
+    team_avg = {}
+    if team_players:
+        # HP: zcs/avg_k/avg_dmg/avg_obj/avg_ck, SND: avg_k/avg_adr
+        src_keys = {
+            "avg_k": "avg_k", "avg_dmg": "avg_dmg", "avg_kd": "avg_kd",
+        }
+        if mode == "HP":
+            src_keys.update({"avg_obj": "avg_obj", "avg_capture": "avg_ck", "avg_zcs": "zcs"})
+        for dst_k, src_k in src_keys.items():
+            vals = [p.get(src_k) for p in team_players if p.get(src_k) is not None]
+            team_avg[dst_k] = round(sum(vals) / len(vals), 2) if vals else None
+
+    return {
+        "map_name": map_name, "mode": mode,
+        "players": players,
+        "win_loss": win_loss,
+        "trend": trend,
+        "team_avg": team_avg,
+        "days": days,
+    }
+
+
 # ── 코칭 허브 데이터 조립 ──────────────────────────────────────────────────
 
 def coaching_hub(mode: str = "HP", days: int = 30) -> dict:

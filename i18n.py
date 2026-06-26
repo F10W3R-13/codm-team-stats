@@ -225,6 +225,16 @@ translations = {
         "role_title": "팀 역할 분포",
         "role_help": "HP 스탯 기반 자동 역할 분류 (팀 평균 대비)",
         "role_badge": "역할",
+        # 맵 탭
+        "nav_maps": "맵",
+        "maps_title": "🗺️ 맵 통계",
+        "map_detail_title": "맵 상세",
+        "map_win_rate": "맵 승률",
+        "map_vs_team": "팀 평균 대비",
+        "map_recent_vs_season": "최근 vs 시즌",
+        "map_advice_title": "📊 수치 경향",
+        "map_no_data": "이 맵에 데이터가 없습니다",
+        "map_matches_col": "매치 수",
     },
 
     # ── 영어 (선수용) ────────────────────────────────────────────────────
@@ -427,6 +437,15 @@ translations = {
         "role_title": "Team Role Distribution",
         "role_help": "Auto role classification from HP stats (vs team avg)",
         "role_badge": "Role",
+        "nav_maps": "Maps",
+        "maps_title": "🗺️ Map Stats",
+        "map_detail_title": "Map Detail",
+        "map_win_rate": "Map Win Rate",
+        "map_vs_team": "vs Team Avg",
+        "map_recent_vs_season": "Recent vs Season",
+        "map_advice_title": "📊 Numeric Trends",
+        "map_no_data": "No data for this map",
+        "map_matches_col": "Matches",
     },
 
     # ── 스페인어 (선수용) ────────────────────────────────────────────────
@@ -629,6 +648,15 @@ translations = {
         "role_title": "Distribución de Roles",
         "role_help": "Clasificación automática por stats HP (vs promedio)",
         "role_badge": "Rol",
+        "nav_maps": "Mapas",
+        "maps_title": "🗺️ Stats de Mapas",
+        "map_detail_title": "Detalle de Mapa",
+        "map_win_rate": "TV del Mapa",
+        "map_vs_team": "vs Promedio",
+        "map_recent_vs_season": "Reciente vs Temporada",
+        "map_advice_title": "📊 Tendencias Numéricas",
+        "map_no_data": "Sin datos para este mapa",
+        "map_matches_col": "Partidas",
     },
 }
 

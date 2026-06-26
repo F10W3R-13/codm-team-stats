@@ -155,12 +155,12 @@ new Chart(document.getElementById('formChart'), {
 </script>
 {% endif %}
 
-<!-- 팀 인사이트 요약 링크 -->
+<!-- 맵 통계 링크 -->
 <div class="card" style="margin-top: 1.5rem; border-left: 4px solid var(--accent);">
-    <h2>🧠 {{ t.team_insights_title }}</h2>
-    <p class="muted">{{ t.team_insights_help }}</p>
+    <h2>🗺️ {{ t.maps_title }}</h2>
+    <p class="muted">{{ t.hub_link_insights }}</p>
     <p style="margin-top:1rem;">
-        <a href="/insights?lang={{ lang }}" class="player-link" style="font-size:1.05rem;">{{ t.team_insights_link }} →</a>
+        <a href="/maps?lang={{ lang }}" class="player-link" style="font-size:1.05rem;">{{ t.nav_maps }} →</a>
     </p>
 </div>
 {% endblock %}

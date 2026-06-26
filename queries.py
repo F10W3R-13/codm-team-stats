@@ -756,7 +756,8 @@ def map_team_stats(mode: str = "HP", min_matches: int = 2) -> list:
                         COUNT(*) n_matches,
                         ROUND(AVG(s.kd_ratio),2) avg_kd,
                         ROUND(AVG(s.kills),1) avg_k,
-                        ROUND(AVG(s.total_damage),0) avg_dmg
+                        ROUND(AVG(s.total_damage),0) avg_dmg,
+                        ROUND(AVG(MAX(0, 1.1*s.obj_time + 8*s.capture_kill + 4.1*s.kills - 5*s.deaths)),1) avg_zcs
                  FROM player_stats_hp s JOIN matches m ON m.id=s.match_id
                  WHERE m.map_name IS NOT NULL AND m.map_name != '' AND m.mode='HP'
                  GROUP BY LOWER(m.map_name)
@@ -792,7 +793,10 @@ def map_player_stats(map_name: str, mode: str = "HP", min_matches: int = 2) -> l
                         COUNT(*) matches,
                         ROUND(AVG(s.kd_ratio),2) avg_kd,
                         ROUND(AVG(s.kills),1) avg_k,
-                        ROUND(AVG(s.total_damage),0) avg_dmg
+                        ROUND(AVG(s.total_damage),0) avg_dmg,
+                        ROUND(AVG(s.obj_time),0) avg_obj,
+                        ROUND(AVG(s.capture_kill),1) avg_capture,
+                        ROUND(AVG(MAX(0, 1.1*s.obj_time + 8*s.capture_kill + 4.1*s.kills - 5*s.deaths)),1) avg_zcs
                  FROM player_stats_hp s
                  JOIN matches m ON m.id=s.match_id
                  JOIN players p ON p.id=s.player_id
@@ -814,7 +818,97 @@ def map_player_stats(map_name: str, mode: str = "HP", min_matches: int = 2) -> l
                  HAVING COUNT(*) >= ?
                  ORDER BY avg_kd DESC"""
     with db.get_conn() as conn:
-        return [dict(r) for r in conn.execute(sql, (map_name, min_matches)).fetchall()]
+        rows = [dict(r) for r in conn.execute(sql, (map_name, min_matches)).fetchall()]
+    # Postgres Decimal → float
+    for r in rows:
+        for k, v in list(r.items()):
+            if hasattr(v, "as_tuple"):
+                r[k] = float(v)
+    return rows
+
+
+def map_win_loss(map_name: str, mode: str = "HP") -> dict:
+    """특정 맵의 승패 요약.
+
+    반환: {total, wins, losses, draw, none, win_rate}
+    """
+    with db.get_conn() as conn:
+        total = conn.execute(
+            "SELECT COUNT(*) c FROM matches WHERE LOWER(map_name)=LOWER(?) AND mode=?",
+            (map_name, mode),
+        ).fetchone()["c"]
+        wins = conn.execute(
+            "SELECT COUNT(*) c FROM matches WHERE LOWER(map_name)=LOWER(?) AND mode=? AND result='WIN'",
+            (map_name, mode),
+        ).fetchone()["c"]
+        losses = conn.execute(
+            "SELECT COUNT(*) c FROM matches WHERE LOWER(map_name)=LOWER(?) AND mode=? AND result='LOSS'",
+            (map_name, mode),
+        ).fetchone()["c"]
+        draw = conn.execute(
+            "SELECT COUNT(*) c FROM matches WHERE LOWER(map_name)=LOWER(?) AND mode=? AND result='DRAW'",
+            (map_name, mode),
+        ).fetchone()["c"]
+    none_r = total - wins - losses - draw
+    decided = wins + losses
+    win_rate = round(wins / decided * 100, 1) if decided else None
+    return {"total": total, "wins": wins, "losses": losses,
+            "draw": draw, "none": none_r, "win_rate": win_rate}
+
+
+def map_trend(map_name: str, mode: str = "HP", days: int = 30) -> dict:
+    """특정 맵의 최근 N일 vs 시즌 전체 평균 (K/D + ZCS).
+
+    반환: {
+        recent: {matches, avg_kd, avg_zcs},
+        season: {matches, avg_kd, avg_zcs},
+        delta_pct: {avg_kd, avg_zcs},
+    }
+    """
+    if db.USE_POSTGRES:
+        date_cond = f"m.match_date >= (CURRENT_DATE - INTERVAL '{int(days)} days')::text"
+    else:
+        date_cond = f"m.match_date >= date('now', '-{int(days)} days')"
+
+    zcs_expr = "AVG(MAX(0, 1.1*s.obj_time + 8*s.capture_kill + 4.1*s.kills - 5*s.deaths))"
+
+    def _q(extra_where):
+        wh = f"WHERE LOWER(m.map_name)=LOWER(?) AND m.mode=?"
+        if extra_where:
+            wh += f" AND {extra_where}"
+        table = "player_stats_hp" if mode == "HP" else "player_stats_snd"
+        if mode == "HP":
+            return (f"SELECT COUNT(*) matches, ROUND(AVG(s.kd_ratio),2) avg_kd, "
+                    f"ROUND({zcs_expr},1) avg_zcs "
+                    f"FROM {table} s JOIN matches m ON m.id=s.match_id {wh}")
+        else:
+            return (f"SELECT COUNT(*) matches, ROUND(AVG(s.kd_ratio),2) avg_kd, "
+                    f"NULL avg_zcs "
+                    f"FROM {table} s JOIN matches m ON m.id=s.match_id {wh}")
+
+    with db.get_conn() as conn:
+        r_rec = conn.execute(_q(date_cond), (map_name, mode)).fetchone()
+        r_sea = conn.execute(_q(None), (map_name, mode)).fetchone()
+
+    def _d(r):
+        if not r:
+            return {}
+        out = dict(r)
+        for k, v in list(out.items()):
+            if hasattr(v, "as_tuple"):
+                out[k] = float(v)
+        return out
+
+    recent = _d(r_rec)
+    season = _d(r_sea)
+    delta = {}
+    for k in ("avg_kd", "avg_zcs"):
+        rv, sv = recent.get(k), season.get(k)
+        if rv is not None and sv and sv != 0:
+            delta[k] = round((rv - sv) / sv * 100, 1)
+        else:
+            delta[k] = None
+    return {"recent": recent, "season": season, "delta_pct": delta, "period_days": days}
 
 
 # ── 승패(W/L) 통계 ──────────────────────────────────────────────────────────

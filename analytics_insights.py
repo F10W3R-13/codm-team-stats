@@ -216,3 +216,53 @@ def team_insight(team_data: dict, lang: str = "ko") -> str:
         return completion.choices[0].message.content.strip()
     except Exception:
         return ""
+
+
+def map_advice(map_data: dict, lang: str = "ko") -> str:
+    """단일 맵에 대한 간접적 수치 경향성 제언.
+
+    직접적 지시("X를 해라")가 아닌 수치 기반 경향성 짚기:
+    - 팀 K/D/ZCS의 최근 vs 시즌 변화
+    - 선수별 이 맵 퍼포먼스 분포 (ZCS 위주)
+    - 승률 경향 (데이터 있을 때)
+    실패 시 빈 문자열.
+    """
+    if not map_data:
+        return ""
+    try:
+        # AI에게 넘길 핵심 수치만 추출
+        payload = {
+            "map_name": map_data["map_name"],
+            "mode": map_data["mode"],
+            "trend": map_data.get("trend"),
+            "win_loss": map_data.get("win_loss"),
+            "players": [
+                {k: p.get(k) for k in ("player_name", "matches", "avg_kd",
+                                        "avg_zcs", "avg_k", "avg_dmg", "avg_obj")}
+                for p in map_data.get("players", [])
+            ],
+            "team_avg": map_data.get("team_avg"),
+        }
+        li = _lang_instruction(lang)
+        completion = _client().chat.completions.create(
+            model=config.OPENAI_MODEL,
+            temperature=0.4,
+            max_tokens=350,
+            messages=[
+                {
+                    "role": "system",
+                    "content": (
+                        f"You are a CODM esports data analyst. Describe the NUMERIC TRENDS "
+                        f"of one map {li} in 3-4 sentences. RULES: only point out statistical "
+                        f"tendencies (e.g. 'on this map team K/D is -12% vs season', "
+                        f"'player X has highest ZCS at 220'). Do NOT give direct orders or "
+                        f"tactical instructions. Stick to what the numbers show — let the "
+                        f"coach interpret. Grounded strictly in the JSON. For web display."
+                    ),
+                },
+                {"role": "user", "content": json.dumps(payload, ensure_ascii=False)},
+            ],
+        )
+        return completion.choices[0].message.content.strip()
+    except Exception:
+        return ""
