@@ -21,7 +21,8 @@ def match_report(match_id: int) -> dict:
     """
     with db.get_conn() as conn:
         m = conn.execute(
-            "SELECT id, mode, map_name, match_date FROM matches WHERE id=?",
+            "SELECT id, mode, map_name, match_date, result, team_score, opponent_score "
+            "FROM matches WHERE id=?",
             (match_id,),
         ).fetchone()
         if not m:
@@ -30,6 +31,8 @@ def match_report(match_id: int) -> dict:
         result = {
             "match_id": m["id"], "mode": m["mode"],
             "map_name": m["map_name"], "match_date": m["match_date"],
+            "result": m["result"], "team_score": m["team_score"],
+            "opponent_score": m["opponent_score"],
             "players": [], "team_totals": {},
             "mom": None, "best": {}, "worst": {},
         }

@@ -34,13 +34,19 @@
         <h2>{{ t.recent_matches }}</h2>
         <table>
             <thead>
-                <tr><th>#</th><th>{{ t.mode_col }}</th><th>{{ t.map }}</th><th>{{ t.date }}</th><th class="num">{{ t.players }}</th></tr>
+                <tr><th>#</th><th>{{ t.mode_col }}</th><th>{{ t.result_col }}</th><th>{{ t.map }}</th><th>{{ t.date }}</th><th class="num">{{ t.players }}</th></tr>
             </thead>
             <tbody>
                 {% for m in data.recent_matches %}
                 <tr>
                     <td><a href="/matches/{{ m.id }}?lang={{ lang }}" class="player-link">{{ m.id }}</a></td>
                     <td><span class="badge {{ m.mode|lower }}">{{ t['mode_' + m.mode.lower()] }}</span></td>
+                    <td>
+                        {% if m.result == 'WIN' %}<span style="color:#04c09e;">🟢</span>
+                        {% elif m.result == 'LOSS' %}<span style="color:#f04452;">🔴</span>
+                        {% elif m.result == 'DRAW' %}<span class="muted">⚪</span>
+                        {% else %}<span class="muted">—</span>{% endif %}
+                    </td>
                     <td>{{ m.map_name or '-' }}</td>
                     <td>{{ m.match_date or '-' }}</td>
                     <td class="num">{{ m.players }}</td>
@@ -50,6 +56,34 @@
         </table>
     </div>
 </div>
+
+{% if data.win_loss.total > 0 %}
+<div class="grid grid-3" style="margin: 1.5rem 0;">
+    <div class="card stat-card">
+        <div class="value" style="color:#04c09e;">{{ data.win_loss.win_rate if data.win_loss.win_rate is not none else '-' }}%</div>
+        <div class="label">{{ t.win_rate }} ({{ data.win_loss.wins }}{{ t.win }} {{ data.win_loss.losses }}{{ t.loss }})</div>
+    </div>
+    <div class="card stat-card hp">
+        <div class="value" style="color:#04c09e;">{{ data.win_loss.by_mode.HP.win_rate if data.win_loss.by_mode.HP.win_rate is not none else '-' }}%</div>
+        <div class="label">{{ t.win_rate_hp }} ({{ data.win_loss.by_mode.HP.wins }}{{ t.win }} {{ data.win_loss.by_mode.HP.losses }}{{ t.loss }})</div>
+    </div>
+    <div class="card stat-card snd">
+        <div class="value" style="color:#04c09e;">{{ data.win_loss.by_mode.SND.win_rate if data.win_loss.by_mode.SND.win_rate is not none else '-' }}%</div>
+        <div class="label">{{ t.win_rate_snd }} ({{ data.win_loss.by_mode.SND.wins }}{{ t.win }} {{ data.win_loss.by_mode.SND.losses }}{{ t.loss }})</div>
+    </div>
+</div>
+{% elif data.win_loss.none > 0 %}
+<div class="card" style="margin: 1.5rem 0; border-left: 4px solid var(--accent);">
+    <p class="muted">{{ t.no_result_data }}</p>
+</div>
+{% endif %}
+
+{% if data.recent_results %}
+<div class="card" style="margin: 1.5rem 0;">
+    <h2>{{ t.recent_form }}</h2>
+    <div class="chart-wrap"><canvas id="formChart"></canvas></div>
+</div>
+{% endif %}
 
 <script>
 const mapData = {{ data.maps | tojson }};
@@ -76,6 +110,43 @@ new Chart(document.getElementById('mapChart'), {
     }
 });
 </script>
+
+{% if data.recent_results %}
+<script>
+const formData = {{ data.recent_results | tojson }};
+new Chart(document.getElementById('formChart'), {
+    type: 'bar',
+    data: {
+        labels: formData.map(r => '#' + r.id),
+        datasets: [{
+            label: '{{ t.recent_form }}',
+            data: formData.map(r => r.result === 'WIN' ? 1 : (r.result === 'LOSS' ? -1 : 0)),
+            backgroundColor: formData.map(r => r.result === 'WIN' ? '#04c09e' : (r.result === 'LOSS' ? '#f04452' : '#cbd2dc')),
+            borderRadius: 4,
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false }, tooltip: {
+            callbacks: {
+                label: function(ctx) {
+                    const r = formData[ctx.dataIndex];
+                    const lbl = r.result === 'WIN' ? '{{ t.win }}' : (r.result === 'LOSS' ? '{{ t.loss }}' : '{{ t.result_none }}');
+                    return (r.score_text || '') + ' ' + lbl;
+                }
+            }
+        }},
+        scales: {
+            x: { grid: { display: false }, ticks: { color: '#8b95a1' } },
+            y: { grid: { color: '#f0f3f6' }, min: -1.2, max: 1.2,
+                 ticks: { color: '#8b95a1', stepSize: 1,
+                          callback: v => v === 1 ? '{{ t.win }}' : (v === -1 ? '{{ t.loss }}' : '') } },
+        }
+    }
+});
+</script>
+{% endif %}
 
 <!-- 팀 인사이트 요약 링크 -->
 <div class="card" style="margin-top: 1.5rem; border-left: 4px solid var(--accent);">

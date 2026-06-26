@@ -332,9 +332,10 @@ def overview_stats() -> dict:
                GROUP BY LOWER(map_name) ORDER BY n DESC LIMIT 10"""
         ).fetchall()
 
-        # 최근 5매치
+        # 최근 5매치 (승패 포함)
         recent = conn.execute(
-            """SELECT id, mode, map_name, match_date,
+            """SELECT m.id, m.mode, m.map_name, m.match_date, m.result,
+                      m.team_score, m.opponent_score,
                       (SELECT COUNT(*) FROM player_stats_hp WHERE match_id=m.id) +
                       (SELECT COUNT(*) FROM player_stats_snd WHERE match_id=m.id) as players
                FROM matches m ORDER BY id DESC LIMIT 5"""
@@ -347,11 +348,14 @@ def overview_stats() -> dict:
             "total_players": total_players,
             "date_range": {"start": dr["lo"], "end": dr["hi"]},
             "maps": [{"name": r["map_name"], "count": r["n"]} for r in maps],
+            "win_loss": win_loss_summary(),
+            "recent_results": recent_results(10),
             "recent_matches": [
                 {
                     "id": r["id"], "mode": r["mode"],
                     "map_name": r["map_name"], "match_date": r["match_date"],
-                    "players": r["players"],
+                    "players": r["players"], "result": r["result"],
+                    "team_score": r["team_score"], "opponent_score": r["opponent_score"],
                 }
                 for r in recent
             ],
@@ -505,7 +509,8 @@ def match_history(limit: int = 50, offset: int = 0, mode: str = None) -> dict:
         ).fetchone()["c"]
 
         rows = conn.execute(
-            f"""SELECT m.id, m.mode, m.map_name, m.match_date,
+            f"""SELECT m.id, m.mode, m.map_name, m.match_date, m.result,
+                       m.team_score, m.opponent_score,
                        (SELECT COUNT(*) FROM player_stats_hp WHERE match_id=m.id) +
                        (SELECT COUNT(*) FROM player_stats_snd WHERE match_id=m.id) as players,
                        (SELECT ROUND(AVG(kd_ratio),2) FROM player_stats_hp WHERE match_id=m.id) avg_kd_hp,
@@ -521,6 +526,8 @@ def match_history(limit: int = 50, offset: int = 0, mode: str = None) -> dict:
                     "id": r["id"], "mode": r["mode"], "map_name": r["map_name"],
                     "match_date": r["match_date"], "players": r["players"],
                     "avg_kd": r["avg_kd_hp"] if r["mode"] == "HP" else r["avg_kd_snd"],
+                    "result": r["result"], "team_score": r["team_score"],
+                    "opponent_score": r["opponent_score"],
                 }
                 for r in rows
             ],
@@ -788,3 +795,74 @@ def map_player_stats(map_name: str, mode: str = "HP", min_matches: int = 2) -> l
                  ORDER BY avg_kd DESC"""
     with db.get_conn() as conn:
         return [dict(r) for r in conn.execute(sql, (map_name, min_matches)).fetchall()]
+
+
+# ── 승패(W/L) 통계 ──────────────────────────────────────────────────────────
+
+def win_loss_summary(mode: str = None) -> dict:
+    """팀 승패 요약.
+
+    mode: None(전체), "HP", "SND".
+    반환: {
+        total, wins, losses, draw, none, win_rate,
+        by_mode: {"HP": {...}, "SND": {...}}  (mode=None 일 때만)
+    }
+    result 값: 'WIN' / 'LOSS' / 'DRAW' / NULL(미입력).
+    win_rate = wins / (wins+losses) * 100 (무승부 제외).
+    """
+    where = "WHERE mode=?" if mode else ""
+    params = (mode,) if mode else ()
+
+    def _count(conn, w, p):
+        return conn.execute(
+            f"SELECT COUNT(*) c FROM matches {w}", p
+        ).fetchone()["c"]
+
+    with db.get_conn() as conn:
+        total = _count(conn, where, params)
+        w = _count(conn, (where + " AND result='WIN'") if where else "WHERE result='WIN'",
+                   params if where else ())
+        l = _count(conn, (where + " AND result='LOSS'") if where else "WHERE result='LOSS'",
+                   params if where else ())
+        d = _count(conn, (where + " AND result='DRAW'") if where else "WHERE result='DRAW'",
+                   params if where else ())
+        n = total - w - l - d
+        decided = w + l
+        win_rate = round(w / decided * 100, 1) if decided else None
+
+        out = {"total": total, "wins": w, "losses": l, "draw": d,
+               "none": n, "win_rate": win_rate}
+
+        if not mode:
+            out["by_mode"] = {
+                m: win_loss_summary(m) for m in ("HP", "SND")
+            }
+        return out
+
+
+def recent_results(limit: int = 10, mode: str = None) -> list:
+    """최근 N매치 승패 흐름 (시간순: 과거→최신). 차트용.
+
+    반환: [{id, mode, result, score_text}, ...]
+    result: 'WIN' / 'LOSS' / 'DRAW' / None.
+    score_text: "3-2" 형태 (스코어 없으면 None).
+    """
+    where = "WHERE mode=?" if mode else ""
+    params = (mode,) if mode else ()
+    with db.get_conn() as conn:
+        rows = conn.execute(
+            f"""SELECT id, mode, match_date, result, team_score, opponent_score
+                FROM matches {where}
+                ORDER BY id DESC LIMIT ?""",
+            params + (limit,),
+        ).fetchall()
+    out = []
+    for r in reversed(rows):  # DESC로 받아서 reverse → 과거→최신
+        ts = None
+        if r["team_score"] is not None and r["opponent_score"] is not None:
+            ts = f"{r['team_score']}-{r['opponent_score']}"
+        out.append({
+            "id": r["id"], "mode": r["mode"], "match_date": r["match_date"],
+            "result": r["result"], "score_text": ts,
+        })
+    return out

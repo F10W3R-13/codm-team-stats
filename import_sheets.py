@@ -259,20 +259,30 @@ def insert_stat_rows(conn, rows, mode):
 
 
 def main():
-    print("== 구글 시트 → SQLite 마이그레이션 ==")
-    db_path = db.DB_PATH
-    if os.path.exists(db_path):
-        os.remove(db_path)
-        print(f"기존 DB 삭제: {db_path}")
+    # 배포 환경(railway run)에서는 DATABASE_URL 이 주입되어 Postgres 로 동작.
+    # 로컬에서는 codm.db (SQLite) 로 동작.
+    using_pg = db.USE_POSTGRES
+    target = "Postgres" if using_pg else f"SQLite ({db.DB_PATH})"
+    print(f"== 구글 시트 → {target} 마이그레이션 ==")
 
-    db.init_db(db_path)
-    print(f"DB 생성: {db_path}")
+    if not using_pg:
+        # 로컬 SQLite: 기존 파일 삭제 후 새로 생성 (중복 방지)
+        if os.path.exists(db.DB_PATH):
+            os.remove(db.DB_PATH)
+            print(f"기존 DB 삭제: {db.DB_PATH}")
+    else:
+        # Postgres: 스키마만 보장 (데이터는 이미 비어 있다고 가정;
+        # 재실행 시 중복이 생기지 않도록 upsert 사용)
+        print("Postgres 모드 — 기존 데이터는 upsert 로 갱신됩니다")
+
+    db.init_db()
+    print(f"DB 준비 완료: {target}")
 
     print("구글 시트 읽는 중...")
     hp_rows, snd_rows, alias_rows = fetch_sheets()
     print(f"  HP: {len(hp_rows)}행, SND: {len(snd_rows)}행, Alias: {len(alias_rows)}행")
 
-    with db.get_conn(db_path) as conn:
+    with db.get_conn() as conn:
         n_alias = insert_aliases(conn, alias_rows)
         print(f"Alias: {n_alias}건 등록")
 

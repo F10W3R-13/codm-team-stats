@@ -18,6 +18,8 @@
             <tr>
                 <th class="num">#</th>
                 <th>{{ t.mode_col }}</th>
+                <th>{{ t.result_col }}</th>
+                <th class="num">{{ t.score_col }}</th>
                 <th>{{ t.map }}</th>
                 <th>{{ t.date }}</th>
                 <th class="num">{{ t.players }}</th>
@@ -29,6 +31,13 @@
             <tr>
                 <td class="num"><a href="/matches/{{ m.id }}?lang={{ lang }}" class="player-link">{{ m.id }}</a></td>
                 <td><span class="badge {{ m.mode|lower }}">{{ t['mode_' + m.mode.lower()] }}</span></td>
+                <td>
+                    {% if m.result == 'WIN' %}<span style="color:#04c09e;font-weight:600;">🟢 {{ t.win }}</span>
+                    {% elif m.result == 'LOSS' %}<span style="color:#f04452;font-weight:600;">🔴 {{ t.loss }}</span>
+                    {% elif m.result == 'DRAW' %}<span class="muted">⚪ {{ t.draw }}</span>
+                    {% else %}<span class="muted">—</span>{% endif %}
+                </td>
+                <td class="num">{{ m.team_score }}-{{ m.opponent_score }}</td>
                 <td>{{ m.map_name or '-' }}</td>
                 <td>{{ m.match_date or '-' }}</td>
                 <td class="num">{{ m.players }}</td>

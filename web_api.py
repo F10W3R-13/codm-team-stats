@@ -133,7 +133,12 @@ async def match_detail(request: Request, match_id: int, lang: str = Query("ko"))
     report = analytics.match_report(match_id)
     if not report:
         raise HTTPException(404, "매치를 찾을 수 없습니다")
-    return render("match_detail.html", lang=lang, report=report)
+    # GPT 매치 인사이트 (캐싱 — 1시간 TTL, 매치 기록 시 무효화)
+    insight = insight_cache.get("match", str(match_id), lang)
+    if insight is None:
+        insight = analytics_insights.match_insight(report, lang=lang)
+        insight_cache.set("match", str(match_id), lang, insight)
+    return render("match_detail.html", lang=lang, report=report, insight=insight)
 
 
 @app.get("/trends", response_class=HTMLResponse)
