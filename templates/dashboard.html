@@ -23,6 +23,12 @@
         <div class="value" style="color: var(--accent-2);">{{ data.total_players }}</div>
         <div class="label">{{ t.stat_players }}</div>
     </div>
+    {% if data.team_zcs is not none %}
+    <div class="card stat-card" style="border-left: 4px solid var(--accent);">
+        <div class="value" style="color: var(--accent);">{{ data.team_zcs }}</div>
+        <div class="label">{{ t.zcs_label }} ({{ t.zcs_full }})</div>
+    </div>
+    {% endif %}
 </div>
 
 <div class="grid grid-2">
@@ -34,7 +40,7 @@
         <h2>{{ t.recent_matches }}</h2>
         <table>
             <thead>
-                <tr><th>#</th><th>{{ t.mode_col }}</th><th>{{ t.result_col }}</th><th>{{ t.map }}</th><th>{{ t.date }}</th><th class="num">{{ t.players }}</th></tr>
+                <tr><th>#</th><th>{{ t.mode_col }}</th><th>{{ t.result_col }}</th><th>{{ t.map }}</th><th class="num">{{ t.zcs_label }}</th><th>{{ t.date }}</th><th class="num">{{ t.players }}</th></tr>
             </thead>
             <tbody>
                 {% for m in data.recent_matches %}
@@ -48,6 +54,7 @@
                         {% else %}<span class="muted">—</span>{% endif %}
                     </td>
                     <td>{{ m.map_name or '-' }}</td>
+                    <td class="num">{% if m.avg_zcs is not none %}<strong style="color: var(--accent);">{{ m.avg_zcs }}</strong>{% else %}-{% endif %}</td>
                     <td>{{ m.match_date or '-' }}</td>
                     <td class="num">{{ m.players }}</td>
                 </tr>

@@ -54,7 +54,13 @@
 
 ## 6. 이 프로젝트 메모
 
-- 스택: **FastAPI + Jinja2(HTML 템플릿) + SQLite**, Discord 봇(`bot.py`) 별도.
+- 스택: **FastAPI + Jinja2(HTML 템플릿) + SQLite/Postgres**(듀얼), Discord 봇(`bot.py`) 별도.
 - 웹 실행: `uvicorn web_api:app --port 8000` (CWD = 이 폴더여야 DB·템플릿 경로가 맞음).
 - 템플릿 스타일은 `templates/base.html`의 `<style>` 한 곳에 모여 있고, 다른 페이지가 그 클래스를 공유한다. (디자인은 토스 디자인 톤 적용됨)
 - 비밀정보(`.env`, `service-account.json`)·DB(`codm.db`)·CSV는 절대 커밋하지 않는다.
+
+### 핵심 지표: ZCS (Zone Control Score)
+- **ZCS는 이 프로젝트에서 가장 중요한 코칭 지표다.** K/D와 함께 병기하되, HP 컨텍스트에서는 ZCS를 제1 강조 지표로 다룬다.
+- 공식: `ZCS = max(0, 1.1·OBJ + 8·캡처킬 + 4.1·K − 5·D)` (HP 전용, SND엔 OBJ/캡처킬 부재로 계산 불가).
+- 새 선수 평가/표시 로직을 짤 때, HP라면 **K/D와 ZCS를 함께 노출**하는 것을 기본으로 한다. SND에는 ZCS를 억지로 넣지 않는다.
+- ZCS 계산은 `metrics.py`의 단일 진실 공식을 따른다. SQL에서도 동일 공식(`MAX(0, 1.1*obj_time + 8*capture_kill + 4.1*kills - 5*deaths)`)을 쓴다.

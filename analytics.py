@@ -4,6 +4,7 @@
 # GPT 인사이트는 analytics_insights.py 에서 별도 처리.
 
 import db
+import metrics
 
 
 # ── 매치 리포트 ────────────────────────────────────────────────────────────
@@ -51,6 +52,8 @@ def match_report(match_id: int) -> dict:
                     "kd": r["kd_ratio"] or 0, "obj": r["obj_time"] or 0,
                     "score": r["score"] or 0, "impact": r["impact"] or 0,
                     "dmg": r["total_damage"] or 0, "cap": r["capture_kill"] or 0,
+                    "zcs": metrics.compute_zcs(r["obj_time"], r["capture_kill"],
+                                               r["kills"], r["deaths"]),
                 })
             result["team_totals"] = {
                 "kills": sum(p["k"] for p in result["players"]),
@@ -58,6 +61,8 @@ def match_report(match_id: int) -> dict:
                 "score": sum(p["score"] for p in result["players"]),
                 "dmg": sum(p["dmg"] for p in result["players"]),
                 "obj": sum(p["obj"] for p in result["players"]),
+                "zcs": round(sum(p["zcs"] for p in result["players"] if p["zcs"]) /
+                             max(1, len([p for p in result["players"] if p["zcs"]])), 1),
             }
             # 항목별 1위/꼴찌 (높을수록 좋은 것)
             for stat, label in [("k", "킬"), ("kd", "K/D"), ("dmg", "딜"),
@@ -386,6 +391,7 @@ def coaching_hub(mode: str = "HP", days: int = 30) -> dict:
                 form_alerts.append({
                     "name": p["name"], "season_kd": season_kd,
                     "recent_kd": recent_kd, "delta_pct": delta_pct,
+                    "season_zcs": p.get("zcs"),
                 })
     # 하락폭 큰 순
     form_alerts.sort(key=lambda x: x["delta_pct"])
@@ -394,9 +400,23 @@ def coaching_hub(mode: str = "HP", days: int = 30) -> dict:
     strong_map = maps[0] if maps else None
     weak_map = maps[-1] if maps else None
 
+    # ZCS 데이터 (HP 전용)
+    team_zcs = None
+    zcs_trend = []
+    if mode == "HP":
+        team_zcs = queries.overview_stats().get("team_zcs")
+        if team_zcs is not None:
+            team_zcs = float(team_zcs)
+        zcs_trend = queries.recent_zcs_trend(10)
+        # Postgres Decimal → float (JSON 직렬화/차트용)
+        for r in zcs_trend:
+            if r.get("avg_zcs") is not None:
+                r["avg_zcs"] = float(r["avg_zcs"])
+
     return {
         "trend": trend, "win_loss": win_loss,
         "mode": mode, "days": days,
         "form_alerts": form_alerts,
         "strong_map": strong_map, "weak_map": weak_map,
+        "team_zcs": team_zcs, "zcs_trend": zcs_trend,
     }

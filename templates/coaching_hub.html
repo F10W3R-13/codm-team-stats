@@ -6,6 +6,18 @@
 <h1>🎯 {{ t.hub_title }}</h1>
 <p class="muted">{{ t.hub_subtitle }}</p>
 
+{% if data.team_zcs is not none %}
+<div class="card" style="margin: 1.5rem 0; border-left: 4px solid var(--accent); display:flex; align-items:center; gap:2rem; flex-wrap:wrap;">
+    <div>
+        <div class="muted" style="font-size:.85rem;">{{ t.zcs_team }}</div>
+        <div style="font-size:2.4rem; font-weight:800; color: var(--accent);">{{ data.team_zcs }}</div>
+    </div>
+    {% if data.zcs_trend %}
+    <div style="flex:1; min-width:300px; height:80px;"><canvas id="zcsChart"></canvas></div>
+    {% endif %}
+</div>
+{% endif %}
+
 {# ── 팀 트렌드 요약 (최근 vs 시즌) ── #}
 <div class="card" style="margin: 1.5rem 0;">
     <h2>{{ t.hub_team_trend }}</h2>
@@ -61,7 +73,7 @@
     <p class="muted" style="font-size:.85rem;">{{ t.hub_form_help }}</p>
     <table style="margin-top:0.8rem;">
         <thead>
-            <tr><th>{{ t.player }}</th><th class="num">{{ t.hub_season_kd }}</th><th class="num">{{ t.hub_recent_kd }}</th><th class="num">Δ</th></tr>
+            <tr><th>{{ t.player }}</th><th class="num">{{ t.hub_season_kd }}</th><th class="num">{{ t.hub_recent_kd }}</th><th class="num">{{ t.zcs_label }}</th><th class="num">Δ</th></tr>
         </thead>
         <tbody>
             {% for p in data.form_alerts %}
@@ -69,6 +81,7 @@
                 <td><a href="/players/{{ p.name }}?lang={{ lang }}" class="player-link">{{ p.name }}</a></td>
                 <td class="num">{{ p.season_kd }}</td>
                 <td class="num">{{ p.recent_kd }}</td>
+                <td class="num"><strong style="color: var(--accent);">{{ p.season_zcs or '-' }}</strong></td>
                 <td class="num" style="color:#f04452;font-weight:600;">{{ p.delta_pct }}%</td>
             </tr>
             {% endfor %}
@@ -127,4 +140,30 @@
         <p class="muted" style="font-size:.85rem;">{{ t.hub_link_overview_help }}</p>
     </a>
 </div>
+
+{% if data.zcs_trend %}
+<script>
+const zcsData = {{ data.zcs_trend | tojson }};
+new Chart(document.getElementById('zcsChart'), {
+    type: 'line',
+    data: {
+        labels: zcsData.map(r => '#' + r.id),
+        datasets: [{
+            data: zcsData.map(r => r.avg_zcs),
+            borderColor: '#3182f6',
+            backgroundColor: 'rgba(49,130,246,0.1)',
+            fill: true, tension: 0.3, pointRadius: 2,
+        }]
+    },
+    options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+            x: { display: false },
+            y: { grid: { color: '#f0f3f6' }, ticks: { color: '#8b95a1' } },
+        }
+    }
+});
+</script>
+{% endif %}
 {% endblock %}

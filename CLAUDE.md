@@ -63,6 +63,12 @@
 - 비밀정보(`.env`, `service-account.json`)·DB(`codm.db`)·CSV·백업(`*.bak`, `codm.db.backup*`)은 절대 커밋하지 않는다. `.gitignore`에 이미 포함.
 - GPT 프롬프트(`prompt.py`)와 커스텀 지표 공식(`metrics.py`)은 출처가 정해져 있어 함부로 수정 금지.
 
+### 핵심 지표: ZCS (Zone Control Score)
+- **ZCS는 이 프로젝트에서 가장 중요한 코칭 지표다.** K/D와 함께 병기하되, HP 컨텍스트에서는 ZCS를 제1 강조 지표로 다룬다.
+- 공식: `ZCS = max(0, 1.1·OBJ + 8·캡처킬 + 4.1·K − 5·D)` (HP 전용 — SND엔 OBJ/캡처킬이 없어 계산 불가).
+- 새 선수 평가/표시 로직을 짤 때, HP라면 **K/D와 ZCS를 함께 노출**하는 것을 기본으로 한다. SND에는 ZCS를 억지로 넣지 않는다.
+- 진실 공식은 `metrics.py`의 `compute_zcs()`. SQL에서도 동일 공식(`MAX(0, 1.1*obj_time + 8*capture_kill + 4.1*kills - 5*deaths)`)을 쓰며, `_adapt_sql`이 Postgres용으로 `GREATEST(0, ...)`로 변환한다.
+
 ---
 
 ## 7. Git 워크플로우 ⭐ (중요)

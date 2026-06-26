@@ -325,6 +325,12 @@ def overview_stats() -> dict:
             "SELECT MIN(match_date) lo, MAX(match_date) hi FROM matches WHERE match_date IS NOT NULL"
         ).fetchone()
 
+        # 팀 평균 ZCS (HP 전체)
+        team_zcs = conn.execute(
+            """SELECT ROUND(AVG(MAX(0, 1.1*obj_time + 8*capture_kill + 4.1*kills - 5*deaths)),1) z
+               FROM player_stats_hp"""
+        ).fetchone()["z"]
+
         # 맵 분포 (대소문자 정규화)
         maps = conn.execute(
             """SELECT LOWER(map_name) map_name, COUNT(*) n FROM matches
@@ -332,12 +338,14 @@ def overview_stats() -> dict:
                GROUP BY LOWER(map_name) ORDER BY n DESC LIMIT 10"""
         ).fetchall()
 
-        # 최근 5매치 (승패 포함)
+        # 최근 5매치 (승패 + ZCS 포함)
         recent = conn.execute(
             """SELECT m.id, m.mode, m.map_name, m.match_date, m.result,
                       m.team_score, m.opponent_score,
                       (SELECT COUNT(*) FROM player_stats_hp WHERE match_id=m.id) +
-                      (SELECT COUNT(*) FROM player_stats_snd WHERE match_id=m.id) as players
+                      (SELECT COUNT(*) FROM player_stats_snd WHERE match_id=m.id) as players,
+                      (SELECT ROUND(AVG(MAX(0, 1.1*obj_time + 8*capture_kill + 4.1*kills - 5*deaths)),1)
+                       FROM player_stats_hp WHERE match_id=m.id) avg_zcs
                FROM matches m ORDER BY id DESC LIMIT 5"""
         ).fetchall()
 
@@ -347,6 +355,7 @@ def overview_stats() -> dict:
             "snd_matches": snd_matches,
             "total_players": total_players,
             "date_range": {"start": dr["lo"], "end": dr["hi"]},
+            "team_zcs": team_zcs,
             "maps": [{"name": r["map_name"], "count": r["n"]} for r in maps],
             "win_loss": win_loss_summary(),
             "recent_results": recent_results(10),
@@ -356,6 +365,7 @@ def overview_stats() -> dict:
                     "map_name": r["map_name"], "match_date": r["match_date"],
                     "players": r["players"], "result": r["result"],
                     "team_score": r["team_score"], "opponent_score": r["opponent_score"],
+                    "avg_zcs": r["avg_zcs"],
                 }
                 for r in recent
             ],
@@ -514,7 +524,9 @@ def match_history(limit: int = 50, offset: int = 0, mode: str = None) -> dict:
                        (SELECT COUNT(*) FROM player_stats_hp WHERE match_id=m.id) +
                        (SELECT COUNT(*) FROM player_stats_snd WHERE match_id=m.id) as players,
                        (SELECT ROUND(AVG(kd_ratio),2) FROM player_stats_hp WHERE match_id=m.id) avg_kd_hp,
-                       (SELECT ROUND(AVG(kd_ratio),2) FROM player_stats_snd WHERE match_id=m.id) avg_kd_snd
+                       (SELECT ROUND(AVG(kd_ratio),2) FROM player_stats_snd WHERE match_id=m.id) avg_kd_snd,
+                       (SELECT ROUND(AVG(MAX(0, 1.1*obj_time + 8*capture_kill + 4.1*kills - 5*deaths)),1)
+                        FROM player_stats_hp WHERE match_id=m.id) avg_zcs
                 FROM matches m {where}
                 ORDER BY m.id DESC LIMIT ? OFFSET ?""",
             params,
@@ -526,6 +538,7 @@ def match_history(limit: int = 50, offset: int = 0, mode: str = None) -> dict:
                     "id": r["id"], "mode": r["mode"], "map_name": r["map_name"],
                     "match_date": r["match_date"], "players": r["players"],
                     "avg_kd": r["avg_kd_hp"] if r["mode"] == "HP" else r["avg_kd_snd"],
+                    "avg_zcs": r["avg_zcs"],
                     "result": r["result"], "team_score": r["team_score"],
                     "opponent_score": r["opponent_score"],
                 }
@@ -866,3 +879,23 @@ def recent_results(limit: int = 10, mode: str = None) -> list:
             "result": r["result"], "score_text": ts,
         })
     return out
+
+
+def recent_zcs_trend(limit: int = 10) -> list:
+    """최근 N HP 매치의 팀 평균 ZCS 시계열 (과거→최신). 허브/대시보드 차트용.
+
+    반환: [{id, match_date, avg_zcs}, ...]
+    """
+    with db.get_conn() as conn:
+        rows = conn.execute(
+            f"""SELECT m.id, m.match_date,
+                       (SELECT ROUND(AVG(MAX(0, 1.1*obj_time + 8*capture_kill + 4.1*kills - 5*deaths)),1)
+                        FROM player_stats_hp WHERE match_id=m.id) avg_zcs
+                FROM matches m WHERE m.mode='HP'
+                ORDER BY m.id DESC LIMIT ?""",
+            (limit,),
+        ).fetchall()
+    return [
+        {"id": r["id"], "match_date": r["match_date"], "avg_zcs": r["avg_zcs"]}
+        for r in reversed(rows)
+    ]

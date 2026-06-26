@@ -20,6 +20,7 @@
                 <th class="num">{{ t.avg_d }}</th>
                 <th class="num">{{ t.kd }}</th>
                 {% if mode == 'HP' %}
+                <th class="num">{{ t.zcs_label }}</th>
                 <th class="num">{{ t.avg_obj }}</th>
                 {% else %}
                 <th class="num">{{ t.avg_a }}</th>
@@ -38,6 +39,7 @@
                 <td class="num">{{ p.avg_d }}</td>
                 <td class="num"><strong style="color: var(--accent-2);">{{ p.avg_kd }}</strong></td>
                 {% if mode == 'HP' %}
+                <td class="num"><strong style="color: var(--accent);">{{ p.zcs }}</strong></td>
                 <td class="num">{{ p.avg_obj }}</td>
                 {% else %}
                 <td class="num">{{ p.avg_a }}</td>

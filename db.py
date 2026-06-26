@@ -142,6 +142,10 @@ def _adapt_sql(sql: str) -> str:
     )
     # COLLATE NOCASE → Postgres 미지원, 제거
     out = out.replace(" COLLATE NOCASE", "")
+    # MAX(0, expr) (SQLite 전용 2-arg 최대) → Postgres GREATEST(0, expr)
+    # SQLite는 GREATEST 미지원이므로 코드 원본은 MAX(0, ...)로 작성.
+    import re
+    out = re.sub(r"MAX\(0,\s*([^)]+)\)", r"GREATEST(0, \1)", out)
     return out
 
 

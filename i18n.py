@@ -200,6 +200,12 @@ translations = {
         "hub_link_players": "선수별 스탯 · 커스텀 지표",
         "hub_link_overview": "대시보드",
         "hub_link_overview_help": "전체 통계 · 맵 분포 · 매치 히스토리",
+        # ZCS (핵심 지표)
+        "zcs_label": "ZCS",
+        "zcs_full": "존 컨트롤 점수",
+        "zcs_team": "팀 평균 ZCS",
+        "zcs_trend_title": "팀 ZCS 추이",
+        "avg_zcs_col": "평균 ZCS",
     },
 
     # ── 영어 (선수용) ────────────────────────────────────────────────────
@@ -380,6 +386,11 @@ translations = {
         "hub_link_players": "Player stats · custom metrics",
         "hub_link_overview": "Dashboard",
         "hub_link_overview_help": "Overall stats · map distribution · match history",
+        "zcs_label": "ZCS",
+        "zcs_full": "Zone Control Score",
+        "zcs_team": "Team Avg ZCS",
+        "zcs_trend_title": "Team ZCS Trend",
+        "avg_zcs_col": "Avg ZCS",
     },
 
     # ── 스페인어 (선수용) ────────────────────────────────────────────────
@@ -560,6 +571,11 @@ translations = {
         "hub_link_players": "Stats de jugadores · métricas",
         "hub_link_overview": "Panel",
         "hub_link_overview_help": "Stats generales · distribución · historial",
+        "zcs_label": "ZCS",
+        "zcs_full": "Puntaje Control de Zona",
+        "zcs_team": "ZCS Promedio del Equipo",
+        "zcs_trend_title": "Tendencia ZCS del Equipo",
+        "avg_zcs_col": "ZCS Promedio",
     },
 }
 

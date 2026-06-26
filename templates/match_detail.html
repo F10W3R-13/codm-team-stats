@@ -36,7 +36,8 @@
 <div class="card" style="margin-bottom: 1.5rem;">
     <h2>{{ t.team_avg }}</h2>
     {% if report.mode == 'HP' %}
-    <p>{{ t.kills }} <strong>{{ "%.1f"|format(report.team_totals.kills / (report.players|length)) }}</strong> ·
+    <p>{{ t.zcs_label }} <strong style="color:var(--accent);">{{ report.team_totals.zcs }}</strong> ·
+       {{ t.kills }} <strong>{{ "%.1f"|format(report.team_totals.kills / (report.players|length)) }}</strong> ·
        {{ t.deaths }} {{ "%.1f"|format(report.team_totals.deaths / (report.players|length)) }} ·
        {{ t.dmg }} {{ "%.0f"|format(report.team_totals.dmg / (report.players|length)) }} ·
        {{ t.obj }} {{ "%.0f"|format(report.team_totals.obj / (report.players|length)) }} ·
@@ -57,7 +58,7 @@
             <tr>
                 <th>{{ t.player }}</th><th class="num">{{ t.kills }}</th><th class="num">{{ t.deaths }}</th>
                 <th class="num">{{ t.kd }}</th><th class="num">{{ t.obj }}</th>
-                <th class="num">{{ t.score }}</th><th class="num">{{ t.dmg }}</th><th class="num">{{ t.cap }}</th>
+                <th class="num">{{ t.score }}</th><th class="num">{{ t.dmg }}</th><th class="num">{{ t.cap }}</th><th class="num">{{ t.zcs_label }}</th>
             </tr>
         </thead>
         <tbody>
@@ -71,6 +72,7 @@
                 <td class="num">{{ p.score }}</td>
                 <td class="num">{{ p.dmg }}</td>
                 <td class="num">{{ p.cap }}</td>
+                <td class="num"><strong style="color: var(--accent);">{{ p.zcs }}</strong></td>
             </tr>
             {% endfor %}
         </tbody>

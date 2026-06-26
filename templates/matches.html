@@ -23,6 +23,7 @@
                 <th>{{ t.map }}</th>
                 <th>{{ t.date }}</th>
                 <th class="num">{{ t.players }}</th>
+                <th class="num">{{ t.zcs_label }}</th>
                 <th class="num">{{ t.avg_kd_col }}</th>
             </tr>
         </thead>
@@ -41,6 +42,7 @@
                 <td>{{ m.map_name or '-' }}</td>
                 <td>{{ m.match_date or '-' }}</td>
                 <td class="num">{{ m.players }}</td>
+                <td class="num">{% if m.avg_zcs is not none %}<strong style="color: var(--accent);">{{ m.avg_zcs }}</strong>{% else %}-{% endif %}</td>
                 <td class="num">{{ m.avg_kd or '-' }}</td>
             </tr>
             {% endfor %}
