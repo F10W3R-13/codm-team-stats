@@ -95,3 +95,4 @@
 ### 데이터 현황 메모
 - 승패(`result`/`team_score`/`opponent_score`) 데이터는 대부분 NULL → `/admin`에서 수동 입력 필요. 입력 전까지 승률/폼 차트는 비활성.
 - `service-account.json`은 로컬 파일 방식 + 배포는 `GOOGLE_SERVICE_ACCOUNT_JSON` 환경변수(JSON 통째로) 양쪽 지원.
+- **배포/운영 디테일은 `DEPLOYMENT.md` 참조** (Railway 단계별 가이드, 재배포/롤백, 비용, 문제해결, 용어사전).

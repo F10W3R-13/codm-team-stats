@@ -179,3 +179,5 @@ git push origin main
 - 실행: Procfile → `python start.py` (봇+웹 subprocess).
 - 환경변수: `DISCORD_BOT_TOKEN`, `OPENAI_API_KEY`, `DATABASE_URL`(자동), `PORT`(자동), `GOOGLE_SERVICE_ACCOUNT_JSON`(서비스 계정 JSON 통째로; 로컬은 `GOOGLE_SERVICE_ACCOUNT_FILE` 파일 경로).
 - 배포 후 DB는 비어있음 → `import_sheets.py`로 구글 시트 → Postgres 마이그레이션 필요.
+- **재배포**: `main` push 또는 환경변수 변경 시 자동. 롤백은 Deployments 탭에서.
+- **배포 방법/운영 디테일(초보용 단계별, 문제해결, 용어사전)은 `DEPLOYMENT.md` 참조.**

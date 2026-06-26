@@ -157,6 +157,32 @@ Railway 콘솔에서 `import_sheets.py`를 실행해 구글 시트 → Postgres�
 
 ---
 
+## 재배포 & 롤백
+
+### 코드 변경 시 재배포 (자동)
+- `main` 브랜치에 **push 하면 Railway가 감지해서 자동 재배포** (보통 1~2분).
+- 별도 버튼 안 눌러도 됨. 로컬에서 `git push origin main` 하면 끝.
+- 배포 상태는 Railway → **Deployments** 탭에서 확인 (빌드 로그 실시간).
+- 환경변수(Variables)를 변경해도 자동 재배포됨.
+
+### 수동 재배포
+- Railway → 웹 서비스 → **Deployments** 탭 → 가장 최근 배포 옆 **⋮** 또는 **Redeploy** 버튼.
+
+### 롤백 (이전 버전으로 되돌리기)
+최신 배포에 문제가 생기면 이전 정상 버전으로 즉시 되돌릴 수 있음:
+1. Railway → 웹 서비스 → **Deployments** 탭
+2. 목록에서 **정상 작동하던 이전 배포** 클릭
+3. **Deploy** 또는 **Rollback to this deployment** 버튼 클릭
+4. 1분 내로 그 버전으로 전환됨
+
+> 💡 코드 수준 롤백이 필요하면 로컬에서 `git revert <커밋해시>` 후 push.
+
+### 현재 배포 주소
+`https://web-production-4deec.up.railway.app`
+(도메인은 Railway → 웹 서비스 → Settings → Networking에서 확인/변경 가능)
+
+---
+
 ## 비용 안내
 
 - Railway는 **무료 크레딧($5 또는 500시간)** 제공 후 종량제
