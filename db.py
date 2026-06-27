@@ -448,3 +448,106 @@ def list_aliases(player_name: str = None, source: str = None) -> list:
                  "player_name": r["player_name"],
                  "source": r["source"] or "Manual"}
                 for r in rows]
+
+
+# ── 미매칭(게스트/OCR 실패) 닉네임 관리 ──────────────────────────────
+# GPT가 정규화하지 못한 IGN은 resolve_player_id 가 신규 player 로 만들어버린다.
+# 이 함수는 "정식 6인 로스터가 아닌" player 행들을 모아본다.
+# ROSTER_NAMES 는 prompt.DEFAULT_ROSTER 와 동일 세트 — 단일 진실 공식.
+
+ROSTER_NAMES = ("Cartels", "unravel", "Kingz", "Shisui", "Maozyn", "Exile")
+
+
+def list_unmatched_players() -> list:
+    """정식 로스터(6인)가 아닌 player 행들. 게스트/용병/OCR 실패 IGN 후보.
+
+    반환: [{"id","name","matches","aliases"}]
+      - matches: 이 player 에 매핑된 매치 스탯 행 수 (HP+SND 합)
+      - aliases: 이 player 에 매핑된 alias 행 수
+    """
+    with get_conn() as conn:
+        roster_lower = tuple(n.lower() for n in ROSTER_NAMES)
+        rows = conn.execute(
+            """SELECT p.id id, p.name name
+               FROM players p
+               WHERE LOWER(p.name) NOT IN ({})
+               ORDER BY p.name""".format(
+                ",".join(["?"] * len(roster_lower))
+            ),
+            roster_lower,
+        ).fetchall()
+        result = []
+        for r in rows:
+            pid = r["id"]
+            hp = conn.execute(
+                "SELECT COUNT(*) c FROM player_stats_hp WHERE player_id = ?", (pid,)
+            ).fetchone()["c"]
+            snd = conn.execute(
+                "SELECT COUNT(*) c FROM player_stats_snd WHERE player_id = ?", (pid,)
+            ).fetchone()["c"]
+            al = conn.execute(
+                "SELECT COUNT(*) c FROM aliases WHERE player_id = ?", (pid,)
+            ).fetchone()["c"]
+            result.append({
+                "id": pid, "name": r["name"],
+                "matches": int(hp) + int(snd), "aliases": int(al),
+            })
+        return result
+
+
+def merge_player(src_player_id: int, dst_player_name: str) -> dict:
+    """게스트(src)를 정식 선수(dst)로 병합.
+
+    src 의 모든 매치 스탯/alias 를 dst 로 옮긴 뒤 src 행 삭제.
+    같은 매치에 src/dst 둘 다 있으면 충돌(UNIQUE(match_id,player_id)) — 그런 행은 스킵.
+    """
+    with get_conn() as conn:
+        # dst player 확보 (없으면 생성)
+        dst_sql = (
+            "SELECT id FROM players WHERE LOWER(name) = LOWER(%s)" if USE_POSTGRES else
+            "SELECT id FROM players WHERE name = ? COLLATE NOCASE"
+        )
+        row = conn.execute(dst_sql, (dst_player_name,)).fetchone()
+        dst_id = row["id"] if row else conn.execute_returning_id(
+            "INSERT INTO players(name) VALUES (?)", (dst_player_name,)
+        )
+        if dst_id == src_player_id:
+            return {"ok": False, "message": "같은 선수입니다"}
+
+        # alias 이관.
+        # 1) dst 에 이미 존재하는 ign (충돌) — src 행을 먼저 리스트업 후 삭제
+        # 2) 남은 src alias 는 player_id 를 dst 로 UPDATE
+        # (SELECT 커서 순회 중 INSERT/UPDATE 시 SQLite 커서 충돌 방지를 위해 id 리스트로 선수집)
+        src_alias_igns = [r["ign"] for r in conn.execute(
+            "SELECT ign FROM aliases WHERE player_id = ?", (src_player_id,)
+        ).fetchall()]
+        if src_alias_igns:
+            # 충돌 ign (dst 에 이미 있음) 삭제
+            placeholders_ign = ",".join(["?"] * len(src_alias_igns))
+            conn.execute(
+                f"DELETE FROM aliases WHERE player_id = ? AND ign IN ("
+                f"SELECT ign FROM aliases WHERE player_id = ? AND ign IN ({placeholders_ign}))",
+                (src_player_id, dst_id, *src_alias_igns),
+            )
+            # 남은 src alias 를 dst 로 이관
+            conn.execute(
+                "UPDATE aliases SET player_id = ? WHERE player_id = ?",
+                (dst_id, src_player_id),
+            )
+
+        # 매치 스탯 이관: 같은 match_id 에 dst 가 이미 있으면 충돌 행은 삭제(src 버림)
+        for tbl in ("player_stats_hp", "player_stats_snd"):
+            # 충돌행(같은 match_id 에 dst 있음) 먼저 삭제
+            conn.execute(
+                f"DELETE FROM {tbl} WHERE player_id = ? AND match_id IN "
+                f"(SELECT match_id FROM {tbl} WHERE player_id = ?)",
+                (src_player_id, dst_id),
+            )
+            conn.execute(
+                f"UPDATE {tbl} SET player_id = ? WHERE player_id = ?",
+                (dst_id, src_player_id),
+            )
+
+        # src player 행 삭제
+        conn.execute("DELETE FROM players WHERE id = ?", (src_player_id,))
+        return {"ok": True, "message": f"✅ 병합 완료 → {dst_player_name}", "dst": dst_player_name}

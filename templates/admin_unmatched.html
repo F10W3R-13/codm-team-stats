@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block title %}{{ t.unmatched_title }} — CODM Stats{% endblock %}
+{% block nav_admin %}active{% endblock %}
+
+{% block content %}
+<a href="/admin?lang={{ lang }}" class="muted" style="text-decoration:none;">← {{ t.nav_admin }}</a>
+<h1>{{ t.unmatched_title }}</h1>
+
+<!-- admin 서브탭 -->
+<div class="subtabs">
+    <a href="/admin?lang={{ lang }}" class="subtab">📋 {{ t.admin_tab_matches }}</a>
+    <a href="/admin/aliases?lang={{ lang }}" class="subtab">🏷️ {{ t.admin_tab_aliases }}</a>
+    <a href="/admin/unmatched?lang={{ lang }}" class="subtab active">🔍 {{ t.admin_tab_unmatched }}</a>
+</div>
+
+<p class="muted">{{ t.unmatched_subtitle }}</p>
+
+<div class="card">
+    <h2>{{ t.unmatched_list }} ({{ unmatched|length }})</h2>
+    {% if unmatched %}
+    <div class="table-wrap">
+    <table>
+        <thead>
+            <tr>
+                <th>{{ t.alias_ign }}</th>
+                <th class="num">{{ t.unmatched_matches }}</th>
+                <th class="num">{{ t.alias_source }}</th>
+                <th>{{ t.unmatched_merge_to }}</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for u in unmatched %}
+            <tr data-src-id="{{ u.id }}">
+                <td><strong>{{ u.name }}</strong></td>
+                <td class="num">{{ u.matches }}</td>
+                <td class="num">{{ u.aliases }}</td>
+                <td>
+                    <select class="merge-dst-{{ u.id }}" style="min-width:120px;">
+                        <option value="" disabled selected>{{ t.alias_select_player }}</option>
+                        {% for r in roster %}
+                        <option value="{{ r }}">{{ r }}</option>
+                        {% endfor %}
+                    </select>
+                </td>
+                <td>
+                    <button type="button" onclick="mergePlayer('{{ u.id }}', '{{ u.name }}')"
+                        style="padding:0.3rem 0.7rem; background:var(--accent); color:white; border:none; border-radius:8px; cursor:pointer; font-size:0.85rem;">
+                        {{ t.unmatched_merge_btn }} →
+                    </button>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    </div>
+    {% else %}
+    <p class="muted" style="padding:1.5rem 0;">✅ {{ t.unmatched_empty }}</p>
+    {% endif %}
+</div>
+
+<script>
+function flash(msg, ok=true) {
+    const d = document.createElement('div');
+    d.textContent = msg;
+    d.style.cssText = `position:fixed;top:20px;right:20px;padding:0.8rem 1.2rem;border-radius:10px;color:white;font-weight:600;z-index:1000;background:${ok?'#15c47e':'#e74c3c'};`;
+    document.body.appendChild(d);
+    setTimeout(() => d.remove(), 2500);
+}
+
+function mergePlayer(srcId, srcName) {
+    const dst = document.querySelector('.merge-dst-' + srcId).value;
+    if (!dst) { flash("{{ t.unmatched_pick_dst }}", false); return; }
+    if (!confirm(`{{ t.unmatched_confirm }}\n${srcName} → ${dst}`)) return;
+    fetch('/admin/unmatched/merge', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({src_id: parseInt(srcId), dst_player: dst}),
+    }).then(r => r.json()).then(d => {
+        if (d.ok) { flash(d.message || "{{ t.saved_ok }}"); setTimeout(() => location.reload(), 900); }
+        else flash(d.message || "Error", false);
+    });
+}
+</script>
+{% endblock %}
