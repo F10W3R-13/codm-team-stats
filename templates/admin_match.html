@@ -57,7 +57,11 @@
         <tbody>
             {% for p in match.players %}
             <tr data-stat-id="{{ p.stat_id }}">
-                <td><strong>{{ p.player_name }}</strong></td>
+                <td><select class="edit-player_id" style="min-width:100px;">
+                    {% for pl in players %}
+                    <option value="{{ pl.id }}" {% if pl.id == p.player_id %}selected{% endif %}>{{ pl.name }}</option>
+                    {% endfor %}
+                </select></td>
                 <td class="num"><input type="number" class="edit-kills" value="{{ p.kills }}" style="width:60px;"></td>
                 <td class="num"><input type="number" class="edit-deaths" value="{{ p.deaths }}" style="width:60px;"></td>
                 <td class="num"><input type="number" step="0.01" class="edit-kd_ratio" value="{{ p.kd_ratio }}" style="width:70px;"></td>
@@ -86,7 +90,11 @@
         <tbody>
             {% for p in match.players %}
             <tr data-stat-id="{{ p.stat_id }}">
-                <td><strong>{{ p.player_name }}</strong></td>
+                <td><select class="edit-player_id" style="min-width:100px;">
+                    {% for pl in players %}
+                    <option value="{{ pl.id }}" {% if pl.id == p.player_id %}selected{% endif %}>{{ pl.name }}</option>
+                    {% endfor %}
+                </select></td>
                 <td class="num"><input type="number" class="edit-kills" value="{{ p.kills }}" style="width:55px;"></td>
                 <td class="num"><input type="number" class="edit-deaths" value="{{ p.deaths }}" style="width:55px;"></td>
                 <td class="num"><input type="number" class="edit-assists" value="{{ p.assists }}" style="width:55px;"></td>

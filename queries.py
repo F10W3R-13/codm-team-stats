@@ -43,6 +43,13 @@ def list_players() -> list:
         return [r["name"] for r in rows]
 
 
+def list_players_with_ids() -> list:
+    """선수 [{id, name}] 목록 — 매치 편집 선수 재매핑 드롭다운용."""
+    with db.get_conn() as conn:
+        rows = conn.execute("SELECT id, name FROM players ORDER BY name").fetchall()
+        return [{"id": r["id"], "name": r["name"]} for r in rows]
+
+
 def player_overall_stats(player_id: int) -> dict:
     """선수의 HP/SND 종합 평균 스탯.
 
@@ -577,7 +584,8 @@ def match_raw_stats(match_id: int) -> dict:
 
         if mode == "HP":
             rows = conn.execute(
-                f"""SELECT s.id stat_id, p.name player_name, s.kills, s.deaths,
+                f"""SELECT s.id stat_id, s.player_id player_id, p.name player_name,
+                           s.kills, s.deaths,
                            s.kd_ratio, s.obj_time, s.score, s.impact,
                            s.total_damage, s.capture_kill
                     FROM {table} s JOIN players p ON p.id=s.player_id
@@ -586,7 +594,8 @@ def match_raw_stats(match_id: int) -> dict:
             ).fetchall()
         else:
             rows = conn.execute(
-                f"""SELECT s.id stat_id, p.name player_name, s.kills, s.deaths,
+                f"""SELECT s.id stat_id, s.player_id player_id, p.name player_name,
+                           s.kills, s.deaths,
                            s.assists, s.kd_ratio, s.score, s.impact,
                            s.adr, s.first_kill, s.lone_wolf_win
                     FROM {table} s JOIN players p ON p.id=s.player_id
@@ -617,16 +626,17 @@ def update_match_meta(match_id: int, **fields) -> bool:
 
 
 def update_player_stat(stat_id: int, mode: str, **fields) -> bool:
-    """선수 스탯 행의 특정 필드 수정.
+    """선수 스탯 행의 특정 필드 수정. player_id(선수 재매핑)도 허용.
 
     mode: "HP" 또는 "SND". 허용 필드만 업데이트.
+    player_id 변경 시 UNIQUE(match_id, player_id) 충돌 가능 — 그런 경우는 False 반환.
     """
     if mode == "HP":
-        allowed = {"kills", "deaths", "kd_ratio", "obj_time", "score",
+        allowed = {"player_id", "kills", "deaths", "kd_ratio", "obj_time", "score",
                    "impact", "total_damage", "capture_kill"}
         table = "player_stats_hp"
     else:
-        allowed = {"kills", "deaths", "assists", "kd_ratio", "score",
+        allowed = {"player_id", "kills", "deaths", "assists", "kd_ratio", "score",
                    "impact", "adr", "first_kill", "lone_wolf_win"}
         table = "player_stats_snd"
 
@@ -636,8 +646,12 @@ def update_player_stat(stat_id: int, mode: str, **fields) -> bool:
     set_clause = ", ".join(f"{k}=?" for k in updates)
     params = list(updates.values()) + [stat_id]
     with db.get_conn() as conn:
-        cur = conn.execute(f"UPDATE {table} SET {set_clause} WHERE id=?", params)
-        return cur.rowcount > 0
+        try:
+            cur = conn.execute(f"UPDATE {table} SET {set_clause} WHERE id=?", params)
+            return cur.rowcount > 0
+        except Exception:
+            # UNIQUE(match_id, player_id) 충돌 등 — 같은 매치에 이미 그 선수가 있음
+            return False
 
 
 def delete_match(match_id: int) -> bool:

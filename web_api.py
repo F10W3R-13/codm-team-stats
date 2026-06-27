@@ -320,7 +320,8 @@ async def admin_match_edit(request: Request, match_id: int, lang: str = Query("k
     match = queries.match_raw_stats(match_id)
     if not match:
         raise HTTPException(404, "매치 없음")
-    return render("admin_match.html", lang=lang, match=match)
+    players = queries.list_players_with_ids()  # 선수 재매핑 드롭다운용
+    return render("admin_match.html", lang=lang, match=match, players=players)
 
 
 @app.post("/admin/match/{match_id}/meta")
