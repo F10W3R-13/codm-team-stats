@@ -26,6 +26,14 @@ SHEET_SND = "Database_SND"        # make.com: sheetId Database_SND
 # ── 로스터 (이름 정규화용) ───────────────────────────────────────────────
 ROSTER = ["Shisui", "Cartels", "unravel", "Kingz", "Maozyn", "Exile"]  # AyeoRaph 퇴단 (2026-06)
 
+# ── 관리자 인증 (웹 /admin/* 보호용) ──────────────────────────────────────
+# Railway 환경변수 ADMIN_PASSWORD 로 설정. 없으면 기본값 사용.
+ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "3717")
+# 쿠키 서명용 시크릿. 환경변수 우선, 없으면 ADMIN_PASSWORD 파생값.
+SECRET_KEY = os.environ.get("SECRET_KEY") or f"codm-admin-{ADMIN_PASSWORD}"
+# 인증 쿠키 수명(초). 7일.
+ADMIN_COOKIE_MAX_AGE = 7 * 24 * 3600
+
 # ── 칼럼 매핑 ─────────────────────────────────────────────────────────────
 # make.com의 google-sheets addRow 모듈 mapper.values 매핑을
 # 파이썬 리스트(append_row용)로 변환한 것이다.

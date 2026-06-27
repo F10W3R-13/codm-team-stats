@@ -150,6 +150,10 @@ translations = {
 
         # 관리
         "nav_admin": "관리",
+        "admin_login_title": "관리자 로그인",
+        "admin_login_help": "관리 탭 접근용 코치 비밀번호",
+        "admin_password": "비밀번호",
+        "admin_login_btn": "로그인",
         "admin_title": "🛠️ 데이터 관리",
         "admin_help": "매치를 클릭해서 메타/스탯을 수정하거나 삭제하세요.",
         "filter_no_result": "결과 없는 매치만",
@@ -394,6 +398,10 @@ translations = {
 
         # Admin
         "nav_admin": "Admin",
+        "admin_login_title": "Coach Login",
+        "admin_login_help": "Password to access the Admin tab",
+        "admin_password": "Password",
+        "admin_login_btn": "Log in",
         "admin_title": "🛠️ Data Management",
         "admin_help": "Click a match to edit its meta/stats or delete it.",
         "filter_no_result": "Only no-result matches",
@@ -632,6 +640,10 @@ translations = {
 
         # Admin
         "nav_admin": "Admin",
+        "admin_login_title": "Acceso de Entrenador",
+        "admin_login_help": "Contraseña para acceder a la pestaña Admin",
+        "admin_password": "Contraseña",
+        "admin_login_btn": "Entrar",
         "admin_title": "🛠️ Gestión de Datos",
         "admin_help": "Haz clic en una partida para editar meta/stats o eliminarla.",
         "filter_no_result": "Solo partidas sin resultado",

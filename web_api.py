@@ -18,7 +18,7 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, Query, HTTPException, Request, Body
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 load_dotenv()
@@ -29,6 +29,8 @@ import analytics
 import analytics_insights
 import insight_cache
 import i18n
+import auth
+import config
 
 db.init_db()
 
@@ -50,6 +52,26 @@ def render(template_name: str, lang: str = "ko", **context) -> str:
 
 
 app = FastAPI(title="CODM Team Stats")
+
+
+@app.middleware("http")
+async def admin_auth_middleware(request: Request, call_next):
+    """미들웨어: /admin/* (단, /admin/login 제외) 접근 시 인증 쿠키 검증.
+
+    - HTML 페이지(GET, Accept: text/html): 미인증 시 /admin/login 로 303 리다이렉트
+    - JSON API(POST/DELETE 또는 XHR): 미인증 시 401 JSON
+    /admin/login 자체는 통과시킨다.
+    """
+    path = request.url.path
+    if path.startswith("/admin") and path != "/admin/login":
+        cookie_val = request.cookies.get(auth.COOKIE_NAME)
+        if not (cookie_val and auth.check_cookie(cookie_val)):
+            accept = request.headers.get("accept", "")
+            is_html = "text/html" in accept or request.method == "GET"
+            if is_html and "application/json" not in accept:
+                return RedirectResponse(url="/admin/login", status_code=303)
+            return JSONResponse({"ok": False, "detail": "admin login required"}, status_code=401)
+    return await call_next(request)
 
 
 # ── 페이지 ────────────────────────────────────────────────────────────────
@@ -246,6 +268,32 @@ async def map_detail_page(
 
 
 # ── 관리(Admin) 페이지 ───────────────────────────────────────────────────
+@app.get("/admin/login", response_class=HTMLResponse)
+async def admin_login_page(request: Request, lang: str = Query("ko"), error: str = Query("")):
+    """관리자 로그인 페이지. 이미 인증된 경우 /admin 로 리다이렉트."""
+    cookie_val = request.cookies.get(auth.COOKIE_NAME)
+    if cookie_val and auth.check_cookie(cookie_val):
+        return RedirectResponse(url="/admin", status_code=303)
+    return render("admin_login.html", lang=lang, error=error)
+
+
+@app.post("/admin/login")
+async def admin_login_submit(payload: dict = Body(...)):
+    """비번 검증 → 쿠키 발급. 맞으면 /admin 로."""
+    password = (payload.get("password") or "").strip()
+    if auth.verify_password(password):
+        name, value = auth.make_cookie()
+        resp = JSONResponse({"ok": True, "redirect": "/admin"})
+        resp.set_cookie(
+            name, value,
+            max_age=config.ADMIN_COOKIE_MAX_AGE,
+            httponly=True, samesite="lax",
+            secure=False,  # Railway는 HTTPS termination 이라 서버는 HTTP; 브라우저엔 HTTPS로 옴
+        )
+        return resp
+    return JSONResponse({"ok": False, "message": "비밀번호가 틀렸습니다"}, status_code=401)
+
+
 @app.get("/admin", response_class=HTMLResponse)
 async def admin_page(
     request: Request,
