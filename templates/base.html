@@ -232,6 +232,7 @@
             cursor: pointer;
             padding: 0.4rem;
             margin-left: auto;
+            flex-direction: column;
             align-items: center;
             justify-content: center;
         }
@@ -243,10 +244,10 @@
             border-radius: 2px;
             transition: 0.25s;
         }
-        .nav-toggle span + span { margin-top: 5px; }
-        .nav-toggle.open span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+        .nav-toggle span + span { margin-top: 6px; }
+        .nav-toggle.open span:nth-child(1) { transform: translateY(8px) rotate(45deg); }
         .nav-toggle.open span:nth-child(2) { opacity: 0; }
-        .nav-toggle.open span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+        .nav-toggle.open span:nth-child(3) { transform: translateY(-8px) rotate(-45deg); }
 
         /* ═══ 반응형: 태블릿 이하 (≤768px) ═══ */
         @media (max-width: 768px) {
@@ -255,7 +256,7 @@
                 flex-wrap: wrap;
             }
             .nav-brand { font-size: 1.05rem; margin-right: 0; }
-            .nav-toggle { display: inline-flex; }
+            .nav-toggle { display: flex; }
             /* 메뉴는 기본 숨김, 토글 시 드롭다운 */
             .nav-links {
                 display: none;
