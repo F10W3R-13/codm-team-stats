@@ -50,13 +50,16 @@ def save_match(mode: str, players: list, match_date: str, map_name: str = None,
 def _insert_hp(conn, match_id, p):
     # 표준 이름(actual name)으로 player 매핑. GPT가 이미 로스터 기준 정규화해줌.
     name = p.get("name", "").strip() or "Unknown"
-    pid = db.resolve_player_id(conn, name, ign_raw=p.get("ign_raw"))
+    # ign_raw: GPT가 원본 IGN을 별도로 주면 그것을, 없으면 표준 name을 저장.
+    # alias 자가학습(db.resolve_player_id)과 감사 추적에 사용.
+    ign_raw = (p.get("ign_raw") or "").strip() or name
+    pid = db.resolve_player_id(conn, name, ign_raw=ign_raw)
     conn.upsert(
         "player_stats_hp",
         ["match_id", "player_id", "ign_raw", "kills", "deaths", "kd_ratio",
          "obj_time", "score", "impact", "total_damage", "capture_kill"],
         (
-            match_id, pid, p.get("name"),
+            match_id, pid, ign_raw,
             _to_int(p.get("k")), _to_int(p.get("d")), _to_float(p.get("kd_ratio")),
             _to_int(p.get("time")), _to_int(p.get("score")),
             _to_float(p.get("impact")), _to_int(p.get("total_damage")),
@@ -70,13 +73,14 @@ def _insert_hp(conn, match_id, p):
 
 def _insert_snd(conn, match_id, p):
     name = p.get("name", "").strip() or "Unknown"
-    pid = db.resolve_player_id(conn, name, ign_raw=p.get("ign_raw"))
+    ign_raw = (p.get("ign_raw") or "").strip() or name
+    pid = db.resolve_player_id(conn, name, ign_raw=ign_raw)
     conn.upsert(
         "player_stats_snd",
         ["match_id", "player_id", "ign_raw", "kills", "deaths", "assists",
          "kd_ratio", "score", "impact", "adr", "first_kill", "lone_wolf_win"],
         (
-            match_id, pid, p.get("name"),
+            match_id, pid, ign_raw,
             _to_int(p.get("k")), _to_int(p.get("d")), _to_int(p.get("a")),
             _to_float(p.get("kd_ratio")), _to_int(p.get("score")),
             _to_float(p.get("impact")), _to_float(p.get("adr")),

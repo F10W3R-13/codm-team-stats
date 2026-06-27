@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+{% block title %}{{ t.alias_title }} — CODM Stats{% endblock %}
+{% block nav_admin %}active{% endblock %}
+
+{% block content %}
+<a href="/admin?lang={{ lang }}" class="muted" style="text-decoration:none;">← {{ t.nav_admin }}</a>
+<h1>{{ t.alias_title }}</h1>
+<p class="muted">{{ t.alias_subtitle }}</p>
+
+<!-- 필터 -->
+<div class="filters" style="margin-bottom: 1.5rem;">
+    <a href="/admin/aliases?source=ALL&player={{ player }}&lang={{ lang }}" class="badge {% if source == 'ALL' %}active{% endif %}" style="background:{% if source == 'ALL' %}var(--accent){% else %}var(--bg-elevated){% endif %}; color:{% if source == 'ALL' %}white{% else %}var(--text){% endif %};">{{ t.filter_all }} ({{ total }})</a>
+    <a href="/admin/aliases?source=Manual&player={{ player }}&lang={{ lang }}" class="badge {% if source == 'Manual' %}active{% endif %}" style="background:{% if source == 'Manual' %}var(--accent){% else %}var(--bg-elevated){% endif %}; color:{% if source == 'Manual' %}white{% else %}var(--text){% endif %};">{{ t.source_manual }} ({{ counts.get('Manual', 0) }})</a>
+    <a href="/admin/aliases?source=OCR Auto&player={{ player }}&lang={{ lang }}" class="badge {% if source == 'OCR Auto' %}active{% endif %}" style="background:{% if source == 'OCR Auto' %}var(--accent){% else %}var(--bg-elevated){% endif %}; color:{% if source == 'OCR Auto' %}white{% else %}var(--text){% endif %};">{{ t.source_ocr_auto }} ({{ counts.get('OCR Auto', 0) }})</a>
+</div>
+
+<!-- 추가 폼 -->
+<div class="card" style="margin-bottom: 1.5rem;">
+    <h2>{{ t.alias_add }}</h2>
+    <form id="addForm" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 1rem; align-items:end;">
+        <div>
+            <label class="muted" style="font-size:0.8rem;">{{ t.alias_ign }}</label>
+            <input type="text" name="ign" placeholder="Renegul8808" style="width:100%;" required>
+        </div>
+        <div>
+            <label class="muted" style="font-size:0.8rem;">{{ t.player }}</label>
+            <select name="player" required>
+                <option value="" disabled selected>{{ t.alias_select_player }}</option>
+                {% for p in players %}
+                <option value="{{ p }}">{{ p }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <button type="button" onclick="addAlias()" style="padding:0.5rem 1.2rem; background:var(--accent); color:white; border:none; border-radius:10px; cursor:pointer; font-weight:600;">+ {{ t.alias_add_btn }}</button>
+    </form>
+</div>
+
+<!-- alias 목록 -->
+<div class="card">
+    <h2>{{ t.alias_list }} {% if player %}· {{ player }}{% endif %}</h2>
+    {% if aliases %}
+    <div class="table-wrap">
+    <table>
+        <thead>
+            <tr>
+                <th>{{ t.alias_ign }}</th>
+                <th>{{ t.player }}</th>
+                <th>{{ t.alias_source }}</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for a in aliases %}
+            <tr data-ign="{{ a.ign }}">
+                <td><strong>{{ a.ign }}</strong></td>
+                <td>{{ a.player_name }}</td>
+                <td>
+                    {% if a.source == 'OCR Auto' %}
+                    <span class="badge" style="background:rgba(20,184,166,0.15); color:#0d9488; font-size:0.75rem;">🤖 {{ t.source_ocr_auto }}</span>
+                    {% else %}
+                    <span class="badge" style="background:var(--bg-elevated); color:var(--text-muted); font-size:0.75rem;">✋ {{ t.source_manual }}</span>
+                    {% endif %}
+                </td>
+                <td><button type="button" onclick="delAlias('{{ a.ign }}', this)" style="padding:0.3rem 0.7rem; background:#e74c3c; color:white; border:none; border-radius:8px; cursor:pointer; font-size:0.85rem;">🗑</button></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    </div>
+    {% else %}
+    <p class="muted" style="padding:1.5rem 0;">{{ t.alias_empty }}</p>
+    {% endif %}
+</div>
+
+<script>
+function flash(msg, ok=true) {
+    const d = document.createElement('div');
+    d.textContent = msg;
+    d.style.cssText = `position:fixed;top:20px;right:20px;padding:0.8rem 1.2rem;border-radius:10px;color:white;font-weight:600;z-index:1000;background:${ok?'#15c47e':'#e74c3c'};`;
+    document.body.appendChild(d);
+    setTimeout(() => d.remove(), 2500);
+}
+
+function addAlias() {
+    const form = document.getElementById('addForm');
+    const payload = {};
+    new FormData(form).forEach((v, k) => { payload[k] = v; });
+    if (!payload.ign || !payload.player) { flash("{{ t.alias_fill_both }}", false); return; }
+    fetch('/admin/alias', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(payload),
+    }).then(r => r.json()).then(d => {
+        if (d.ok) { flash(d.message || "{{ t.saved_ok }}"); setTimeout(() => location.reload(), 900); }
+        else flash(d.message || "Error", false);
+    });
+}
+
+function delAlias(ign, btn) {
+    if (!confirm(`{{ t.alias_confirm_delete }}\n${ign}`)) return;
+    fetch(`/admin/alias?ign=${encodeURIComponent(ign)}`, { method: 'DELETE' })
+        .then(r => r.json())
+        .then(d => {
+            if (d.ok) { flash(d.message || "{{ t.deleted_ok }}"); btn.closest('tr').remove(); }
+            else flash(d.message || "Error", false);
+        });
+}
+</script>
+{% endblock %}

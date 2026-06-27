@@ -7,19 +7,23 @@
 #
 # 핵심 도전: 좌/우 양쪽 팀 중 어느 쪽이 우리 팀인지 식별해야 함.
 # 전략: 로스터 + alias에 매칭되는 선수가 많은 쪽 = 우리 팀.
+#
+# 로스터는 DB에서 동적 주입(build_system_prompt). DB 장애/빈 경우 DEFAULT_ROSTER 폴백.
 
-SYSTEM_PROMPT = (
+# 폴백 로스터 (DB에서 로드 실패하거나 비어있을 때). 기존 하드코딩값 유지.
+DEFAULT_ROSTER = ["Shisui", "Cartels", "unravel", "Kingz", "Maozyn", "Exile"]
+
+_PROMPT_TEMPLATE = (
     "이제부터 차례대로 제공될 2장의 사진은 동일한 CODM 모바일 이스포츠 매치의 "
     "전체 결과 화면입니다. 각 사진에는 좌측 팀(파란색)과 우측 팀(빨간색) 양쪽의 "
-    "선수 데이터가 함께 표시되어 있습니다. 당신의 임무는 다음 4단계를 수행하는 것입니다.\n\n"
-    "[1단계 — 게임 모드 판별]\n"
+    "선수 데이터가 함께 표시되어 있습니다. 당신의 임무는 다음 4단계를 수행하는 것입니다.\n\n"    "[1단계 — 게임 모드 판별]\n"
     "사진 상단의 큰 텍스트를 보고 모드를 판별하세요.\n"
     "- 'HARDPOINT'가 보이면 → 모드는 \"HP\"\n"
     "- 'SEARCH AND DESTROY' 또는 'SEARCH & DESTROY'가 보이면 → 모드는 \"SND\"\n"
     "열 제목으로도 보조 판단: ADR, FIRST KILL(S), LONE WOLF WIN 열이 있으면 SND, "
     "Total Damage, Capture Kill 열이 있거나 TIME 열이 있으면 HP.\n\n"
     "[2단계 — 우리 팀 식별 ★가장 중요]\n"
-    "우리 팀 로스터(표준 이름): [\"Shisui\", \"Cartels\", \"unravel\", \"Kingz\", \"Maozyn\", \"Exile\"]\n"
+    "우리 팀 로스터(표준 이름): {roster}\n"
     "두 사진의 양쪽(좌측/우측) 팀 선수 이름을 읽고, 어느 쪽이 우리 팀인지 판별하세요.\n"
     "- 대소문자, 클랜태그, 특수문자, 깨진 글자와 무관하게 위 로스터에 가장 유사한 "
     "선수가 많은 쪽이 우리 팀입니다. (예: 'Renegul8808'='Shisui', 'BLACKPINK'='Cartels')\n"
@@ -71,3 +75,18 @@ SYSTEM_PROMPT = (
     "\"players\": [{\"name\": \"이름\", \"k\": 0, \"d\": 0, \"a\": 0, \"kd_ratio\": 0.0, \"score\": 0, \"impact\": 0, \"adr\": 0, \"first_kill\": 0, \"lone_wolf_win\": 0}]\n"
     "}"
 )
+
+
+def build_system_prompt(roster: list = None) -> str:
+    """GPT 비전 프롬프트 생성. 로스터를 DB에서 동적 주입.
+
+    roster: 표준 선수명 리스트. None/빈 리스트 → DEFAULT_ROSTER 폴백.
+    """
+    roster_list = roster if roster else DEFAULT_ROSTER
+    roster_json = "[" + ", ".join(f'"{n}"' for n in roster_list) + "]"
+    return _PROMPT_TEMPLATE.replace("{roster}", roster_json)
+
+
+# 하위 호환: 기존 import(prompt.SYSTEM_PROMPT) 대응용 상수.
+# 동적 로스터가 필요 없는 곳(예: 봇 부팅 직전)은 이것을, 봇 본체는 build_system_prompt 사용.
+SYSTEM_PROMPT = build_system_prompt()

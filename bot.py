@@ -23,7 +23,7 @@ load_dotenv()
 import config
 import db
 import stats_repo
-from prompt import SYSTEM_PROMPT
+from prompt import build_system_prompt, DEFAULT_ROSTER
 
 logging.basicConfig(
     level=logging.INFO,
@@ -46,14 +46,32 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 
 
 # ── 헬퍼 ──────────────────────────────────────────────────────────────────
-def analyze_images(url1: str, url2: str) -> dict:
+def load_roster() -> list:
+    """DB에서 현재 로스터(players.name)를 로드. 실패/비어있으면 DEFAULT_ROSTER 폴백."""
+    try:
+        with db.get_conn() as conn:
+            rows = conn.execute("SELECT name FROM players ORDER BY id").fetchall()
+            roster = [r["name"] for r in rows if r["name"]]
+            return roster or list(DEFAULT_ROSTER)
+    except Exception:
+        log.exception("로스터 로드 실패 — DEFAULT_ROSTER 폴백")
+        return list(DEFAULT_ROSTER)
+
+
+def analyze_images(url1: str, url2: str, roster: list = None) -> dict:
     """GPT-4.1 비전으로 두 스크린샷을 분석해 통계 JSON(dict)을 반환.
+
+    roster: 동적 주입할 표준 선수명 리스트. None이면 load_roster()로 DB에서 로드.
+      GPT가 우리 팀 식별 정규화 기준으로 쓴다 (OCR correction hint 역할).
 
     make.com의 OpenAI 모듈 설정과 동일:
       - messages: [user(프롬프트), user(image1), user(image2)]
       - response_format: json_object
       - temperature: 0, top_p: 0, max_tokens: 2048
     """
+    if roster is None:
+        roster = load_roster()
+    system_prompt = build_system_prompt(roster)
     completion = openai_client.chat.completions.create(
         model=config.OPENAI_MODEL,
         temperature=config.OPENAI_TEMPERATURE,
@@ -64,7 +82,7 @@ def analyze_images(url1: str, url2: str) -> dict:
         messages=[
             {
                 "role": "user",
-                "content": SYSTEM_PROMPT,
+                "content": system_prompt,
             },
             {
                 "role": "user",

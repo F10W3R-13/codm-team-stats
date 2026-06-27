@@ -34,6 +34,7 @@ CREATE TABLE IF NOT EXISTS aliases (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,
     ign         TEXT NOT NULL,
     player_id   INTEGER NOT NULL REFERENCES players(id),
+    source      TEXT NOT NULL DEFAULT 'Manual',
     UNIQUE(ign)
 );
 
@@ -180,6 +181,10 @@ def init_db() -> None:
                 if col not in cols:
                     conn.execute(f"ALTER TABLE matches ADD COLUMN {col} {decl}")
             conn.execute("CREATE INDEX IF NOT EXISTS idx_matches_result ON matches(result)")
+            # 마이그레이션: aliases.source 컬럼 (감사 추적 — Manual/OCR Auto)
+            alias_cols = {row[1] for row in conn.execute("PRAGMA table_info(aliases)").fetchall()}
+            if "source" not in alias_cols:
+                conn.execute("ALTER TABLE aliases ADD COLUMN source TEXT NOT NULL DEFAULT 'Manual'")
             conn.commit()
 
 
@@ -297,35 +302,69 @@ def get_conn():
 
 
 def resolve_player_id(conn, name: str, ign_raw: str = None) -> int:
-    """표준 이름으로 player_id 조회/생성."""
+    """표준 이름/alias로 player_id 조회/생성 + alias 자가학습.
+
+    매칭 순서 (안전망):
+      1) aliases.ign 역참조 (정확 → 대소문자 무시) — 이전에 자가학습된 변형
+      2) players.name (정확 → COLLATE NOCASE)
+      3) 신규 생성
+    ign_raw가 표준 name과 다르면 자동으로 alias에 저장(자가학습). 이미 다른 선수에게
+    할당된 변형이면 덮어쓰지 않음.
+    """
     name = (name or "").strip() or "Unknown"
-    cur = conn.execute("SELECT id FROM players WHERE name = ?", (name,))
-    row = cur.fetchone()
-    if row:
-        player_id = row["id"]
-    else:
-        # Postgres는 lastrowid 미지원 → execute_returning_id (RETURNING id) 사용
+    ign_raw = (ign_raw or "").strip()
+    player_id = None
+
+    # 1) alias 역참조: ign_raw가 있으면 그것을 먼저, 없으면 name 자체로
+    lookup = ign_raw if ign_raw and ign_raw != name else name
+    if lookup and lookup != "Unknown":
+        alias_sql = (
+            "SELECT a.player_id FROM aliases a "
+            "WHERE LOWER(a.ign) = LOWER(%s)" if USE_POSTGRES else
+            "SELECT a.player_id FROM aliases a WHERE a.ign = ? COLLATE NOCASE"
+        )
+        row = conn.execute(alias_sql, (lookup,)).fetchone()
+        if row:
+            player_id = row["player_id"]
+
+    # 2) players.name (정확 → 대소문자 무시)
+    if not player_id:
+        name_sql = (
+            "SELECT id FROM players WHERE LOWER(name) = LOWER(%s)" if USE_POSTGRES else
+            "SELECT id FROM players WHERE name = ? COLLATE NOCASE"
+        )
+        row = conn.execute(name_sql, (name,)).fetchone()
+        if row:
+            player_id = row["id"]
+
+    # 3) 신규 생성
+    if not player_id:
         player_id = conn.execute_returning_id(
             "INSERT INTO players(name) VALUES (?)", (name,)
         )
 
-    if ign_raw and ign_raw.strip() and ign_raw.strip() != name:
-        try:
-            if USE_POSTGRES:
-                # Postgres: 명시적으로 conflict 컬럼(ign) 지정 — _adapt_sql 변환 불완전 방지
-                conn.execute(
-                    "INSERT INTO aliases(ign, player_id) VALUES (%s, %s) "
-                    "ON CONFLICT (ign) DO NOTHING",
-                    (ign_raw.strip(), player_id),
-                )
-            else:
-                conn.execute(
-                    "INSERT OR IGNORE INTO aliases(ign, player_id) VALUES (?, ?)",
-                    (ign_raw.strip(), player_id),
-                )
-        except Exception:
-            pass
+    # 자가학습: ign_raw가 표준 name과 다르면 alias 영구 저장 (다음 매칭 비용 0)
+    if ign_raw and ign_raw != name:
+        _learn_alias(conn, ign_raw, player_id, source="OCR Auto")
     return player_id
+
+
+def _learn_alias(conn, ign: str, player_id: int, source: str = "OCR Auto"):
+    """변형 IGN을 alias에 영구 저장. 충돌 시 안전하게 무시(덮어쓰지 않음)."""
+    try:
+        if USE_POSTGRES:
+            conn.execute(
+                "INSERT INTO aliases(ign, player_id, source) VALUES (%s, %s, %s) "
+                "ON CONFLICT (ign) DO NOTHING",
+                (ign, player_id, source),
+            )
+        else:
+            conn.execute(
+                "INSERT OR IGNORE INTO aliases(ign, player_id, source) VALUES (?, ?, ?)",
+                (ign, player_id, source),
+            )
+    except Exception:
+        pass  # UNIQUE 충돌 등 — 이미 학습됐거나 다른 선수에게 할당됨
 
 
 def add_alias(ign: str, player_name: str) -> dict:
@@ -351,7 +390,10 @@ def add_alias(ign: str, player_name: str) -> dict:
 
         pid = resolve_player_id(conn, player_name)
         try:
-            conn.execute("INSERT INTO aliases(ign, player_id) VALUES (?, ?)", (ign, pid))
+            conn.execute(
+                "INSERT INTO aliases(ign, player_id, source) VALUES (?, ?, 'Manual')",
+                (ign, pid),
+            )
         except Exception:
             return {"ok": False, "message": f"`{ign}` alias 등록 중 충돌 (이미 존재할 수 있음)"}
         return {"ok": True, "message": f"✅ `{ign}` → `{player_name}` 등록 완료",
@@ -377,20 +419,28 @@ def remove_alias(ign: str) -> dict:
                 "player": row["name"], "ign": ign}
 
 
-def list_aliases(player_name: str = None) -> list:
-    """닉네임 목록."""
+def list_aliases(player_name: str = None, source: str = None) -> list:
+    """닉네임 목록. source 필터('Manual'/'OCR Auto')와 반환 dict에 source 포함.
+
+    기존 호출자(반환 dict ign/player_name만 쓰는 곳) 호환 유지.
+    """
     with get_conn() as conn:
+        # source 컬럼이 마이그레이션 전 DB엔 없을 수 있어 LEFT JOIN 시 NULL 허용
+        sql = (
+            "SELECT a.ign ign, p.name player_name, a.source AS source "
+            "FROM aliases a JOIN players p ON p.id=a.player_id "
+            "WHERE 1=1"
+        )
+        params = []
         if player_name:
-            rows = conn.execute(
-                """SELECT a.ign ign, p.name player_name
-                   FROM aliases a JOIN players p ON p.id=a.player_id
-                   WHERE p.name=? COLLATE NOCASE ORDER BY a.ign""",
-                (player_name.strip(),),
-            ).fetchall()
-        else:
-            rows = conn.execute(
-                """SELECT a.ign ign, p.name player_name
-                   FROM aliases a JOIN players p ON p.id=a.player_id
-                   ORDER BY p.name, a.ign"""
-            ).fetchall()
-        return [{"ign": r["ign"], "player_name": r["player_name"]} for r in rows]
+            sql += " AND p.name = ? COLLATE NOCASE"
+            params.append(player_name.strip())
+        if source:
+            sql += " AND a.source = ?"
+            params.append(source)
+        sql += " ORDER BY p.name, a.ign"
+        rows = conn.execute(sql, params).fetchall()
+        return [{"ign": r["ign"],
+                 "player_name": r["player_name"],
+                 "source": r["source"] or "Manual"}
+                for r in rows]

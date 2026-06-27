@@ -293,6 +293,44 @@ async def admin_delete_match(match_id: int):
     return {"ok": ok}
 
 
+# ── Alias 관리 ──────────────────────────────────────────────────────────
+@app.get("/admin/aliases", response_class=HTMLResponse)
+async def admin_aliases_page(
+    request: Request,
+    source: str = Query("ALL", pattern="^(ALL|Manual|OCR Auto)$"),
+    player: str = Query(""),
+    lang: str = Query("ko"),
+):
+    """Alias(IGN 변형) 관리 페이지. 자가학습(OCR Auto) alias 점검/정리용."""
+    source_filter = None if source == "ALL" else source
+    player_filter = player.strip() or None
+    aliases = db.list_aliases(player_name=player_filter, source=source_filter)
+    players = queries.list_players()
+    counts = {"Manual": 0, "OCR Auto": 0}
+    for a in db.list_aliases():
+        counts[a.get("source", "Manual")] = counts.get(a.get("source", "Manual"), 0) + 1
+    return render(
+        "admin_aliases.html", lang=lang,
+        aliases=aliases, players=players,
+        source=source, player=player,
+        counts=counts, total=sum(counts.values()),
+    )
+
+
+@app.post("/admin/alias")
+async def admin_add_alias(payload: dict = Body(...)):
+    ign = (payload.get("ign") or "").strip()
+    player = (payload.get("player") or "").strip()
+    result = db.add_alias(ign, player)
+    return result
+
+
+@app.delete("/admin/alias")
+async def admin_delete_alias(ign: str = Query(...)):
+    result = db.remove_alias(ign)
+    return result
+
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("web_api:app", host="0.0.0.0", port=8000, reload=True)
