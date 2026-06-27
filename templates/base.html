@@ -202,6 +202,28 @@
         }
         .table-wrap table { min-width: 560px; }
 
+        /* admin 서브탭 */
+        .subtabs {
+            display: flex;
+            gap: 0.4rem;
+            margin: 0 0 1.25rem 0;
+            border-bottom: 2px solid var(--border);
+            flex-wrap: wrap;
+        }
+        .subtab {
+            padding: 0.6rem 1.1rem;
+            color: var(--text-muted);
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 0.92rem;
+            border-radius: 10px 10px 0 0;
+            border-bottom: 2px solid transparent;
+            margin-bottom: -2px;
+            transition: color .15s, background .15s;
+        }
+        .subtab:hover { color: var(--text); background: var(--bg-elevated); }
+        .subtab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
         /* ── 햄버거 버튼 (모바일 전용) ──────────────────── */
         .nav-toggle {
             display: none;
@@ -299,7 +321,6 @@
             <a href="/trends?lang={{ lang }}" class="{% block nav_trends %}{% endblock %}">{{ t.nav_timeseries }}</a>
             <a href="/maps?lang={{ lang }}" class="{% block nav_maps %}{% endblock %}">{{ t.nav_maps }}</a>
             <a href="/admin?lang={{ lang }}" class="{% block nav_admin %}{% endblock %}" style="margin-left:1rem;">{{ t.nav_admin }}</a>
-            <a href="/admin/aliases?lang={{ lang }}" class="{% block nav_admin_aliases %}{% endblock %}">{{ t.nav_admin_aliases }}</a>
         </div>
         <div class="lang-switcher">
             <a href="javascript:setLang('ko')" class="{{ 'active' if lang == 'ko' else '' }}">한국어</a>

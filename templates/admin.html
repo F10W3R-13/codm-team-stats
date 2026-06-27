@@ -4,6 +4,13 @@
 
 {% block content %}
 <h1>{{ t.admin_title }}</h1>
+
+<!-- admin 서브탭 -->
+<div class="subtabs">
+    <a href="/admin?lang={{ lang }}" class="subtab active">📋 {{ t.admin_tab_matches }}</a>
+    <a href="/admin/aliases?lang={{ lang }}" class="subtab">🏷️ {{ t.admin_tab_aliases }}</a>
+</div>
+
 <p class="muted">{{ t.admin_help }}</p>
 
 <div class="filters">

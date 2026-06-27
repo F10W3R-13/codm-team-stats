@@ -167,6 +167,10 @@ def init_db() -> None:
             conn.autocommit = True
             with conn.cursor() as cur:
                 cur.execute(_adapt_sql(SCHEMA))
+                # 마이그레이션: aliases.source 컬럼 (기존 Postgres DB엔 source 없이 생성되어 있음)
+                cur.execute(
+                    "ALTER TABLE aliases ADD COLUMN IF NOT EXISTS source TEXT NOT NULL DEFAULT 'Manual'"
+                )
             conn.commit()
     else:
         with sqlite3.connect(DB_PATH) as conn:

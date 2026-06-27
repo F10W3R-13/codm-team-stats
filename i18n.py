@@ -168,6 +168,8 @@ translations = {
         "stat_id": "ID",
         # Alias 관리
         "nav_admin_aliases": "별명",
+        "admin_tab_matches": "매치 관리",
+        "admin_tab_aliases": "별명 관리",
         "alias_title": "🏷️ 별명(Alias) 관리",
         "alias_subtitle": "IGN 변형 → 선수 매핑. 🤖 표시는 OCR 자동 학습된 alias로, 정기적으로 점검·정리하세요.",
         "alias_add": "별명 추가",
@@ -400,6 +402,8 @@ translations = {
         "stat_id": "ID",
         # Alias 관리
         "nav_admin_aliases": "Aliases",
+        "admin_tab_matches": "Matches",
+        "admin_tab_aliases": "Aliases",
         "alias_title": "🏷️ Alias Management",
         "alias_subtitle": "IGN variant → player mapping. 🤖 marks auto-learned OCR aliases — review and clean them periodically.",
         "alias_add": "Add Alias",
@@ -626,6 +630,8 @@ translations = {
         "stat_id": "ID",
         # Alias
         "nav_admin_aliases": "Aliases",
+        "admin_tab_matches": "Partidas",
+        "admin_tab_aliases": "Aliases",
         "alias_title": "🏷️ Gestión de Alias",
         "alias_subtitle": "Variante de IGN → jugador. 🤖 marca alias aprendidos automáticamente — revísalos periódicamente.",
         "alias_add": "Añadir alias",

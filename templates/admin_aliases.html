@@ -5,6 +5,13 @@
 {% block content %}
 <a href="/admin?lang={{ lang }}" class="muted" style="text-decoration:none;">← {{ t.nav_admin }}</a>
 <h1>{{ t.alias_title }}</h1>
+
+<!-- admin 서브탭 -->
+<div class="subtabs">
+    <a href="/admin?lang={{ lang }}" class="subtab">📋 {{ t.admin_tab_matches }}</a>
+    <a href="/admin/aliases?lang={{ lang }}" class="subtab active">🏷️ {{ t.admin_tab_aliases }}</a>
+</div>
+
 <p class="muted">{{ t.alias_subtitle }}</p>
 
 <!-- 필터 -->
