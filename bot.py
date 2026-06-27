@@ -129,15 +129,37 @@ async def on_ready():
     log.info("로그인 완료: %s (id=%s)", bot.user, bot.user.id)
     log.info("감시 채널: %s", config.WATCH_CHANNEL_ID)
 
+    # ===== 진단: 봇이 실제로 보고 있는 서버/채널 덤프 =====
+    log.info("[DIAG] message_content intent = %s", intents.message_content)
+    log.info("[DIAG] 봇이 가입한 서버 수 = %d", len(bot.guilds))
+    for g in bot.guilds:
+        log.info("[DIAG] guild: id=%s name=%s", g.id, g.name)
+        try:
+            ch = bot.get_channel(config.WATCH_CHANNEL_ID)
+            log.info("[DIAG] get_channel(%s) → %s (type=%s name=%s guild_id=%s)",
+                     config.WATCH_CHANNEL_ID,
+                     ch, type(ch).__name__ if ch else None,
+                     getattr(ch, "name", None), getattr(ch, "guild.id", None) if ch else None)
+        except Exception:
+            log.exception("[DIAG] get_channel failed")
+    # =====================================================
+
 
 @bot.event
 async def on_message(message: discord.Message):
+    # ===== 진단 로그 (원인 파악 후 제거 예정) =====
+    log.info("[DIAG] on_message fired: channel_id=%s author=%s attachments=%d content_types=%s",
+             message.channel.id, message.author, len(message.attachments),
+             [a.content_type for a in message.attachments])
+
     # 봇 자신의 메시지는 무시
     if message.author.bot:
         return
 
     # 감시 채널이 아니면 무시 (다른 명령어 처리도 하지 않음)
     if message.channel.id != config.WATCH_CHANNEL_ID:
+        log.info("[DIAG] ignored: channel mismatch (msg_from=%s watch=%s)",
+                 message.channel.id, config.WATCH_CHANNEL_ID)
         return
 
     # 첨부 이미지 2장인지 확인
@@ -147,6 +169,9 @@ async def on_message(message: discord.Message):
         if a.content_type and a.content_type.startswith("image/")
     ]
     if len(image_attachments) < 2:
+        log.info("[DIAG] in watch channel but images<2: total=%d images=%d types=%s",
+                 len(attachments), len(image_attachments),
+                 [a.content_type for a in attachments])
         # 스크린샷 2장이 아니면 반응하지 않음 (make.com도 limit만 있고 별도 안내는 없었으나
         # 사용자 경험을 위해 안내만 남긴다)
         if image_attachments:
