@@ -280,3 +280,58 @@ def map_advice(map_data: dict, lang: str = "ko") -> str:
         return completion.choices[0].message.content.strip()
     except Exception:
         return ""
+
+
+def summarize_transcript(report: dict, transcript: str, lang: str = "ko") -> str:
+    """경기 전사(voice/text transcript) 파일을 코칭 관점에서 요약.
+
+    report: analytics.match_report() 결과 (수치 컨텍스트).
+    transcript: 업로드된 전사 원문 텍스트.
+    반환: 요약문 (실패 시 빈 문자열). 원문은 저장하지 않고 요약만 반환.
+    """
+    if not transcript or not transcript.strip():
+        return ""
+    try:
+        li = _lang_instruction(lang)
+        # 전사가 너무 길면 토큰 절약을 위해 자름 (문단 단위 약 12000자)
+        trunc = transcript[:12000]
+        if len(transcript) > 12000:
+            trunc += "\n...[전사 일부 생략]..."
+
+        # 수치 컨텍스트 압축 (전체 report는 너무 큼)
+        ctx = {
+            "mode": report.get("mode"),
+            "map": report.get("map_name"),
+            "date": report.get("match_date"),
+            "result": report.get("result"),
+            "score": f"{report.get('team_score')}-{report.get('opponent_score')}" if report.get("team_score") is not None else None,
+            "mom": report.get("mom"),
+            "team_totals": report.get("team_totals"),
+        }
+
+        completion = _client().chat.completions.create(
+            model=config.OPENAI_MODEL,
+            temperature=0.4,
+            max_tokens=600,
+            messages=[
+                {
+                    "role": "system",
+                    "content": (
+                        f"You are a CODM esports assistant summarizing a match transcript for the coach. "
+                        f"Write a concise review {li} in 5-8 sentences covering: "
+                        f"1) key moments/turning points of the round flow, "
+                        f"2) tactical decisions (rotations, setups, holder positions) mentioned, "
+                        f"3) communication/callout observations, "
+                        f"4) connect the transcript narrative with the numeric stats provided (MOM, K/D, ZCS, score). "
+                        f"Grounded in the transcript text + match numbers. No fabrication. "
+                        f"For internal coach review display."
+                    ),
+                },
+                {"role": "user", "content": json.dumps(
+                    {"match_context": ctx, "transcript": trunc}, ensure_ascii=False
+                )},
+            ],
+        )
+        return completion.choices[0].message.content.strip()
+    except Exception:
+        return ""
