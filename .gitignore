@@ -45,4 +45,5 @@ base.html.bak
 # 로그
 *.log
 
-# 원본 make.com 블루프린트 (참고용이
+# 원본 make.com 블루프린트 (참고용이지만 저장소 정리를 위해 제외)
+*.blueprint*.json
