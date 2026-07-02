@@ -39,15 +39,18 @@ CREATE TABLE IF NOT EXISTS aliases (
 );
 
 CREATE TABLE IF NOT EXISTS matches (
-    id              INTEGER PRIMARY KEY AUTOINCREMENT,
-    mode            TEXT NOT NULL CHECK (mode IN ('HP', 'SND')),
-    map_name        TEXT,
-    match_date      TEXT,
-    raw_date        TEXT,
-    result          TEXT,
-    team_score      INTEGER,
-    opponent_score  INTEGER,
-    created_at      TEXT NOT NULL DEFAULT (datetime('now'))
+    id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+    mode                TEXT NOT NULL CHECK (mode IN ('HP', 'SND')),
+    map_name            TEXT,
+    match_date          TEXT,
+    raw_date            TEXT,
+    result              TEXT,
+    team_score          INTEGER,
+    opponent_score      INTEGER,
+    coach_note          TEXT,
+    vod_url             TEXT,
+    transcript_summary  TEXT,
+    created_at          TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
 CREATE INDEX IF NOT EXISTS idx_matches_mode  ON matches(mode);
@@ -171,6 +174,10 @@ def init_db() -> None:
                 cur.execute(
                     "ALTER TABLE aliases ADD COLUMN IF NOT EXISTS source TEXT NOT NULL DEFAULT 'Manual'"
                 )
+                # 마이그레이션: matches 복기 워크플로우 컬럼 (코치 메모 / VOD 링크 / 전사 요약)
+                cur.execute("ALTER TABLE matches ADD COLUMN IF NOT EXISTS coach_note TEXT")
+                cur.execute("ALTER TABLE matches ADD COLUMN IF NOT EXISTS vod_url TEXT")
+                cur.execute("ALTER TABLE matches ADD COLUMN IF NOT EXISTS transcript_summary TEXT")
             conn.commit()
     else:
         with sqlite3.connect(DB_PATH) as conn:
@@ -181,7 +188,9 @@ def init_db() -> None:
             # 마이그레이션: 새 컬럼 추가 (SQLite 전용 — Postgres는 SCHEMA에 이미 포함)
             cols = {row[1] for row in conn.execute("PRAGMA table_info(matches)").fetchall()}
             for col, decl in [("result", "TEXT"), ("team_score", "INTEGER"),
-                              ("opponent_score", "INTEGER")]:
+                              ("opponent_score", "INTEGER"),
+                              ("coach_note", "TEXT"), ("vod_url", "TEXT"),
+                              ("transcript_summary", "TEXT")]:
                 if col not in cols:
                     conn.execute(f"ALTER TABLE matches ADD COLUMN {col} {decl}")
             conn.execute("CREATE INDEX IF NOT EXISTS idx_matches_result ON matches(result)")

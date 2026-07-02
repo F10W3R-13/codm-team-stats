@@ -17,7 +17,7 @@ import os
 from pathlib import Path
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, Query, HTTPException, Request, Body
+from fastapi import FastAPI, Query, HTTPException, Request, Body, UploadFile, File
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
@@ -167,14 +167,12 @@ async def matches_page(
     page: int = Query(1, ge=1),
     lang: str = Query("ko"),
 ):
-    page_size = 20
-    offset = (page - 1) * page_size
     mode_filter = None if mode == "ALL" else mode
-    data = queries.match_history(page_size, offset, mode_filter)
-    total_pages = max(1, (data["total"] + page_size - 1) // page_size)
+    # 날짜 그룹 페이지네이션 — 한 페이지 = 최근 7일치 매치
+    data = queries.match_history_grouped(mode_filter, date_page=page, dates_per_page=7)
     return render(
         "matches.html", lang=lang,
-        data=data, mode=mode, page=page, total_pages=total_pages,
+        data=data, mode=mode, page=data["date_page"], total_pages=data["total_date_pages"],
     )
 
 
@@ -326,6 +324,34 @@ async def admin_add_player(match_id: int, mode: str = Query(...), payload: dict 
         return {"ok": False, "error": "invalid player_id"}
     ok = queries.add_player_to_match(match_id, mode, player_id, **payload)
     return {"ok": ok}
+
+
+@app.post("/admin/match/{match_id}/transcript")
+async def admin_upload_transcript(match_id: int, lang: str = Query("ko"),
+                                  file: UploadFile = File(...)):
+    """전사 파일(.txt/.md) 업로드 → AI 요약 생성 → DB 저장. 원본은 저장 안 함."""
+    # 파일 크기/타입 검증
+    content = await file.read()
+    if len(content) > 1_500_000:  # 1.5MB 상한
+        return {"ok": False, "error": "file_too_large"}
+    try:
+        text = content.decode("utf-8", errors="ignore")
+    except Exception:
+        return {"ok": False, "error": "decode_failed"}
+    if not text.strip():
+        return {"ok": False, "error": "empty"}
+
+    # match_report로 수치 컨텍스트 확보 (전사와 연결 위함)
+    report = analytics.match_report(match_id)
+    if not report:
+        return {"ok": False, "error": "match_not_found"}
+
+    summary = analytics_insights.summarize_transcript(report, text, lang=lang)
+    if not summary:
+        return {"ok": False, "error": "summary_failed"}
+
+    queries.update_match_meta(match_id, transcript_summary=summary)
+    return {"ok": True, "summary": summary}
 
 
 @app.delete("/admin/match/{match_id}")

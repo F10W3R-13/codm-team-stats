@@ -524,7 +524,7 @@ def player_metric_timeseries(player_id: int, mode: str = "HP", limit: int = 50) 
 
 
 def match_history(limit: int = 50, offset: int = 0, mode: str = None) -> dict:
-    """매치 히스토리 (페이지네이션).
+    """매치 히스토리 (평면 페이지네이션, 레거시 호환용).
 
     반환: {matches: [...], total: int, limit, offset}
     """
@@ -570,6 +570,81 @@ def match_history(limit: int = 50, offset: int = 0, mode: str = None) -> dict:
         }
 
 
+def match_history_grouped(mode: str = None, date_page: int = 1,
+                          dates_per_page: int = 7) -> dict:
+    """매치 히스토리를 날짜 단위로 그룹화 (한 페이지 = 최근 N일).
+
+    - match_date NULL은 "날짜 미상" 그룹으로 묶어 항상 마지막에 표시.
+    - 같은 날짜의 매치들을 하나의 그룹으로 묶음.
+    - 반환: {groups: [{date, matches:[...]}], total_date_pages, date_page}
+    """
+    where = ""
+    params = []
+    if mode:
+        where = "WHERE mode=?"
+        params.append(mode)
+
+    with db.get_conn() as conn:
+        # 1) 고유 날짜 목록 (NULL 포함). NULL은 가장 나중.
+        #    SQLite: 'match_date IS NULL' 정렬 트릭. Postgres도 동일 문법 호환.
+        date_rows = conn.execute(
+            f"""SELECT DISTINCT match_date FROM matches {where}
+                ORDER BY (match_date IS NULL), match_date DESC""",
+            params,
+        ).fetchall()
+        all_dates = [r["match_date"] for r in date_rows]
+
+        total_date_pages = max(1, (len(all_dates) + dates_per_page - 1) // dates_per_page)
+        date_page = max(1, min(date_page, total_date_pages))
+        start = (date_page - 1) * dates_per_page
+        page_dates = all_dates[start:start + dates_per_page]
+
+        if not page_dates:
+            return {"groups": [], "total_date_pages": total_date_pages, "date_page": date_page}
+
+        # 2) 이 페이지 날짜들에 속한 매치 전체 (NULL은 IS NULL)
+        placeholders = ",".join(["?"] * len([d for d in page_dates if d is not None]))
+        has_null = any(d is None for d in page_dates)
+
+        sql = f"""SELECT m.id, m.mode, m.map_name, m.match_date, m.result,
+                         m.team_score, m.opponent_score,
+                         (SELECT COUNT(*) FROM player_stats_hp WHERE match_id=m.id) +
+                         (SELECT COUNT(*) FROM player_stats_snd WHERE match_id=m.id) as players,
+                         (SELECT ROUND(AVG(kd_ratio),2) FROM player_stats_hp WHERE match_id=m.id) avg_kd_hp,
+                         (SELECT ROUND(AVG(kd_ratio),2) FROM player_stats_snd WHERE match_id=m.id) avg_kd_snd,
+                         (SELECT ROUND(AVG(MAX(0, 1.1*obj_time + 8*capture_kill + 4.1*kills - 5*deaths)),1)
+                          FROM player_stats_hp WHERE match_id=m.id) avg_zcs
+                  FROM matches m
+                  WHERE {('m.match_date IN (%s)' % placeholders) if placeholders else 'FALSE'}
+                  {(' OR ' if placeholders and has_null else '') + ('m.match_date IS NULL' if has_null else '')}
+                  ORDER BY (m.match_date IS NULL), m.match_date DESC, m.id DESC"""
+        qp = [d for d in page_dates if d is not None]
+        rows = conn.execute(db._adapt_sql(sql), qp).fetchall()
+
+    # 3) 날짜별 그룹핑 (page_dates 순서 = 내림차순, NULL은 끝)
+    matches = [
+        {
+            "id": r["id"], "mode": r["mode"], "map_name": r["map_name"],
+            "match_date": r["match_date"], "players": r["players"],
+            "avg_kd": r["avg_kd_hp"] if r["mode"] == "HP" else r["avg_kd_snd"],
+            "avg_zcs": r["avg_zcs"],
+            "result": r["result"], "team_score": r["team_score"],
+            "opponent_score": r["opponent_score"],
+        }
+        for r in rows
+    ]
+    groups = []
+    for d in page_dates:
+        grp_matches = [m for m in matches if m["match_date"] == d and not (d is None and m["match_date"] is not None)]
+        # None 그룹은 match_date IS NULL인 행만
+        if d is None:
+            grp_matches = [m for m in matches if m["match_date"] is None]
+        if grp_matches:
+            groups.append({"date": d, "matches": grp_matches})
+
+    return {"groups": groups, "total_date_pages": total_date_pages, "date_page": date_page}
+
+
 # ── 관리(Admin)용 조회/수정/삭제 ───────────────────────────────────────────
 
 def match_raw_stats(match_id: int) -> dict:
@@ -579,7 +654,8 @@ def match_raw_stats(match_id: int) -> dict:
     """
     with db.get_conn() as conn:
         m = conn.execute(
-            "SELECT id, mode, map_name, match_date, result, team_score, opponent_score "
+            "SELECT id, mode, map_name, match_date, result, team_score, opponent_score, "
+            "coach_note, vod_url, transcript_summary "
             "FROM matches WHERE id=?",
             (match_id,),
         ).fetchone()
@@ -620,8 +696,12 @@ def update_match_meta(match_id: int, **fields) -> bool:
 
     허용 필드만 업데이트. 반환: 성공 여부.
     """
-    allowed = {"result", "team_score", "opponent_score", "map_name", "match_date", "mode"}
-    updates = {k: v for k, v in fields.items() if k in allowed and v is not None}
+    allowed = {"result", "team_score", "opponent_score", "map_name", "match_date", "mode",
+               "coach_note", "vod_url", "transcript_summary"}
+    # 복기 필드(coach_note/vod_url/transcript_summary)는 None(빈값) 저장 허용 — 클리어 목적.
+    nullable = {"coach_note", "vod_url", "transcript_summary", "result"}
+    updates = {k: v for k, v in fields.items()
+               if k in allowed and (v is not None or k in nullable)}
     if not updates:
         return False
     set_clause = ", ".join(f"{k}=?" for k in updates)

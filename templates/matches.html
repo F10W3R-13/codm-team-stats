@@ -1,18 +1,21 @@
 {% extends "base.html" %}
-{% block title %}{{ t.nav_matches }} — CODM Stats{% endblock %}
+{% block title %}{{ t.matches }} — CODM Stats{% endblock %}
 {% block nav_matches %}active{% endblock %}
 
 {% block content %}
-<h1>{{ t.matches_title }}</h1>
-<p class="muted">{{ t.total_count }} {{ data.total }} {{ t.matches }}</p>
+<h1>{{ t.matches }}</h1>
 
-<div class="filters">
-    <a href="/matches?mode=ALL&lang={{ lang }}&page=1" class="{{ 'active' if mode == 'ALL' else '' }}">{{ t.all }}</a>
-    <a href="/matches?mode=HP&lang={{ lang }}&page=1" class="{{ 'active' if mode == 'HP' else '' }}">🎯 {{ t.mode_hp }}</a>
-    <a href="/matches?mode=SND&lang={{ lang }}&page=1" class="{{ 'active' if mode == 'SND' else '' }}">🔍 {{ t.mode_snd }}</a>
+<div style="display:flex; gap:0.5rem; margin: 1rem 0;">
+    <a href="/matches?mode=ALL&lang={{ lang }}&page=1" class="badge {{ 'hp' if mode=='ALL' else 'muted' }}" style="text-decoration:none;">ALL</a>
+    <a href="/matches?mode=HP&lang={{ lang }}&page=1" class="badge {{ 'hp' if mode=='HP' else 'muted' }}" style="text-decoration:none;">🎯 {{ t.mode_hp }}</a>
+    <a href="/matches?mode=SND&lang={{ lang }}&page=1" class="badge {{ 'snd' if mode=='SND' else 'muted' }}" style="text-decoration:none;">🔍 {{ t.mode_snd }}</a>
 </div>
 
-<div class="card">
+{% for grp in data.groups %}
+<div class="card" style="margin-bottom: 1.5rem;">
+    <h2 style="margin-bottom: 1rem;">📅 {{ grp.date or (t.date_unknown if t.date_unknown is defined else '날짜 미상') }}
+        <span class="muted" style="font-size:0.9rem; font-weight:normal;">({{ grp.matches|length }} {{ t.matches|lower if t.matches else '경기' }})</span>
+    </h2>
     <div class="table-wrap">
     <table>
         <thead>
@@ -22,14 +25,13 @@
                 <th>{{ t.result_col }}</th>
                 <th class="num">{{ t.score_col }}</th>
                 <th>{{ t.map }}</th>
-                <th data-mobile-hide>{{ t.date }}</th>
                 <th class="num" data-mobile-hide>{{ t.players }}</th>
                 <th class="num">{{ t.zcs_label }}</th>
                 <th class="num">{{ t.avg_kd_col }}</th>
             </tr>
         </thead>
         <tbody>
-            {% for m in data.matches %}
+            {% for m in grp.matches %}
             <tr>
                 <td class="num"><a href="/matches/{{ m.id }}?lang={{ lang }}" class="player-link">{{ m.id }}</a></td>
                 <td><span class="badge {{ m.mode|lower }}">{{ t['mode_' + m.mode.lower()] }}</span></td>
@@ -41,7 +43,6 @@
                 </td>
                 <td class="num">{{ m.team_score }}-{{ m.opponent_score }}</td>
                 <td>{{ m.map_name or '-' }}</td>
-                <td>{{ m.match_date or '-' }}</td>
                 <td class="num" data-mobile-hide>{{ m.players }}</td>
                 <td class="num">{% if m.mode == 'HP' and m.avg_zcs is not none %}<strong style="color: var(--accent);">{{ m.avg_zcs }}</strong>{% else %}-{% endif %}</td>
                 <td class="num">{{ m.avg_kd or '-' }}</td>
@@ -51,15 +52,18 @@
     </table>
     </div>
 </div>
+{% else %}
+<div class="card"><p class="muted">{{ t.no_data }}</p></div>
+{% endfor %}
 
 {% if total_pages > 1 %}
 <div class="pagination">
     {% if page > 1 %}
-    <a href="/matches?mode={{ mode }}&lang={{ lang }}&page={{ page - 1 }}">{{ t.prev }}</a>
+    <a href="/matches?mode={{ mode }}&lang={{ lang }}&page={{ page - 1 }}">← {{ t.prev }}</a>
     {% endif %}
     <span class="muted" style="padding: 0.4rem 0.9rem;">{{ page }} / {{ total_pages }}</span>
     {% if page < total_pages %}
-    <a href="/matches?mode={{ mode }}&lang={{ lang }}&page={{ page + 1 }}">{{ t.next }}</a>
+    <a href="/matches?mode={{ mode }}&lang={{ lang }}&page={{ page + 1 }}">{{ t.next }} →</a>
     {% endif %}
 </div>
 {% endif %}
