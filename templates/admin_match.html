@@ -34,8 +34,16 @@
             <label class="muted" style="font-size:0.8rem;">{{ t.date }}</label>
             <input type="date" name="match_date" value="{{ match.match_date or '' }}">
         </div>
+        <div>
+            <label class="muted" style="font-size:0.8rem;">🎬 {{ t.vod_link }}</label>
+            <input type="text" name="vod_url" value="{{ match.vod_url or '' }}" placeholder="https://youtube.com/watch?v=...">
+        </div>
         <div style="display:flex; align-items:end;">
             <button type="button" onclick="saveMeta()" style="padding:0.5rem 1.2rem; background:var(--accent); color:white; border:none; border-radius:10px; cursor:pointer; font-weight:600;">{{ t.save }}</button>
+        </div>
+        <div style="grid-column: 1 / -1;">
+            <label class="muted" style="font-size:0.8rem;">📝 {{ t.coach_note }}</label>
+            <textarea name="coach_note" rows="4" style="width:100%; font-family:inherit; padding:0.5rem; border-radius:8px; border:1px solid #d0d6de;" placeholder="{{ t.coach_note_placeholder }}">{{ match.coach_note or '' }}</textarea>
         </div>
     </form>
 </div>
@@ -115,6 +123,23 @@
     <button type="button" id="addRowBtn" onclick="addPlayerRow()" style="margin-top:1rem; padding:0.5rem 1rem; background:var(--accent); color:white; border:none; border-radius:8px; cursor:pointer; font-weight:600;">＋ {{ t.add_player }}</button>
 </div>
 
+<!-- 전사 파일 업로드 → AI 요약 -->
+<div class="card" style="margin-bottom: 1.5rem; border-left: 4px solid #8b5cf6;">
+    <h2>🗣️ {{ t.transcript_title }}</h2>
+    <p class="muted" style="font-size:0.85rem; margin-bottom:1rem;">{{ t.transcript_help }}</p>
+    {% if match.transcript_summary %}
+    <div style="margin-bottom:1rem; padding:0.8rem; background:rgba(139,92,246,0.06); border-radius:8px;">
+        <strong class="muted" style="font-size:0.8rem;">{{ t.transcript_current }}</strong>
+        <p style="line-height:1.6; white-space:pre-wrap; margin-top:0.4rem;">{{ match.transcript_summary }}</p>
+    </div>
+    {% endif %}
+    <div style="display:flex; gap:0.8rem; flex-wrap:wrap; align-items:center;">
+        <input type="file" id="transcriptFile" accept=".txt,.md,text/plain,text/markdown" style="font-size:0.85rem;">
+        <button type="button" id="transcriptBtn" onclick="uploadTranscript()" style="padding:0.5rem 1.2rem; background:#8b5cf6; color:white; border:none; border-radius:10px; cursor:pointer; font-weight:600;">{{ t.transcript_upload }}</button>
+        <span id="transcriptStatus" class="muted" style="font-size:0.85rem;"></span>
+    </div>
+</div>
+
 <!-- 삭제 -->
 <div class="card" style="border:1px solid #ff6b6b;">
     <h2 style="color:#e74c3c;">🗑️ {{ t.delete }} {{ t.match }}</h2>
@@ -174,6 +199,30 @@ function deleteMatch() {
             if (d.ok) { flash("{{ t.deleted_ok }}"); setTimeout(() => location.href = '/admin?lang={{ lang }}', 800); }
             else flash("Error", false);
         });
+}
+
+// ── 전사 파일 업로드 → AI 요약 ──────────────────────────────────────────
+function uploadTranscript() {
+    const inp = document.getElementById('transcriptFile');
+    const btn = document.getElementById('transcriptBtn');
+    const status = document.getElementById('transcriptStatus');
+    if (!inp.files.length) { status.textContent = "{{ t.transcript_no_file }}"; return; }
+    const fd = new FormData();
+    fd.append('file', inp.files[0]);
+    btn.disabled = true;
+    status.textContent = "{{ t.transcript_processing }}";
+    fetch(`/admin/match/${matchId}/transcript?lang={{ lang }}`, {
+        method: 'POST', body: fd,
+    }).then(r => r.json()).then(d => {
+        btn.disabled = false;
+        if (d.ok) { flash("{{ t.transcript_done }}"); setTimeout(() => location.reload(), 1000); }
+        else {
+            const msg = { file_too_large:"{{ t.transcript_err_large }}", decode_failed:"{{ t.transcript_err_decode }}",
+                          empty:"{{ t.transcript_err_empty }}", summary_failed:"{{ t.transcript_err_ai }}",
+                          match_not_found:"Error" }[d.error] || "Error";
+            status.textContent = msg;
+        }
+    }).catch(() => { btn.disabled = false; status.textContent = "Error"; });
 }
 
 // ── 누락 선수 추가 (AI가 4명만 읽은 경우 보정) ──────────────────────────
