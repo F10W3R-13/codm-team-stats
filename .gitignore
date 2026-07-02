@@ -47,3 +47,10 @@ base.html.bak
 
 # 원본 make.com 블루프린트 (참고용이지만 저장소 정리를 위해 제외)
 *.blueprint*.json
+
+# 전사문 샘플 (실제 코칭 VOD 세션 — 민감, 로컬만 보관)
+# 도메인 컨텍스트 갱신 시 scripts/refresh_domain_context.py가 여기를 스캔
+전사문샘플*.md
+전사문*.md
+transcripts/
+transcript_samples/

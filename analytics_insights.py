@@ -10,6 +10,7 @@
 import json
 
 import config
+import prompt_context
 from openai import OpenAI
 
 _openai = None
@@ -57,12 +58,12 @@ def match_insight(report: dict, lang: str = "ko") -> str:
             messages=[
                 {
                     "role": "system",
-                    "content": (
-                        f"You are a CODM mobile esports team data analyst. "
-                        f"Write 1-2 sentences of key insight from the match stats JSON. "
-                        f"Provide insight (who had good form, team strengths/weaknesses, "
-                        f"what stands out), not just a list of numbers. Concise, for Discord. "
-                        f"Respond {li}."
+                    "content": prompt_context.build_system_prompt(
+                        "Write 1-2 sentences of key insight from the match stats JSON. "
+                        "Provide insight (who had good form, team strengths/weaknesses, "
+                        "what stands out tactically — e.g. anchor play, slayer dominance, "
+                        "ZCS outliers), not just a list of numbers. Concise, for Discord.",
+                        lang,
                     ),
                 },
                 {"role": "user", "content": json.dumps(data, ensure_ascii=False)},
@@ -91,10 +92,12 @@ def weekly_insight(report: dict, lang: str = "ko") -> str:
             messages=[
                 {
                     "role": "system",
-                    "content": (
-                        f"You are a CODM esports team analyst. Summarize the weekly trend data "
-                        f"in 2-3 sentences {li}. Include rising/falling players, notable changes, "
-                        f"and coaching suggestions. Concise and actionable, for Discord."
+                    "content": prompt_context.build_system_prompt(
+                        "Summarize the weekly trend data in 2-3 sentences. "
+                        "Include rising/falling players (with role context — e.g. 'the AR slayer "
+                        "is finding form'), notable changes, and coaching suggestions. "
+                        "Concise and actionable, for Discord.",
+                        lang,
                     ),
                 },
                 {"role": "user", "content": json.dumps(data, ensure_ascii=False)},
@@ -164,16 +167,16 @@ def player_profile_insight(stats: dict, team_hp: dict = None, lang: str = "ko") 
             messages=[
                 {
                     "role": "system",
-                    "content": (
-                        f"You are a CODM esports team data analyst. "
-                        f"Write 3-5 sentences of coaching insight from a player's overall stats "
-                        f"and team average {li}. "
-                        f"Include: 1) clear strengths/weaknesses vs team average (mention ±%), "
+                    "content": prompt_context.build_system_prompt(
+                        "Write 3-5 sentences of coaching insight from a player's overall stats "
+                        "and team average. Include: 1) clear strengths/weaknesses vs team average "
+                        "(mention ±% with metric interpretation), "
                         f"2) play style bias — "
                         f"{'infer slayer/objective/balanced from OBJ, CapKill, ZCS, DPD (HP-only metrics). ' if stats.get('hp') else ''}"
                         f"3) form stability (mention std dev if present). "
                         f"IMPORTANT: ZCS/OBJ/CapKill are HP-only metrics — never reference them for SND-only data. "
-                        f"Grounded in numbers, no over-interpretation. Concise and actionable, for web display."
+                        f"Grounded in numbers, no over-interpretation. Concise and actionable, for web display.",
+                        lang,
                     ),
                 },
                 {"role": "user", "content": json.dumps(data, ensure_ascii=False)},
@@ -201,15 +204,15 @@ def team_insight(team_data: dict, lang: str = "ko") -> str:
             messages=[
                 {
                     "role": "system",
-                    "content": (
-                        f"You are a CODM esports team data analyst advising the coach on map strategy. "
-                        f"Write 4-6 sentences of team insight {li} from the JSON data which includes: "
-                        f"team trend (recent vs season avg), per-map team K/D, and per-map player strengths. "
-                        f"Cover: 1) overall team trajectory (rising/falling), "
-                        f"2) strongest and weakest maps with K/D evidence, "
-                        f"3) which players excel/struggle on key maps (for roster/map-pick decisions), "
-                        f"4) a brief map ban/pick suggestion if data supports it. "
-                        f"Grounded in numbers. Concise, actionable, for web display."
+                    "content": prompt_context.build_system_prompt(
+                        "You are advising the coach on map strategy. Write 4-6 sentences of team "
+                        "insight from the JSON data which includes: team trend (recent vs season avg), "
+                        "per-map team K/D, and per-map player strengths. Cover: 1) overall team "
+                        "trajectory (rising/falling), 2) strongest and weakest maps with K/D evidence "
+                        "and map tendency context, 3) which players excel/struggle on key maps (use "
+                        "role + IGN — for roster/map-pick decisions), 4) a brief map ban/pick "
+                        "suggestion if data supports it. Grounded in numbers. Concise, actionable.",
+                        lang,
                     ),
                 },
                 {"role": "user", "content": json.dumps(team_data, ensure_ascii=False)},
@@ -263,15 +266,16 @@ def map_advice(map_data: dict, lang: str = "ko") -> str:
             messages=[
                 {
                     "role": "system",
-                    "content": (
-                        f"You are a CODM esports data analyst. Describe the NUMERIC TRENDS "
-                        f"of one map ({mode}) {li} in 3-4 sentences. RULES: only point out "
-                        f"statistical tendencies (e.g. 'on this map team K/D is -12% vs season'"
-                        f"{zcs_hint}"
+                    "content": prompt_context.build_system_prompt(
+                        f"Describe the NUMERIC TRENDS of one map ({mode}) in 3-4 sentences. "
+                        f"RULES: only point out statistical tendencies (e.g. 'on this map "
+                        f"team K/D is -12% vs season'{zcs_hint}"
                         + ("Do NOT mention ZCS — it is undefined for SND. " if not is_hp else "")
-                        + f"). Do NOT give direct orders or tactical instructions. "
+                        + f"). Cross-reference the map tendency in your domain context when "
+                        f"relevant. Do NOT give direct orders or tactical instructions. "
                         f"Stick to what the numbers show — let the coach interpret. "
-                        f"Grounded strictly in the JSON. For web display."
+                        f"Grounded strictly in the JSON. For web display.",
+                        lang,
                     ),
                 },
                 {"role": "user", "content": json.dumps(payload, ensure_ascii=False)},
@@ -316,15 +320,19 @@ def summarize_transcript(report: dict, transcript: str, lang: str = "ko") -> str
             messages=[
                 {
                     "role": "system",
-                    "content": (
-                        f"You are a CODM esports assistant summarizing a match transcript for the coach. "
-                        f"Write a concise review {li} in 5-8 sentences covering: "
-                        f"1) key moments/turning points of the round flow, "
-                        f"2) tactical decisions (rotations, setups, holder positions) mentioned, "
-                        f"3) communication/callout observations, "
-                        f"4) connect the transcript narrative with the numeric stats provided (MOM, K/D, ZCS, score). "
-                        f"Grounded in the transcript text + match numbers. No fabrication. "
-                        f"For internal coach review display."
+                    "content": prompt_context.build_system_prompt(
+                        "Summarize a match transcript (voice-to-text from a coaching VOD review) "
+                        "for the coach. Write a concise review in 5-8 sentences covering: "
+                        "1) key moments/turning points of the round flow, "
+                        "2) tactical decisions (rotations, setups, spawn flips, holder positions) mentioned, "
+                        "3) communication/callout observations, "
+                        "4) connect the transcript narrative with the numeric stats provided "
+                        "(MOM, K/D, ZCS, score, mode-appropriate metrics). "
+                        "IMPORTANT: transcript text has pronunciation drift (e.g. 'Mao' = Maozyn, "
+                        "'Shizi' = Shisui, 'P3' = the third hardpoint) — use the formal IGNs and "
+                        "tactical terms in your output. Grounded in transcript + match numbers. "
+                        "No fabrication. For internal coach review display.",
+                        lang,
                     ),
                 },
                 {"role": "user", "content": json.dumps(
