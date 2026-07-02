@@ -12,36 +12,20 @@
 {% endif %}
 </h1>
 
-<div class="grid grid-2">
-    {% if stats.hp %}
-    <div class="card">
-        <h2>{{ t.hp_section }} <span class="muted">({{ stats.hp.matches }} {{ t.games }})</span></h2>
-        <table>
-            <tr><td>{{ t.avg_kd }}</td><td class="num"><strong>{{ stats.hp.avg_k }} / {{ stats.hp.avg_d }}</strong></td></tr>
-            <tr><td>{{ t.kd }}</td><td class="num" style="color: var(--accent-2);"><strong>{{ stats.hp.avg_kd }}</strong></td></tr>
-            <tr><td>{{ t.obj_seconds }}</td><td class="num">{{ stats.hp.avg_obj }}{{ 's' if lang != 'ko' else '초' }}</td></tr>
-            <tr><td>{{ t.avg_score }}</td><td class="num">{{ stats.hp.avg_score }}</td></tr>
-            <tr><td>{{ t.avg_impact }}</td><td class="num">{{ stats.hp.avg_impact }}</td></tr>
-            <tr><td>{{ t.avg_total_dmg }}</td><td class="num">{{ stats.hp.avg_dmg }}</td></tr>
-            <tr><td>{{ t.avg_cap_kill }}</td><td class="num">{{ stats.hp.avg_capture }}</td></tr>
-        </table>
-    </div>
-    {% endif %}
-    {% if stats.snd %}
-    <div class="card">
-        <h2>{{ t.snd_section }} <span class="muted">({{ stats.snd.matches }} {{ t.games }})</span></h2>
-        <table>
-            <tr><td>{{ t.avg_kda }}</td><td class="num"><strong>{{ stats.snd.avg_k }} / {{ stats.snd.avg_d }} / {{ stats.snd.avg_a }}</strong></td></tr>
-            <tr><td>{{ t.kd }}</td><td class="num" style="color: var(--accent-2);"><strong>{{ stats.snd.avg_kd }}</strong></td></tr>
-            <tr><td>{{ t.avg_adr }}</td><td class="num">{{ stats.snd.avg_adr }}</td></tr>
-            <tr><td>{{ t.avg_score }}</td><td class="num">{{ stats.snd.avg_score }}</td></tr>
-            <tr><td>{{ t.avg_impact }}</td><td class="num">{{ stats.snd.avg_impact }}</td></tr>
-            <tr><td>{{ t.avg_fk }}</td><td class="num">{{ stats.snd.avg_fk }}</td></tr>
-            <tr><td>{{ t.avg_lww }}</td><td class="num">{{ stats.snd.avg_lww }}</td></tr>
-        </table>
-    </div>
-    {% endif %}
+{% if stats.snd %}
+<div class="card" style="margin-top: 1rem;">
+    <h2>{{ t.snd_section }} <span class="muted">({{ stats.snd.matches }} {{ t.games }})</span></h2>
+    <table>
+        <tr><td>{{ t.avg_kda }}</td><td class="num"><strong>{{ stats.snd.avg_k }} / {{ stats.snd.avg_d }} / {{ stats.snd.avg_a }}</strong></td></tr>
+        <tr><td>{{ t.kd }}</td><td class="num" style="color: var(--accent-2);"><strong>{{ stats.snd.avg_kd }}</strong></td></tr>
+        <tr><td>{{ t.avg_adr }}</td><td class="num">{{ stats.snd.avg_adr }}</td></tr>
+        <tr><td>{{ t.avg_score }}</td><td class="num">{{ stats.snd.avg_score }}</td></tr>
+        <tr><td>{{ t.avg_impact }}</td><td class="num">{{ stats.snd.avg_impact }}</td></tr>
+        <tr><td>{{ t.avg_fk }}</td><td class="num">{{ stats.snd.avg_fk }}</td></tr>
+        <tr><td>{{ t.avg_lww }}</td><td class="num">{{ stats.snd.avg_lww }}</td></tr>
+    </table>
 </div>
+{% endif %}
 
 <!-- 기복(Consistency) 카드 -->
 {% if stats.hp or stats.snd %}
@@ -81,57 +65,50 @@
 </div>
 {% endif %}
 
-<!-- HP 커스텀 지표 + 팀 평균 대비 -->
+<!-- HP 통합 지표 패널 (기본 + 커스텀 + 팀 평균 대비) -->
 {% if stats.hp %}
-<div class="grid grid-2" style="margin-top: 1.5rem;">
-    <div class="card">
-        <h2>🧮 {{ t.custom_metrics_title }} (HP)</h2>
-        <table>
-            <tr><td>DPD</td><td class="num">{{ stats.hp.dpd }}</td></tr>
-            <tr><td>DPK</td><td class="num">{{ stats.hp.dpk }} <span class="muted">({{ t.lower_better }})</span></td></tr>
-            <tr><td>ID</td><td class="num">{{ stats.hp.impact_delta }}</td></tr>
-            <tr><td>AP%</td><td class="num">{{ stats.hp.ap_pct }}%</td></tr>
-            <tr><td>ZCS</td><td class="num" style="color:var(--accent);"><strong>{{ stats.hp.zcs }}</strong></td></tr>
-        </table>
-    </div>
-    <div class="card">
-        <h2>📊 {{ t.vs_team_title }}</h2>
-        <div class="table-wrap">
-        <table>
-            <thead>
-                <tr><th>{{ t.metric_label }}</th><th class="num">{{ t.player }}</th><th class="num">{{ t.team_avg }}</th><th class="num">±%</th></tr>
-            </thead>
-            <tbody>
-            {% for k, label, lower in [
-                ('avg_kd', t.kd, false),
-                ('avg_k', t.m_kills, false),
-                ('avg_dmg', t.m_dmg, false),
-                ('avg_obj', t.m_obj, false),
-                ('dpd', 'DPD', false),
-                ('dpk', 'DPK', true),
-                ('zcs', 'ZCS', false),
-            ] %}
-                {% set mine = stats.hp.get(k) %}
-                {% set team_v = team_hp.get(k) if team_hp else none %}
-                <tr>
-                    <td>{{ label }}</td>
-                    <td class="num">{{ mine if mine is not none else '-' }}</td>
-                    <td class="num muted">{{ team_v if team_v is not none else '-' }}</td>
-                    <td class="num">
-                        {% if mine is not none and team_v and team_v != 0 %}
-                            {% set pct = ((mine - team_v) / team_v * 100) | round(1) %}
-                            {% if (lower and pct < 0) or (not lower and pct > 0) %}
-                                <span style="color:var(--accent-2);">{% if pct > 0 %}+{% endif %}{{ pct }}%</span>
-                            {% else %}
-                                <span style="color:#e74c3c;">{% if pct > 0 %}+{% endif %}{{ pct }}%</span>
-                            {% endif %}
-                        {% else %}-{% endif %}
-                    </td>
-                </tr>
-            {% endfor %}
-            </tbody>
-        </table>
-        </div>
+<div class="card" style="margin-top: 1.5rem; border-left: 4px solid var(--accent);">
+    <h2>🎯 {{ t.hp_section }} <span class="muted">({{ stats.hp.matches }} {{ t.games }}) · {{ t.vs_team_title }}</span></h2>
+    <div class="table-wrap">
+    <table>
+        <thead>
+            <tr><th>{{ t.metric_label }}</th><th class="num">{{ t.player }}</th><th class="num">{{ t.team_avg }}</th><th class="num">±%</th></tr>
+        </thead>
+        <tbody>
+        {% for k, label, lower in [
+            ('avg_kd', t.kd, false),
+            ('avg_k', t.m_kills, false),
+            ('avg_obj', t.m_obj, false),
+            ('avg_score', t.avg_score, false),
+            ('avg_impact', t.avg_impact, false),
+            ('avg_dmg', t.m_dmg, false),
+            ('avg_capture', t.avg_cap_kill, false),
+            ('dpd', 'DPD', false),
+            ('dpk', 'DPK', true),
+            ('impact_delta', 'ID', false),
+            ('ap_pct', 'AP%', false),
+            ('zcs', 'ZCS', false),
+        ] %}
+            {% set mine = stats.hp.get(k) %}
+            {% set team_v = team_hp.get(k) if team_hp else none %}
+            <tr>
+                <td>{{ label }}{% if lower %} <span class="muted" style="font-size:0.75rem;">({{ t.lower_better }})</span>{% endif %}</td>
+                <td class="num">{% if k == 'zcs' and mine is not none %}<strong style="color:var(--accent);">{{ mine }}</strong>{% elif mine is not none %}{{ mine }}{% else %}-{% endif %}</td>
+                <td class="num muted">{{ team_v if team_v is not none else '-' }}</td>
+                <td class="num">
+                    {% if mine is not none and team_v and team_v != 0 %}
+                        {% set pct = ((mine - team_v) / team_v * 100) | round(1) %}
+                        {% if (lower and pct < 0) or (not lower and pct > 0) %}
+                            <span style="color:var(--accent-2);">{% if pct > 0 %}+{% endif %}{{ pct }}%</span>
+                        {% else %}
+                            <span style="color:#e74c3c;">{% if pct > 0 %}+{% endif %}{{ pct }}%</span>
+                        {% endif %}
+                    {% else %}-{% endif %}
+                </td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
     </div>
 </div>
 {% endif %}
@@ -270,7 +247,7 @@ function renderChart() {
                 data: seriesData.map(d => d[currentMetric]),
                 borderColor: color,
                 backgroundColor: color.replace(')', ',0.08)').replace('rgb','rgba'),
-                fill: true, tension: 0.3, pointRadius: 3, pointHoverRadius: 6,
+                fill: false, tension: 0.3, pointRadius: 3, pointHoverRadius: 6,
             }]
         },
         options: {

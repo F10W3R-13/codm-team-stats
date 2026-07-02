@@ -607,6 +607,9 @@ def match_history_grouped(mode: str = None, date_page: int = 1,
         # 2) 이 페이지 날짜들에 속한 매치 전체 (NULL은 IS NULL)
         placeholders = ",".join(["?"] * len([d for d in page_dates if d is not None]))
         has_null = any(d is None for d in page_dates)
+        # mode 필터: 첫 번째(날짜 목록) 쿼리에서 이미 필터링됐지만, 같은 날짜에 다른 모드
+        # 매치가 섞여 있으면 여기서 걸러지지 않으므로 두 번째 SELECT에도 mode 조건 적용.
+        mode_cond = " AND m.mode=?" if mode else ""
 
         sql = f"""SELECT m.id, m.mode, m.map_name, m.match_date, m.result,
                          m.team_score, m.opponent_score,
@@ -617,10 +620,11 @@ def match_history_grouped(mode: str = None, date_page: int = 1,
                          (SELECT ROUND(AVG(MAX(0, 1.1*obj_time + 8*capture_kill + 4.1*kills - 5*deaths)),1)
                           FROM player_stats_hp WHERE match_id=m.id) avg_zcs
                   FROM matches m
-                  WHERE {('m.match_date IN (%s)' % placeholders) if placeholders else 'FALSE'}
-                  {(' OR ' if placeholders and has_null else '') + ('m.match_date IS NULL' if has_null else '')}
+                  WHERE ({('m.match_date IN (%s)' % placeholders) if placeholders else 'FALSE'}
+                  {(' OR ' if placeholders and has_null else '') + ('m.match_date IS NULL' if has_null else '')})
+                  {mode_cond}
                   ORDER BY (m.match_date IS NULL), m.match_date DESC, m.id DESC"""
-        qp = [d for d in page_dates if d is not None]
+        qp = [d for d in page_dates if d is not None] + ([mode] if mode else [])
         rows = conn.execute(db._adapt_sql(sql), qp).fetchall()
 
     # 3) 날짜별 그룹핑 (page_dates 순서 = 내림차순, NULL은 끝)

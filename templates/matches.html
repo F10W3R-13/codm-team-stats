@@ -6,9 +6,9 @@
 <h1>{{ t.matches }}</h1>
 
 <div style="display:flex; gap:0.5rem; margin: 1rem 0;">
-    <a href="/matches?mode=ALL&lang={{ lang }}&page=1" class="badge {{ 'hp' if mode=='ALL' else 'muted' }}" style="text-decoration:none;">ALL</a>
-    <a href="/matches?mode=HP&lang={{ lang }}&page=1" class="badge {{ 'hp' if mode=='HP' else 'muted' }}" style="text-decoration:none;">🎯 {{ t.mode_hp }}</a>
-    <a href="/matches?mode=SND&lang={{ lang }}&page=1" class="badge {{ 'snd' if mode=='SND' else 'muted' }}" style="text-decoration:none;">🔍 {{ t.mode_snd }}</a>
+    <a href="/matches?mode=ALL&lang={{ lang }}&page=1" class="badge" style="text-decoration:none; {% if mode=='ALL' %}background:#4e5968; color:white;{% else %}color: var(--muted);{% endif %}">ALL</a>
+    <a href="/matches?mode=HP&lang={{ lang }}&page=1" class="badge" style="text-decoration:none; {% if mode=='HP' %}background:var(--accent); color:white;{% else %}color: var(--muted);{% endif %}">🎯 {{ t.mode_hp }}</a>
+    <a href="/matches?mode=SND&lang={{ lang }}&page=1" class="badge" style="text-decoration:none; {% if mode=='SND' %}background:#8b5cf6; color:white;{% else %}color: var(--muted);{% endif %}">🔍 {{ t.mode_snd }}</a>
 </div>
 
 {% for grp in data.groups %}
