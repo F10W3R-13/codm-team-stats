@@ -31,6 +31,9 @@ ENV/
 .DS_Store
 Thumbs.db
 
+# 아카이브 (백업·원본 데이터 보관)
+_archive/
+
 # 백업/임시
 *.bak
 *.bak.*
@@ -42,5 +45,4 @@ base.html.bak
 # 로그
 *.log
 
-# 원본 make.com 블루프린트 (참고용이지만 저장소 정리를 위해 제외)
-*.blueprint*.json
+# 원본 make.com 블루프린트 (참고용이

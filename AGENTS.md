@@ -1,6 +1,6 @@
 # 작업 지침 (AGENTS.md)
 
-이 파일은 AI 에이전트가 이 프로젝트에서 작업할 때 따르는 규칙이다.
+이 파일은 AI 에이전트가 이 프로젝트에서 작업할 때 따르는 규칙이다. **이 파일이 단일 진실(마스터)이며, CLAUDE.md는 이 파일을 가리키는 포인터다.**
 핵심 목표: **시키지 않은 일로 폭주하지 말 것. 단, 명확한 일은 빠르게 처리할 것.**
 
 ---
@@ -22,7 +22,8 @@
 진행 전에 **먼저 계획을 1~3줄로 말하고 승인**받을 것:
 - 4개 이상 파일에 걸친 변경, 또는 100줄 이상 규모
 - 새 의존성 추가, 설정/빌드/배포 파일 생성·변경
-- DB 스키마·마이그레이션, git init/commit, 외부로 나가는 작업(푸시·배포)
+- DB 스키마·마이그레이션
+- git 커밋·푸시는 **§7 규칙** 참고 (사용자 허가 후 진행)
 
 원칙: **작고 명확하면 진행, 크거나 되돌리기 어려우면 멈추고 묻는다.** 애매하면 묻는다.
 
@@ -54,45 +55,129 @@
 
 ## 6. 이 프로젝트 메모
 
-- 스택: **FastAPI + Jinja2(HTML 템플릿) + SQLite/Postgres**(듀얼), Discord 봇(`bot.py`) 별도.
+- 스택: **FastAPI + Jinja2(HTML 템플릿) + SQLite/Postgres(양쪽 지원)**, Discord 봇(`bot.py`).
+- DB는 환경변수 `DATABASE_URL`이 있으면 Postgres, 없으면 로컬 SQLite(`codm.db`).
 - 웹 실행: `uvicorn web_api:app --port 8000` (CWD = 이 폴더여야 DB·템플릿 경로가 맞음).
-- 템플릿 스타일은 `templates/base.html`의 `<style>` 한 곳에 모여 있고, 다른 페이지가 그 클래스를 공유한다. (디자인은 토스 디자인 톤 적용됨)
-- 비밀정보(`.env`, `service-account.json`)·DB(`codm.db`)·CSV는 절대 커밋하지 않는다.
+- 봇 실행: `python bot.py`. 통합 실행(봇+웹): `python start.py` (배포용, subprocess로 둘 다 띄움).
+- 템플릿 스타일은 `templates/base.html`의 `<style>` 한 곳에 모여 있고, 다른 페이지가 그 클래스를 공유한다. (디자인은 토스 TDS 톤 적용)
+- 비밀정보(`.env`, `service-account.json`)·DB(`codm.db`)·CSV·백업(`*.bak`, `codm.db.backup*`)은 절대 커밋하지 않는다. `.gitignore`에 이미 포함.
+- GPT 프롬프트(`prompt.py`)와 커스텀 지표 공식(`metrics.py`)은 출처가 정해져 있어 함부로 수정 금지.
 
 ### 핵심 지표: ZCS (Zone Control Score)
 - **ZCS는 이 프로젝트에서 가장 중요한 코칭 지표다.** K/D와 함께 병기하되, HP 컨텍스트에서는 ZCS를 제1 강조 지표로 다룬다.
-- 공식: `ZCS = max(0, 1.1·OBJ + 8·캡처킬 + 4.1·K − 5·D)` (HP 전용, SND엔 OBJ/캡처킬 부재로 계산 불가).
+- 공식: `ZCS = max(0, 1.1·OBJ + 8·캡처킬 + 4.1·K − 5·D)` (HP 전용 — SND엔 OBJ/캡처킬이 없어 계산 불가).
 - 새 선수 평가/표시 로직을 짤 때, HP라면 **K/D와 ZCS를 함께 노출**하는 것을 기본으로 한다. SND에는 ZCS를 억지로 넣지 않는다.
-- ZCS 계산은 `metrics.py`의 단일 진실 공식을 따른다. SQL에서도 동일 공식(`MAX(0, 1.1*obj_time + 8*capture_kill + 4.1*kills - 5*deaths)`)을 쓴다.
+- 진실 공식은 `metrics.py`의 `compute_zcs()`. SQL에서도 동일 공식(`MAX(0, 1.1*obj_time + 8*capture_kill + 4.1*kills - 5*deaths)`)을 쓰며, `_adapt_sql`이 Postgres용으로 `GREATEST(0, ...)`로 변환한다.
 
 ### 커스텀 지표 전체 (metrics.py) — 출처 고정, 함부로 수정 금지
-모두 HP 전용 (SND엔 OBJ/캡처킬 부재로 계산 불가). ZCS가 최우선이고 나머지는 보조:
-- **ZCS** ⭐ = `max(0, 1.1·OBJ + 8·캡처킬 + 4.1·K − 5·D)` — 존 컨트롤 종합 점수 (제1 지표)
-- **Impact** = `min(200, 73 + 2.6K − 3.1D + 0.92·OBJ + 0.009·딜)` — 종합 기여도 (스크린샷값 없으면 보정용)
-- **DPD** = `딜 / 데스` — 라이프당 딜 (높을수록 좋음)
-- **DPK** = `딜 / 킬` — 킬당 필요 딜 (**낮을수록** 좋음, 피니시력)
-- **ID** = `Impact − Score/34` — 점수가 예측하는 기여도 대비 숨은 임팩트 초과분
-- **AP%** = `(캡처킬 / 킬) × 100` — **킬당 보너스 점수 밀도**. 주의: "캡처킬" 필드는 거점 점령·멀티킬·트레이드 킬·적 1등 킬 등 순수 킬(100점)이 아닌 **모든 보너스 점수의 합**. 단순 목표 기여도가 아님. 높을수록 킬의 질이 좋음.
-- 평균/비교 로직에서 DPK와 데스는 "낮을수록 좋음"으로 색상/방향 처리.
+모두 HP 전용. ZCS가 최우선, 나머지 보조:
+- **ZCS** ⭐ — 존 컨트롤 종합 (제1 지표). 위 공식 참조.
+- **Impact** = `min(200, 73 + 2.6K − 3.1D + 0.92·OBJ + 0.009·딜)` — 종합 기여도.
+- **DPD** = `딜 / 데스` — 라이프당 딜 (높을수록 좋음).
+- **DPK** = `딜 / 킬` — 킬당 필요 딜 (**낮을수록** 좋음, 피니시력).
+- **ID** = `Impact − Score/34` — 점수 대비 숨은 임팩트 초과분.
+- **AP%** = `(캡처킬 / 킬) × 100` — **킬당 보너스 점수 밀도**. "캡처킬" 필드는 거점 점령·멀티킬·트레이드 킬·적 1등 킬 등 **순수 킬(100점)이 아닌 모든 보너스 점수의 합** (단순 목표 기여도가 아님). 높을수록 킬의 질이 좋음.
+- DPK, 데스는 "낮을수록 좋음"으로 평균/비교 로직에서 방향 처리.
 
 ### 웹 페이지 구조 (현재)
-- `/` — **코칭 허브** (홈): 팀 트렌드, ZCS 카드+추이차트, 폼 경고, 강한/약한 맵(클릭 시 `/maps/{name}`), 역할 분포, 승률
-- `/overview` — 종합 대시보드 (기존 홈)
-- `/players`, `/players/{name}` — 선수/선수상세 (HP 표에 ZCS 컬럼, 상세에 역할 배지)
-- `/leaderboard` — 순위 (기본 K/D)
-- `/compare` — 두 선수 비교 (레이더 + 표, HP는 ZCS가 첫 행)
-- `/matches`, `/matches/{id}` — 매치 목록/상세 (승패 배지, ZCS, AI 매치 분석)
-- `/maps`, `/maps/{name}` — **맵 탭**: 카드 그리드(ZCS 중심) → 맵 상세(승률/전지표 비교/AI 수치 경향/선수별)
-- `/trends` — 시계열
-- `/admin` — 관리 (승패·스코어 입력)
-- **`/insights`는 삭제됨** (팀 인사이트 탭 제거, 맵 탭으로 통합)
+- `/` — **코칭 허브** (홈): 트렌드, ZCS 카드+추이, 폼 경고, 강한/약한 맵(→`/maps/{name}` 링크), 역할 분포, 승률.
+- `/overview` — 종합 대시보드 (기존 홈에서 이동).
+- `/players`, `/players/{name}` — HP 표에 ZCS 컬럼, 상세에 역할 배지(slayer/objective/balanced).
+- `/leaderboard` — 순위 (기본 K/D).
+- `/compare` — 두 선수 비교 (레이더+표, HP는 ZCS 첫 행).
+- `/matches`, `/matches/{id}` — 승패 배지 + ZCS + AI 매치 분석.
+- `/maps`, `/maps/{name}` — **맵 탭**: ZCS 중심 카드 그리드 → 맵 상세(승률/전지표 최근vs시즌/AI 수치경향/선수별).
+- `/trends` — 시계열. `/admin` — 관리 (승패·스코어 입력).
+- **`/insights` 삭제됨** (팀 인사이트 탭 제거, 맵 탭으로 통합). `team_insights_data()`/`team_insight()` 함수는 coaching_hub 호환성 위해 잔존.
 
 ### AI 인사이트 정책
-- 매치 분석(`/matches/{id}`), 선수 프로필, 팀 허브, **맵 상세**에서 AI 인사이트 노출.
-- **맵 상세 AI는 "간접적 수치 경향"만** — 직접적 지시/전술 명령 금지, 수치 기반 경향성만 짚음 (예: "이 맵에서 팀 K/D 시즌 대비 -12%").
+- 매치 분석, 선수 프로필, 팀 허브, 맵 상세에서 AI 인사이트 노출.
+- **맵 상세 AI는 "간접적 수치 경향"만** — 직접 지시/전술 명령 금지 (예: "이 맵에서 팀 K/D 시즌 대비 -12%").
 - 캐싱: `insight_cache.py` (1시간 TTL, 매치 기록 시 무효화).
 
 ### 데이터 현황 메모
-- 승패(`result`/`team_score`/`opponent_score`) 데이터는 대부분 NULL → `/admin`에서 수동 입력 필요. 입력 전까지 승률/폼 차트는 비활성.
-- `service-account.json`은 로컬 파일 방식 + 배포는 `GOOGLE_SERVICE_ACCOUNT_JSON` 환경변수(JSON 통째로) 양쪽 지원.
-- **배포/운영 디테일은 `DEPLOYMENT.md` 참조** (Railway 단계별 가이드, 재배포/롤백, 비용, 문제해결, 용어사전).
+- 승패(`result`/`team_score`/`opponent_score`)는 대부분 NULL → `/admin`에서 수동 입력 필요. 입력 전까지 승률/폼 차트 비활성.
+- 역할 분류(`metrics.classify_role`): 팀 평균 대비 킬+딜 vs OBJ+캡처 비율 (threshold 1.08x). HP 전용.
+- `service-account.json`: 로컬 파일 + 배포 `GOOGLE_SERVICE_ACCOUNT_JSON` 환경변수 양쪽 지원.
+
+---
+
+## 7. Git 워크플로우 ⭐ (중요)
+
+**저장소**: `https://github.com/F10W3R-13/codm-team-stats.git` (Private)
+**브랜치**: `main` (기본)
+
+### 커밋·푸시 규칙
+- **주요 작업이 끝날 때마다 커밋 + 푸시**한다. "주요 작업" = 하나의 기능/수정 단위가 완결된 상태.
+- **사용자에게 허가를 받은 뒤에 커밋·푸시**한다 ("이제 커밋·푸시할게요?" 식으로 1줄로 물어보고 진행).
+- 사용자가 명시적으로 "커밋해/푸시해/올려"라고 했으면 별도 재확인 없이 진행.
+- 사소한 수정(오타, 1-2줄)은 모을 수 있고, 기능 단위로 커밋.
+
+### 커밋 메시지 규칙
+- 한국어 또는 영어 (간결하게)
+- 형식: `제목(한 줄)` + 빈 줄 + `본문(선택, 변경 요약)`
+- 예: `Add player consistency (stddev) metric` / `Postgres 호환: INSERT OR REPLACE → UPSERT 헬퍼`
+
+### 절대 커밋 금지 (`.gitignore` 처리됨)
+- `.env` (토큰, API 키)
+- `service-account.json` (구글 키)
+- `codm.db`, `codm.db.backup*` (DB 파일)
+- `*.csv` (마이그레이션 원본)
+- `*.blueprint*.json` (make.com 원본)
+- `*.bak*`, `__pycache__/`
+
+### 표준 절차
+```bash
+git add -A
+git status   # 비밀정보 빠졌는지 확인
+git commit -m "제목"
+git push origin main
+```
+
+---
+
+## 8. 아키텍처 개요
+
+```
+디스코드 채널 ──스크린샷──▶ bot.py (on_message)
+                              │ GPT-4.1 비전 (prompt.py)
+                              ▼ JSON {mode, result, team_score, map, players[]}
+                         stats_repo.save_match()
+                              │
+                              ▼
+                         DB (SQLite/Postgres)
+                              ▲
+                              │ queries.py / analytics.py / metrics.py
+            ┌─────────────────┴──────────────────┐
+            ▼                                    ▼
+    web_api.py (FastAPI)              commands_cog.py
+    + templates/ (웹, 3개국어)          (디스코드 슬래시 명령, 영어)
+```
+
+**3개 실행 단위가 같은 DB 공유**: `bot.py`(봇), `web_api.py`(웹), `import_sheets.py`(일회성 마이그레이션).
+봇이 쓰면 웹에 즉시 반영. 통합 실행은 `start.py`.
+
+## 9. 데이터 모델 특이점 (핵심)
+
+- **매치 분할 규칙**: 구글 시트에 match_id가 없어서 "이전 매치에 이미 등장한 선수가 다시 나오면 새 매치 시작"으로 분할 (`import_sheets.py`의 `group_matches()`). 단순 행수(4/5)로 자르면 안 됨.
+- **ZCS 시트 오류 정정**: 구글 시트 Dashboard의 "ZCS" 열에 Total Damage 값이 잘못 배치되어 있었음. ZCS는 `metrics.py` 공식 `max(0, 1.1·OBJ+8·CK+4.1·K−5·D)`으로 재계산한 값이 정답.
+- **이름 정규화**: 대소문자 섞임 (`Unravel`/`unravel`) → `import_sheets.py`의 `normalize_name()`으로 통일.
+- **DB 수정 시**: 봇/웹을 먼저 중지하고 백업 후 수정 (SQLite 동시 쓰기 취약).
+
+## 10. 언어/i18n 정책
+
+- **코치용 = 한국어**, **선수용 = 영어/스페인어**.
+- **디스코드 봇**: 영어 고정 (선수들이 보는 채널).
+- **웹**: `?lang=ko|en|es` 전환. 3개국어 사전은 `i18n.py`.
+- **AI 인사이트**: `lang` 파라미터 따라 GPT 응답 언어 변경 (캐싱: `insight_cache.py`, TTL 1시간 + 매치 기록 시 무효화).
+- **로그(콘솔)**: 한국어.
+
+## 11. 배포 (Railway)
+
+- PaaS: Railway.app, GitHub 연동 (`F10W3R-13/codm-team-stats`).
+- DB: Railway Postgres (`DATABASE_URL` 자동 주입).
+- 실행: Procfile → `python start.py` (봇+웹 subprocess).
+- 환경변수: `DISCORD_BOT_TOKEN`, `OPENAI_API_KEY`, `DATABASE_URL`(자동), `PORT`(자동), `GOOGLE_SERVICE_ACCOUNT_JSON`(서비스 계정 JSON 통째로; 로컬은 `GOOGLE_SERVICE_ACCOUNT_FILE` 파일 경로).
+- 배포 후 DB는 비어있음 → `import_sheets.py`로 구글 시트 → Postgres 마이그레이션 필요.
+- **재배포**: `main` push 또는 환경변수 변경 시 자동. 롤백은 Deployments 탭에서.
+- **배포 방법/운영 디테일(초보용 단계별, 문제해결, 용어사전)은 `DEPLOYMENT.md` 참조.**
