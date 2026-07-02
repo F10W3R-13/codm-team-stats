@@ -104,6 +104,13 @@ async def player_detail(request: Request, name: str, lang: str = Query("ko")):
         raise HTTPException(404, "선수를 찾을 수 없습니다")
     stats = queries.player_overall_stats(pid)
     team_hp = queries.team_averages("HP") if stats["hp"] else {}
+    # key 비대칭 정규화: team_averages(all_players_overview)는 avg_ck/id를 쓰지만
+    # player_overall_stats는 avg_capture/impact_delta를 씀. 통합 패널 루프를 위해 별칭 추가.
+    if team_hp:
+        if "avg_capture" not in team_hp and "avg_ck" in team_hp:
+            team_hp["avg_capture"] = team_hp["avg_ck"]
+        if "impact_delta" not in team_hp and "id" in team_hp:
+            team_hp["impact_delta"] = team_hp["id"]
     # 역할 분류 (HP 전용) — player_overall_stats엔 team 컨텍스트가 없어 여기서 추가
     if stats["hp"] and team_hp:
         import metrics
@@ -181,12 +188,15 @@ async def match_detail(request: Request, match_id: int, lang: str = Query("ko"))
     report = analytics.match_report(match_id)
     if not report:
         raise HTTPException(404, "매치를 찾을 수 없습니다")
+    # 코치 로그인 여부 → '편집' 링크 노출 (VOD/메모/전사 패널 진입)
+    cookie_val = request.cookies.get(auth.COOKIE_NAME)
+    is_admin = bool(cookie_val and auth.check_cookie(cookie_val))
     # GPT 매치 인사이트 (캐싱 — 1시간 TTL, 매치 기록 시 무효화)
     insight = insight_cache.get("match", str(match_id), lang)
     if insight is None:
         insight = analytics_insights.match_insight(report, lang=lang)
         insight_cache.set("match", str(match_id), lang, insight)
-    return render("match_detail.html", lang=lang, report=report, insight=insight)
+    return render("match_detail.html", lang=lang, report=report, insight=insight, is_admin=is_admin)
 
 
 # ── JSON API (차트용) ────────────────────────────────────────────────────

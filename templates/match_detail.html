@@ -4,6 +4,9 @@
 
 {% block content %}
 <a href="/matches?lang={{ lang }}" class="muted" style="text-decoration:none;">{{ t.back_to_list }}</a>
+{% if is_admin %}
+<a href="/admin/match/{{ report.match_id }}?lang={{ lang }}" class="player-link" style="float:right; text-decoration:none; font-weight:600;">✏️ {{ t.edit }}</a>
+{% endif %}
 <h1>🎮 {{ t.match }} #{{ report.match_id }} <span class="badge {{ report.mode|lower }}">{{ t['mode_' + report.mode.lower()] }}</span></h1>
 <p class="muted">📅 {{ report.match_date or t.date_unknown }} · 🗺️ {{ report.map_name or t.map_unknown }}</p>
 
