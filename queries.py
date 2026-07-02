@@ -97,6 +97,14 @@ def player_overall_stats(player_id: int) -> dict:
             result["hp"]["std_kd"] = _stddev([x["kd_ratio"] for x in rows if x["kd_ratio"] is not None], 2)
             result["hp"]["std_kills"] = _stddev([x["kills"] for x in rows if x["kills"] is not None], 1)
             result["hp"]["std_dmg"] = _stddev([x["total_damage"] for x in rows if x["total_damage"] is not None], 0)
+            # HP 커스텀 지표(DPD/DPK/ID/AP%/ZCS) — 평균 스탯 기반으로 계산해 추가.
+            # (player_detail 커스텀 지표 카드 + 팀 대비 비교표 ZCS 행 표시용)
+            result["hp"].update(metrics.all_hp_metrics(
+                result["hp"].get("avg_k"), result["hp"].get("avg_d"),
+                result["hp"].get("avg_obj"), result["hp"].get("avg_score"),
+                result["hp"].get("avg_impact"), result["hp"].get("avg_dmg"),
+                result["hp"].get("avg_capture"),
+            ))
 
         # SND 평균 + 표준편차(기복)
         r = conn.execute(
@@ -651,6 +659,48 @@ def update_player_stat(stat_id: int, mode: str, **fields) -> bool:
             return cur.rowcount > 0
         except Exception:
             # UNIQUE(match_id, player_id) 충돌 등 — 같은 매치에 이미 그 선수가 있음
+            return False
+
+
+def add_player_to_match(match_id: int, mode: str, player_id: int, **stats) -> bool:
+    """기존 매치에 선수 한 명을 새로 추가 (AI 누락 보정용).
+
+    mode: "HP" 또는 "SND".
+    player_id: players 테이블의 정확한 id (admin 드롭다운에서 선택).
+    stats: 모드별 허용 필드만 사용. (update_player_stat과 동일 화이트리스트)
+
+    반환: True=추가 성공, False=이미 (match_id, player_id) 존재하거나 실패.
+    UNIQUE(match_id, player_id) 제약이 새 조합 INSERT는 허용, 중복은 차단.
+    """
+    if mode == "HP":
+        allowed = {"kills", "deaths", "kd_ratio", "obj_time", "score",
+                   "impact", "total_damage", "capture_kill"}
+        table = "player_stats_hp"
+    else:
+        allowed = {"kills", "deaths", "assists", "kd_ratio", "score",
+                   "impact", "adr", "first_kill", "lone_wolf_win"}
+        table = "player_stats_snd"
+
+    fields = {k: v for k, v in stats.items() if k in allowed and v not in (None, "")}
+    if not fields:
+        # 최소 빈 행이라도 INSERT는 가능 (매치에 선수 자리만 확보)
+        cols_str = "match_id, player_id"
+        placeholders = "?, ?"
+        params = [match_id, player_id]
+    else:
+        cols = list(fields.keys())
+        cols_str = "match_id, player_id, " + ", ".join(cols)
+        placeholders = "?, ?, " + ", ".join(["?"] * len(cols))
+        params = [match_id, player_id] + [fields[c] for c in cols]
+
+    with db.get_conn() as conn:
+        try:
+            cur = conn.execute(
+                f"INSERT INTO {table} ({cols_str}) VALUES ({placeholders})", params
+            )
+            return cur.rowcount > 0
+        except Exception:
+            # UNIQUE(match_id, player_id) 충돌 — 이미 그 선수가 이 매치에 있음
             return False
 
 

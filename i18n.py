@@ -169,6 +169,8 @@ translations = {
         "confirm_delete": "정말 이 매치를 삭제할까요? 이 작업은 되돌릴 수 없습니다.",
         "saved_ok": "저장됨",
         "deleted_ok": "삭제됨",
+        "add_player": "선수 추가",
+        "added_ok": "선수 추가됨",
         "stat_id": "ID",
         # Alias 관리
         "nav_admin_aliases": "별명",
@@ -417,6 +419,8 @@ translations = {
         "confirm_delete": "Delete this match? This cannot be undone.",
         "saved_ok": "Saved",
         "deleted_ok": "Deleted",
+        "add_player": "Add Player",
+        "added_ok": "Player added",
         "stat_id": "ID",
         # Alias 관리
         "nav_admin_aliases": "Aliases",
@@ -659,6 +663,8 @@ translations = {
         "confirm_delete": "¿Eliminar esta partida? No se puede deshacer.",
         "saved_ok": "Guardado",
         "deleted_ok": "Eliminado",
+        "add_player": "Añadir Jugador",
+        "added_ok": "Jugador añadido",
         "stat_id": "ID",
         # Alias
         "nav_admin_aliases": "Aliases",

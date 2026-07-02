@@ -226,6 +226,10 @@ async def on_message(message: discord.Message):
             await message.reply("⚠️ Analysis complete, but no player data was found.")
             return
 
+        # AI 누락(4명만 읽음 등) 조기 감지 — 관리 탭에서 보정 가능하지만 알림.
+        if len(players) < 5:
+            print(f"[WARN] 선수 {len(players)}명만 인식됨 (5명 기대). 누락이면 /admin에서 추가.")
+
         if mode not in ("HP", "SND"):
             await message.reply(
                 f"⚠️ Could not determine the game mode (mode={mode!r}). "

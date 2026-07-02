@@ -119,7 +119,6 @@ async def player_detail(request: Request, name: str, lang: str = Query("ko")):
     return render(
         "player_detail.html", lang=lang,
         stats=stats, team_hp=team_hp,
-        trend_hp=trend_hp, trend_snd=trend_snd,
         insight=insight,
     )
 
@@ -190,28 +189,6 @@ async def match_detail(request: Request, match_id: int, lang: str = Query("ko"))
         insight = analytics_insights.match_insight(report, lang=lang)
         insight_cache.set("match", str(match_id), lang, insight)
     return render("match_detail.html", lang=lang, report=report, insight=insight)
-
-
-@app.get("/trends", response_class=HTMLResponse)
-async def trends_page(
-    request: Request,
-    player: str = Query(None),
-    mode: str = Query("HP", pattern="^(HP|SND)$"),
-    metric: str = Query("kd"),
-    lang: str = Query("ko"),
-):
-    players = queries.list_players()
-    selected = player or (players[0] if players else None)
-    series = []
-    if selected:
-        pid = queries.get_player_id(selected)
-        if pid:
-            series = queries.player_metric_timeseries(pid, mode, 50)
-    return render(
-        "trends.html", lang=lang,
-        players=players, selected=selected, mode=mode,
-        metric=metric, series=series,
-    )
 
 
 # ── JSON API (차트용) ────────────────────────────────────────────────────
@@ -333,6 +310,21 @@ async def admin_update_meta(match_id: int, payload: dict = Body(...)):
 @app.post("/admin/stat/{stat_id}")
 async def admin_update_stat(stat_id: int, mode: str = Query(...), payload: dict = Body(...)):
     ok = queries.update_player_stat(stat_id, mode, **payload)
+    return {"ok": ok}
+
+
+@app.post("/admin/match/{match_id}/player")
+async def admin_add_player(match_id: int, mode: str = Query(...), payload: dict = Body(...)):
+    """기존 매치에 누락된 선수 한 명을 추가 (AI가 4명만 읽은 경우 보정)."""
+    payload = payload or {}
+    player_id = payload.pop("player_id", None)
+    if player_id in (None, ""):
+        return {"ok": False, "error": "player_id required"}
+    try:
+        player_id = int(player_id)
+    except (ValueError, TypeError):
+        return {"ok": False, "error": "invalid player_id"}
+    ok = queries.add_player_to_match(match_id, mode, player_id, **payload)
     return {"ok": ok}
 
 

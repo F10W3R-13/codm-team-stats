@@ -111,6 +111,8 @@
     </table>
     </div>
     {% endif %}
+    <!-- + 선수 추가 (AI 누락 보정) -->
+    <button type="button" id="addRowBtn" onclick="addPlayerRow()" style="margin-top:1rem; padding:0.5rem 1rem; background:var(--accent); color:white; border:none; border-radius:8px; cursor:pointer; font-weight:600;">＋ {{ t.add_player }}</button>
 </div>
 
 <!-- 삭제 -->
@@ -172,6 +174,62 @@ function deleteMatch() {
             if (d.ok) { flash("{{ t.deleted_ok }}"); setTimeout(() => location.href = '/admin?lang={{ lang }}', 800); }
             else flash("Error", false);
         });
+}
+
+// ── 누락 선수 추가 (AI가 4명만 읽은 경우 보정) ──────────────────────────
+function playerOptions(selectedId) {
+    return `{% for pl in players %}<option value="{{ pl.id }}" {{ 'selected' if pl.id == selectedId }}>{{ pl.name }}</option>{% endfor %}`;
+}
+
+function addPlayerRow() {
+    const tbody = document.querySelector('table tbody');
+    if (!tbody) return;
+    const tr = document.createElement('tr');
+    tr.dataset.new = "1";
+    const sel = `<td><select class="edit-player_id" style="min-width:100px;">${playerOptions(null)}</select></td>`;
+    if (mode === 'HP') {
+        tr.innerHTML = sel + `
+            <td class="num"><input type="number" class="edit-kills" style="width:60px;"></td>
+            <td class="num"><input type="number" class="edit-deaths" style="width:60px;"></td>
+            <td class="num"><input type="number" step="0.01" class="edit-kd_ratio" style="width:70px;"></td>
+            <td class="num"><input type="number" class="edit-obj_time" style="width:70px;"></td>
+            <td class="num"><input type="number" class="edit-score" style="width:80px;"></td>
+            <td class="num"><input type="number" step="0.1" class="edit-impact" style="width:70px;"></td>
+            <td class="num"><input type="number" class="edit-total_damage" style="width:80px;"></td>
+            <td class="num"><input type="number" step="0.1" class="edit-capture_kill" style="width:60px;"></td>
+            <td><button type="button" onclick="addPlayer(this)" style="padding:0.3rem 0.7rem; background:var(--accent); color:white; border:none; border-radius:8px; cursor:pointer; font-size:0.85rem;">＋</button></td>`;
+    } else {
+        tr.innerHTML = sel + `
+            <td class="num"><input type="number" class="edit-kills" style="width:55px;"></td>
+            <td class="num"><input type="number" class="edit-deaths" style="width:55px;"></td>
+            <td class="num"><input type="number" class="edit-assists" style="width:55px;"></td>
+            <td class="num"><input type="number" step="0.01" class="edit-kd_ratio" style="width:65px;"></td>
+            <td class="num"><input type="number" class="edit-score" style="width:75px;"></td>
+            <td class="num"><input type="number" step="0.1" class="edit-impact" style="width:65px;"></td>
+            <td class="num"><input type="number" step="0.1" class="edit-adr" style="width:65px;"></td>
+            <td class="num"><input type="number" class="edit-first_kill" style="width:50px;"></td>
+            <td class="num"><input type="number" step="0.1" class="edit-lone_wolf_win" style="width:50px;"></td>
+            <td><button type="button" onclick="addPlayer(this)" style="padding:0.3rem 0.7rem; background:var(--accent); color:white; border:none; border-radius:8px; cursor:pointer; font-size:0.85rem;">＋</button></td>`;
+    }
+    tbody.appendChild(tr);
+}
+
+function addPlayer(btn) {
+    const tr = btn.closest('tr');
+    const playerSel = tr.querySelector('.edit-player_id');
+    const payload = { player_id: playerSel.value };
+    tr.querySelectorAll('[class*="edit-"]').forEach(inp => {
+        const key = inp.className.replace('edit-', '');
+        payload[key] = inp.value === '' ? null : inp.value;
+    });
+    fetch(`/admin/match/${matchId}/player?mode=${mode}`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(payload),
+    }).then(r => r.json()).then(d => {
+        if (d.ok) { flash("{{ t.added_ok || t.saved_ok }}"); setTimeout(() => location.reload(), 700); }
+        else flash(d.error === 'player_id required' ? "선수 선택 필요" : "이미 이 매치에 있는 선수", false);
+    });
 }
 </script>
 {% endblock %}
