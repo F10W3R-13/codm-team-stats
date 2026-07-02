@@ -144,73 +144,171 @@
 </div>
 {% endif %}
 
-{% if trend_hp %}
+<!-- 시계열 (선수 페이지에 통합) -->
 <div class="card" style="margin-top: 1.5rem;">
-    <h2>{{ t.hp_trend_title }}</h2>
-    <div class="chart-wrap"><canvas id="hpTrend"></canvas></div>
+    <h2>📈 {{ t.nav_timeseries }}</h2>
+    <div style="display:flex; gap:1rem; flex-wrap:wrap; align-items:end; margin-bottom:1rem;">
+        <div>
+            <button type="button" id="modeHpBtn" onclick="switchMode('HP')" style="padding:0.4rem 0.9rem; border:none; border-radius:8px; cursor:pointer; font-weight:600;">🎯 {{ t.mode_hp }}</button>
+            <button type="button" id="modeSndBtn" onclick="switchMode('SND')" style="padding:0.4rem 0.9rem; border:none; border-radius:8px; cursor:pointer; font-weight:600; background:#e5e8eb; color:#4e5968;">🔍 {{ t.mode_snd }}</button>
+        </div>
+        <div>
+            <label class="muted" style="font-size:0.8rem; display:block;">{{ t.select_metric }}</label>
+            <select id="metricSel" onchange="renderChart()"></select>
+        </div>
+    </div>
+    <div class="chart-wrap" style="height: 380px;"><canvas id="trendChart"></canvas></div>
+    {% if not stats.hp and not stats.snd %}
+    <p class="muted">{{ t.no_data }}</p>
+    {% endif %}
 </div>
-{% endif %}
 
-{% if trend_snd %}
 <div class="card" style="margin-top: 1.5rem;">
-    <h2>{{ t.snd_trend_title }}</h2>
-    <div class="chart-wrap"><canvas id="sndTrend"></canvas></div>
+    <h2>📋 <span id="tableTitle">{{ stats.name }}</span> — {{ t.matches }}</h2>
+    <div class="table-wrap">
+    <table id="dataTable">
+        <thead id="tableHead"></thead>
+        <tbody id="tableBody"></tbody>
+    </table>
+    </div>
 </div>
-{% endif %}
-
-<p style="margin-top:1.5rem;">
-    <a href="/trends?player={{ stats.name }}&lang={{ lang }}" class="player-link">📈 {{ t.nav_timeseries }} →</a>
-</p>
 
 <script>
-{% if trend_hp %}
-const hpData = {{ trend_hp | tojson }};
-new Chart(document.getElementById('hpTrend'), {
-    type: 'line',
-    data: {
-        labels: hpData.map(d => d.date || ''),
-        datasets: [{
-            label: 'K/D',
-            data: hpData.map(d => d.kd),
-            borderColor: '#ff9d00',
-            backgroundColor: 'rgba(255,157,0,0.1)',
-            fill: true, tension: 0.3, pointRadius: 2,
-        }]
-    },
-    options: {
-        responsive: true, maintainAspectRatio: false,
-        plugins: { legend: { display: false } },
-        scales: {
-            x: { grid: { color: '#e5e8eb' }, ticks: { color: '#8b95a1', maxTicksLimit: 8 } },
-            y: { grid: { color: '#e5e8eb' }, ticks: { color: '#8b95a1' } },
-        }
-    }
-});
-{% endif %}
+const playerName = {{ stats.name | tojson }};
+const lang = "{{ lang }}";
+let currentMode = "{{ 'HP' if stats.hp else 'SND' }}";
+let currentMetric = "{{ 'zcs' if stats.hp else 'kd' }}";
+let seriesData = [];
+let chartInstance = null;
 
-{% if trend_snd %}
-const sndData = {{ trend_snd | tojson }};
-new Chart(document.getElementById('sndTrend'), {
-    type: 'line',
-    data: {
-        labels: sndData.map(d => d.date || ''),
-        datasets: [{
-            label: 'K/D',
-            data: sndData.map(d => d.kd),
-            borderColor: '#8b5cf6',
-            backgroundColor: 'rgba(139,92,246,0.1)',
-            fill: true, tension: 0.3, pointRadius: 2,
-        }]
-    },
-    options: {
-        responsive: true, maintainAspectRatio: false,
-        plugins: { legend: { display: false } },
-        scales: {
-            x: { grid: { color: '#e5e8eb' }, ticks: { color: '#8b95a1', maxTicksLimit: 8 } },
-            y: { grid: { color: '#e5e8eb' }, ticks: { color: '#8b95a1' } },
-        }
+const metricLabels = {
+    ko: { kd:"K/D", score:"Score", impact:"Impact", kills:"킬", deaths:"데스",
+          obj:"OBJ", dmg:"딜", cap:"CapKill", dpd:"DPD", dpk:"DPK",
+          impact_delta:"ID", ap_pct:"AP%", zcs:"ZCS",
+          assists:"어시", adr:"ADR", fk:"FK", lww:"LWW" },
+    en: { kd:"K/D", score:"Score", impact:"Impact", kills:"Kills", deaths:"Deaths",
+          obj:"OBJ", dmg:"DMG", cap:"CapKill", dpd:"DPD", dpk:"DPK",
+          impact_delta:"ID", ap_pct:"AP%", zcs:"ZCS",
+          assists:"Assists", adr:"ADR", fk:"FK", lww:"LWW" },
+    es: { kd:"K/D", score:"Score", impact:"Impact", kills:"Bajas", deaths:"Muertes",
+          obj:"OBJ", dmg:"Daño", cap:"CapKill", dpd:"DPD", dpk:"DPK",
+          impact_delta:"ID", ap_pct:"AP%", zcs:"ZCS",
+          assists:"Asist.", adr:"ADR", fk:"FK", lww:"LWW" },
+};
+const L = metricLabels[lang] || metricLabels.ko;
+
+// 모드별 지표 옵션
+const metricOptions = {
+    HP: [
+        {v:'zcs', g:'{{ t.custom_metrics_title }}'}, {v:'dpd', g:'{{ t.custom_metrics_title }}'},
+        {v:'dpk', g:'{{ t.custom_metrics_title }}'}, {v:'ap_pct', g:'{{ t.custom_metrics_title }}'},
+        {v:'impact_delta', g:'{{ t.custom_metrics_title }}'},
+        {v:'kd', g:'K/D · Score'}, {v:'score', g:'K/D · Score'}, {v:'impact', g:'K/D · Score'},
+        {v:'kills', g:'{{ t.kills }}/{{ t.deaths }}'}, {v:'deaths', g:'{{ t.kills }}/{{ t.deaths }}'},
+        {v:'obj', g:'HP'}, {v:'dmg', g:'HP'}, {v:'cap', g:'HP'},
+    ],
+    SND: [
+        {v:'kd', g:'K/D · Score'}, {v:'score', g:'K/D · Score'}, {v:'impact', g:'K/D · Score'},
+        {v:'kills', g:'{{ t.kills }}/{{ t.deaths }}'}, {v:'deaths', g:'{{ t.kills }}/{{ t.deaths }}'},
+        {v:'assists', g:'SND'}, {v:'adr', g:'SND'}, {v:'fk', g:'SND'}, {v:'lww', g:'SND'},
+    ],
+};
+
+function populateMetricSelect() {
+    const sel = document.getElementById('metricSel');
+    const opts = metricOptions[currentMode] || [];
+    // optgroup별 그룹핑
+    const groups = {};
+    opts.forEach(o => { (groups[o.g] = groups[o.g] || []).push(o); });
+    let html = '';
+    for (const g in groups) {
+        html += `<optgroup label="${g}">` +
+            groups[g].map(o => `<option value="${o.v}" ${o.v===currentMetric?'selected':''}>${L[o.v]||o.v}</option>`).join('') +
+            '</optgroup>';
     }
-});
+    sel.innerHTML = html;
+    // 현재 metric이 이 모드에 없으면 첫 번째로
+    if (!opts.find(o => o.v === currentMetric)) {
+        currentMetric = opts[0] ? opts[0].v : 'kd';
+    }
+    sel.value = currentMetric;
+}
+
+function switchMode(m) {
+    if (m === currentMode) return;
+    currentMode = m;
+    document.getElementById('modeHpBtn').style.background = m==='HP'?'var(--accent)':'#e5e8eb';
+    document.getElementById('modeHpBtn').style.color = m==='HP'?'white':'#4e5968';
+    document.getElementById('modeSndBtn').style.background = m==='SND'?'var(--accent)':'#e5e8eb';
+    document.getElementById('modeSndBtn').style.color = m==='SND'?'white':'#4e5968';
+    const defMetric = m === 'HP' ? 'zcs' : 'kd';
+    currentMetric = defMetric;
+    populateMetricSelect();
+    loadSeries();
+}
+
+function loadSeries() {
+    fetch(`/api/player/${encodeURIComponent(playerName)}/timeseries?mode=${currentMode}&limit=50`)
+        .then(r => r.json())
+        .then(data => { seriesData = Array.isArray(data) ? data : []; renderChart(); })
+        .catch(() => { seriesData = []; renderChart(); });
+}
+
+function renderChart() {
+    currentMetric = document.getElementById('metricSel').value || currentMetric;
+    const canvas = document.getElementById('trendChart');
+    if (chartInstance) { chartInstance.destroy(); chartInstance = null; }
+    if (!seriesData.length) { return; }
+    document.getElementById('tableTitle').textContent = playerName + ' (' + currentMode + ')';
+    const color = currentMode === 'HP' ? '#ff9d00' : '#8b5cf6';
+    chartInstance = new Chart(canvas, {
+        type: 'line',
+        data: {
+            labels: seriesData.map(d => d.date || ''),
+            datasets: [{
+                label: L[currentMetric] || currentMetric,
+                data: seriesData.map(d => d[currentMetric]),
+                borderColor: color,
+                backgroundColor: color.replace(')', ',0.08)').replace('rgb','rgba'),
+                fill: true, tension: 0.3, pointRadius: 3, pointHoverRadius: 6,
+            }]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: { legend: { labels: { color: '#4e5968' } } },
+            scales: {
+                x: { grid: { color: '#e5e8eb' }, ticks: { color: '#8b95a1', maxTicksLimit: 10 } },
+                y: { grid: { color: '#e5e8eb' }, ticks: { color: '#8b95a1' }, beginAtZero: false },
+            }
+        }
+    });
+    renderTable();
+}
+
+function renderTable() {
+    const cols = ['date','kd','kills','deaths','score','impact'];
+    if (currentMode === 'HP') {
+        cols.push('obj','dmg','cap','dpd','dpk','impact_delta','ap_pct','zcs');
+    } else {
+        cols.push('assists','adr','fk','lww');
+    }
+    const headLabels = { date: "{{ t.date }}" };
+    const mergedHead = Object.assign({}, L, headLabels);
+    document.getElementById('tableHead').innerHTML =
+        '<tr>' + cols.map(c => `<th class="num">${mergedHead[c] || c}</th>`).join('') + '</tr>';
+    document.getElementById('tableBody').innerHTML = seriesData.slice().reverse().map(d =>
+        '<tr>' + cols.map(c => {
+            const v = d[c];
+            const cls = c === 'date' ? '' : ' class="num"';
+            return `<td${cls}>${v === null || v === undefined ? '-' : v}</td>`;
+        }).join('') + '</tr>'
+    ).join('');
+}
+
+// 초기화
+populateMetricSelect();
+{% if stats.hp or stats.snd %}
+switchMode(currentMode);  // 버튼 스타일 + loadSeries 트리거
 {% endif %}
 </script>
 {% endblock %}
