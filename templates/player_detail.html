@@ -12,8 +12,56 @@
 {% endif %}
 </h1>
 
+<!-- HP 통합 지표 패널 (기본 + 커스텀 + 팀 평균 대비) -->
+{% if stats.hp %}
+<div class="card" style="margin-top: 1.5rem; border-left: 4px solid var(--accent);">
+    <h2>🎯 {{ t.hp_section }} <span class="muted">({{ stats.hp.matches }} {{ t.games }}) · {{ t.vs_team_title }}</span></h2>
+    <div class="table-wrap">
+    <table>
+        <thead>
+            <tr><th>{{ t.metric_label }}</th><th class="num">{{ t.player }}</th><th class="num">{{ t.team_avg }}</th><th class="num">±%</th></tr>
+        </thead>
+        <tbody>
+        {% for k, label, lower in [
+            ('avg_kd', t.kd, false),
+            ('avg_k', t.m_kills, false),
+            ('avg_obj', t.m_obj, false),
+            ('avg_score', t.avg_score, false),
+            ('avg_impact', t.avg_impact, false),
+            ('avg_dmg', t.m_dmg, false),
+            ('avg_capture', t.avg_cap_kill, false),
+            ('dpd', 'DPD', false),
+            ('dpk', 'DPK', true),
+            ('impact_delta', 'ID', false),
+            ('ap_pct', 'AP%', false),
+            ('zcs', 'ZCS', false),
+        ] %}
+            {% set mine = stats.hp.get(k) %}
+            {% set team_v = team_hp.get(k) if team_hp else none %}
+            <tr>
+                <td>{{ label }}{% if lower %} <span class="muted" style="font-size:0.75rem;">({{ t.lower_better }})</span>{% endif %}</td>
+                <td class="num">{% if k == 'zcs' and mine is not none %}<strong style="color:var(--accent);">{{ mine }}</strong>{% elif mine is not none %}{{ mine }}{% else %}-{% endif %}</td>
+                <td class="num muted">{{ team_v if team_v is not none else '-' }}</td>
+                <td class="num">
+                    {% if mine is not none and team_v and team_v != 0 %}
+                        {% set pct = ((mine - team_v) / team_v * 100) | round(1) %}
+                        {% if (lower and pct < 0) or (not lower and pct > 0) %}
+                            <span style="color:var(--accent-2);">{% if pct > 0 %}+{% endif %}{{ pct }}%</span>
+                        {% else %}
+                            <span style="color:#e74c3c;">{% if pct > 0 %}+{% endif %}{{ pct }}%</span>
+                        {% endif %}
+                    {% else %}-{% endif %}
+                </td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    </div>
+</div>
+{% endif %}
+
 {% if stats.snd %}
-<div class="card" style="margin-top: 1rem;">
+<div class="card" style="margin-top: 1.5rem;">
     <h2>{{ t.snd_section }} <span class="muted">({{ stats.snd.matches }} {{ t.games }})</span></h2>
     <table>
         <tr><td>{{ t.avg_kda }}</td><td class="num"><strong>{{ stats.snd.avg_k }} / {{ stats.snd.avg_d }} / {{ stats.snd.avg_a }}</strong></td></tr>
@@ -59,54 +107,6 @@
                 <td class="num">-</td>
             </tr>
             {% endif %}
-        </tbody>
-    </table>
-    </div>
-</div>
-{% endif %}
-
-<!-- HP 통합 지표 패널 (기본 + 커스텀 + 팀 평균 대비) -->
-{% if stats.hp %}
-<div class="card" style="margin-top: 1.5rem; border-left: 4px solid var(--accent);">
-    <h2>🎯 {{ t.hp_section }} <span class="muted">({{ stats.hp.matches }} {{ t.games }}) · {{ t.vs_team_title }}</span></h2>
-    <div class="table-wrap">
-    <table>
-        <thead>
-            <tr><th>{{ t.metric_label }}</th><th class="num">{{ t.player }}</th><th class="num">{{ t.team_avg }}</th><th class="num">±%</th></tr>
-        </thead>
-        <tbody>
-        {% for k, label, lower in [
-            ('avg_kd', t.kd, false),
-            ('avg_k', t.m_kills, false),
-            ('avg_obj', t.m_obj, false),
-            ('avg_score', t.avg_score, false),
-            ('avg_impact', t.avg_impact, false),
-            ('avg_dmg', t.m_dmg, false),
-            ('avg_capture', t.avg_cap_kill, false),
-            ('dpd', 'DPD', false),
-            ('dpk', 'DPK', true),
-            ('impact_delta', 'ID', false),
-            ('ap_pct', 'AP%', false),
-            ('zcs', 'ZCS', false),
-        ] %}
-            {% set mine = stats.hp.get(k) %}
-            {% set team_v = team_hp.get(k) if team_hp else none %}
-            <tr>
-                <td>{{ label }}{% if lower %} <span class="muted" style="font-size:0.75rem;">({{ t.lower_better }})</span>{% endif %}</td>
-                <td class="num">{% if k == 'zcs' and mine is not none %}<strong style="color:var(--accent);">{{ mine }}</strong>{% elif mine is not none %}{{ mine }}{% else %}-{% endif %}</td>
-                <td class="num muted">{{ team_v if team_v is not none else '-' }}</td>
-                <td class="num">
-                    {% if mine is not none and team_v and team_v != 0 %}
-                        {% set pct = ((mine - team_v) / team_v * 100) | round(1) %}
-                        {% if (lower and pct < 0) or (not lower and pct > 0) %}
-                            <span style="color:var(--accent-2);">{% if pct > 0 %}+{% endif %}{{ pct }}%</span>
-                        {% else %}
-                            <span style="color:#e74c3c;">{% if pct > 0 %}+{% endif %}{{ pct }}%</span>
-                        {% endif %}
-                    {% else %}-{% endif %}
-                </td>
-            </tr>
-        {% endfor %}
         </tbody>
     </table>
     </div>

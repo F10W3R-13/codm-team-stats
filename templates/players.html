@@ -10,81 +10,35 @@
     <a href="/players?mode=SND&lang={{ lang }}" class="{{ 'active' if mode == 'SND' else '' }}">🔍 {{ t.mode_snd }}</a>
 </div>
 
-<div class="card">
-    <div class="table-wrap">
-    <table>
-        <thead>
-            <tr>
-                <th>{{ t.player }}</th>
-                <th class="num">{{ t.matches_col }}</th>
-                <th class="num">{{ t.avg_k }}</th>
-                <th class="num" data-mobile-hide>{{ t.avg_d }}</th>
-                <th class="num">{{ t.kd }}</th>
-                {% if mode == 'HP' %}
-                <th class="num">{{ t.zcs_label }}</th>
-                <th class="num" data-mobile-hide>{{ t.avg_obj }}</th>
-                {% else %}
-                <th class="num" data-mobile-hide>{{ t.avg_a }}</th>
-                <th class="num" data-mobile-hide>{{ t.avg_adr }}</th>
-                {% endif %}
-                <th class="num" data-mobile-hide>{{ t.avg_score }}</th>
-                <th class="num" data-mobile-hide>{{ t.avg_impact }}</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for p in players %}
-            <tr>
-                <td><a href="/players/{{ p.name }}?lang={{ lang }}" class="player-link">{{ p.name }}</a></td>
-                <td class="num">{{ p.matches }}</td>
-                <td class="num">{{ p.avg_k }}</td>
-                <td class="num" data-mobile-hide>{{ p.avg_d }}</td>
-                <td class="num"><strong style="color: var(--accent-2);">{{ p.avg_kd }}</strong></td>
-                {% if mode == 'HP' %}
-                <td class="num"><strong style="color: var(--accent);">{{ p.zcs }}</strong></td>
-                <td class="num" data-mobile-hide>{{ p.avg_obj }}</td>
-                {% else %}
-                <td class="num" data-mobile-hide>{{ p.avg_a }}</td>
-                <td class="num" data-mobile-hide>{{ p.avg_adr }}</td>
-                {% endif %}
-                <td class="num" data-mobile-hide>{{ p.avg_score }}</td>
-                <td class="num" data-mobile-hide>{{ p.avg_impact }}</td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-    </div>
-</div>
-
-{% if mode == 'HP' %}
-<div class="card" style="margin-top: 1.5rem;">
-    <h2>{{ t.custom_metrics_title }}</h2>
-    <p class="muted" style="font-size:0.85rem; margin-bottom:1rem;">{{ t.custom_metrics_desc }}</p>
-    <div class="table-wrap">
-    <table>
-        <thead>
-            <tr>
-                <th>{{ t.player }}</th>
-                <th class="num" data-mobile-hide>DPD</th>
-                <th class="num" data-mobile-hide>DPK</th>
-                <th class="num" data-mobile-hide>ID</th>
-                <th class="num" data-mobile-hide>AP(%)</th>
-                <th class="num">ZCS</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for p in players %}
-            <tr>
-                <td><a href="/players/{{ p.name }}?lang={{ lang }}" class="player-link">{{ p.name }}</a></td>
-                <td class="num" data-mobile-hide>{{ p.dpd }}</td>
-                <td class="num" data-mobile-hide>{{ p.dpk }}</td>
-                <td class="num" data-mobile-hide>{{ p.id }}</td>
-                <td class="num" data-mobile-hide>{{ p.ap_pct }}</td>
-                <td class="num"><strong style="color: var(--accent);">{{ p.zcs }}</strong></td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-    </div>
+{% if not players %}
+<div class="card"><p class="muted" style="text-align:center; padding:2rem;">{{ t.no_data }}</p></div>
+{% else %}
+<div class="grid grid-3" style="margin: 1.5rem 0;">
+    {% for p in players %}
+    <a href="/players/{{ p.name }}?lang={{ lang }}" class="card stat-card" style="text-decoration:none; color:inherit;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.3rem;">
+            <div style="font-size:1.3rem; font-weight:700;">🎯 {{ p.name }}</div>
+            {% if p.role %}
+            {% set r = p.role %}
+            <span class="badge" style="font-size:0.7rem; background: {{ 'rgba(240,68,82,0.12)' if r == 'slayer' else ('rgba(49,130,246,0.12)' if r == 'objective' else 'rgba(4,192,158,0.12)') }}; color: {{ '#f04452' if r == 'slayer' else ('var(--accent)' if r == 'objective' else '#04c09e') }};">{{ t['role_' + r] }}</span>
+            {% endif %}
+        </div>
+        <div class="muted" style="font-size:.85rem; margin-bottom:0.8rem;">{{ p.matches }} {{ t.matches }}</div>
+        {% if mode == 'HP' %}
+        <div>
+            <div class="muted" style="font-size:.8rem;">{{ t.zcs_label }}</div>
+            <div style="font-size:1.8rem; font-weight:800; color: var(--accent);">{{ p.zcs if p.zcs is not none else '-' }}</div>
+        </div>
+        <div class="muted" style="font-size:.85rem; margin-top:0.4rem;">{{ t.kd }} {{ p.avg_kd }} · {{ t.m_kills }} {{ p.avg_k }} · {{ t.m_dmg }} {{ p.avg_dmg }}</div>
+        {% else %}
+        <div>
+            <div class="muted" style="font-size:.8rem;">{{ t.kd }}</div>
+            <div style="font-size:1.8rem; font-weight:800; color: var(--accent-2);">{{ p.avg_kd }}</div>
+        </div>
+        <div class="muted" style="font-size:.85rem; margin-top:0.4rem;">{{ t.m_kills }} {{ p.avg_k }} · {{ t.avg_adr }} {{ p.avg_adr }}</div>
+        {% endif %}
+    </a>
+    {% endfor %}
 </div>
 {% endif %}
 {% endblock %}

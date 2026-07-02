@@ -94,6 +94,15 @@ async def players_page(
     lang: str = Query("ko"),
 ):
     players = queries.all_players_overview(mode)
+    # HP 모드: 역할(slayer/objective/balanced) 배지 표시용 — classify_role로 계산해 추가.
+    if mode == "HP" and players:
+        import metrics
+        team_avg = queries.team_averages("HP")
+        for p in players:
+            p_norm = dict(p)
+            if "avg_ck" in p_norm and "avg_capture" not in p_norm:
+                p_norm["avg_capture"] = p_norm["avg_ck"]
+            p["role"] = metrics.classify_role(p_norm, team_avg) if team_avg else "balanced"
     return render("players.html", lang=lang, players=players, mode=mode)
 
 
