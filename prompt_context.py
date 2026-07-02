@@ -22,7 +22,7 @@ _PLAYER_IGN_MAP = {
     "Cartels": ["Cartel", "cartilage", "cartos", "카르텔"],
     "Kingz": ["Kings", "King", "Kingsui", "킹즈"],
     "Exile": ["Exhale", "엑자일"],
-    "unravel": ["Unravel", "언래블"],
+    "unravel": ["Unravel", "언래블", "Jason", "제이슨"],  # Jason은 unravel의 실명
 }
 
 # 맵별 tendency (VOD에서 반복 논의된 핵심 플랜)
@@ -45,7 +45,14 @@ CODM competitive uses two modes:
 
 ## Key Metric Benchmarks (interpret numbers, don't just list them)
 - K/D: ~1.0 average, 1.3+ strong, <0.8 weak.
-- ZCS (HP only) = max(0, 1.1·OBJ + 8·CapKill + 4.1·K − 5·D). Team avg ~150–200; 250+ = ace-level zone control; <100 = low impact. High ZCS = strong hill control + kill contribution.
+- ZCS (HP only) = max(0, 1.1·OBJ + 8·CapKill + 4.1·K − 5·D). Team avg ~150–200; 250+ = ace-level zone control; <100 = low impact.
+  ZCS measures ZONE CONTROL CONTRIBUTION — the single scalar answer to "how much did this player help us OWN the hill?"
+  The weights encode what matters in Hardpoint:
+  - CapKill × 8 (highest weight): bonus-score kills (multikills, trades, top-enemy kills, in-hill kills). These are HIGH-QUALITY kills directly tied to objective control — a kill inside/near the hill or during a capture swing is worth far more than a random spawn kill. CapKill weight > K weight = "not all kills are equal."
+  - K × 4.1: standard kills. Half the value of a CapKill — finishing power matters but context (was it objective-relevant?) matters more.
+  - OBJ × 1.1: hill time in seconds. Pure presence contributes but alone is low-value (a passive anchor sitting on the hill without fighting adds little if teammates do the work).
+  - D × 5 (heavier than K's 4.1): deaths are penalized MORE than kills are rewarded. A death in HP = losing map presence, spawning teammates in bad positions, and often conceding the hill. Avoiding trades-lost is as valuable as winning them.
+  Interpretation: a player can have a modest K/D but high ZCS if their kills are objective-tied (high CapKill density, see AP%) and they die rarely on the hill. Conversely a slayer with high K/D but low OBJ/CapKill and frequent hill deaths will have lower ZCS. ZCS rewards OBJECTIVE-EFFICIENT fighting, not raw fragging.
 - DPK (dmg/kills): LOWER is better (less damage needed per kill = finishing ability). ~700–1100.
 - DPD (dmg/deaths): HIGHER is better (more value per life). ~800–1300.
 - Impact: composite contribution (0–200 cap). 150+ = excellent.

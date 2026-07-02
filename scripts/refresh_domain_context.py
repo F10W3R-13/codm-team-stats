@@ -30,7 +30,7 @@ for v in [
     "cartel", "cartilage", "cartos", "카르텔",
     "kings", "king", "kingsui", "킹즈",
     "exhale", "엑자일",
-    "unravel", "언래블",
+    "unravel", "언래블", "jason", "제이슨",  # Jason은 unravel의 실명
 ]:
     KNOWN_VARIANTS.add(v.lower())
 
