@@ -169,8 +169,10 @@ def player_profile_insight(stats: dict, team_hp: dict = None, lang: str = "ko") 
                         f"Write 3-5 sentences of coaching insight from a player's overall stats "
                         f"and team average {li}. "
                         f"Include: 1) clear strengths/weaknesses vs team average (mention ±%), "
-                        f"2) play style bias (e.g. slayer/objective/balanced — infer from OBJ, "
-                        f"CapKill, ZCS, DPD), 3) form stability (mention std dev if present). "
+                        f"2) play style bias — "
+                        f"{'infer slayer/objective/balanced from OBJ, CapKill, ZCS, DPD (HP-only metrics). ' if stats.get('hp') else ''}"
+                        f"3) form stability (mention std dev if present). "
+                        f"IMPORTANT: ZCS/OBJ/CapKill are HP-only metrics — never reference them for SND-only data. "
                         f"Grounded in numbers, no over-interpretation. Concise and actionable, for web display."
                     ),
                 },
@@ -222,28 +224,38 @@ def map_advice(map_data: dict, lang: str = "ko") -> str:
     """단일 맵에 대한 간접적 수치 경향성 제언.
 
     직접적 지시("X를 해라")가 아닌 수치 기반 경향성 짚기:
-    - 팀 K/D/ZCS의 최근 vs 시즌 변화
-    - 선수별 이 맵 퍼포먼스 분포 (ZCS 위주)
+    - 팀 K/D/(HP면 ZCS)의 최근 vs 시즌 변화
+    - 선수별 이 맵 퍼포먼스 분포 (HP면 ZCS 위주, SND면 K/D·FK·LWW)
     - 승률 경향 (데이터 있을 때)
     실패 시 빈 문자열.
     """
     if not map_data:
         return ""
     try:
-        # AI에게 넘길 핵심 수치만 추출
+        mode = map_data.get("mode", "HP")
+        is_hp = mode == "HP"
+        # AI에게 넘길 핵심 수치만 추출 (HP만 ZCS 포함)
+        if is_hp:
+            player_keys = ("player_name", "matches", "avg_kd",
+                           "avg_zcs", "avg_k", "avg_dmg", "avg_obj")
+        else:
+            player_keys = ("player_name", "matches", "avg_kd",
+                           "avg_k", "avg_d", "avg_score")
         payload = {
             "map_name": map_data["map_name"],
-            "mode": map_data["mode"],
+            "mode": mode,
             "trend": map_data.get("trend"),
             "win_loss": map_data.get("win_loss"),
             "players": [
-                {k: p.get(k) for k in ("player_name", "matches", "avg_kd",
-                                        "avg_zcs", "avg_k", "avg_dmg", "avg_obj")}
+                {k: p.get(k) for k in player_keys}
                 for p in map_data.get("players", [])
             ],
             "team_avg": map_data.get("team_avg"),
         }
         li = _lang_instruction(lang)
+        zcs_hint = (
+            f"'player X has highest ZCS at 220'). " if is_hp else ""
+        )
         completion = _client().chat.completions.create(
             model=config.OPENAI_MODEL,
             temperature=0.4,
@@ -253,11 +265,13 @@ def map_advice(map_data: dict, lang: str = "ko") -> str:
                     "role": "system",
                     "content": (
                         f"You are a CODM esports data analyst. Describe the NUMERIC TRENDS "
-                        f"of one map {li} in 3-4 sentences. RULES: only point out statistical "
-                        f"tendencies (e.g. 'on this map team K/D is -12% vs season', "
-                        f"'player X has highest ZCS at 220'). Do NOT give direct orders or "
-                        f"tactical instructions. Stick to what the numbers show — let the "
-                        f"coach interpret. Grounded strictly in the JSON. For web display."
+                        f"of one map ({mode}) {li} in 3-4 sentences. RULES: only point out "
+                        f"statistical tendencies (e.g. 'on this map team K/D is -12% vs season'"
+                        f"{zcs_hint}"
+                        + ("Do NOT mention ZCS — it is undefined for SND. " if not is_hp else "")
+                        + f"). Do NOT give direct orders or tactical instructions. "
+                        f"Stick to what the numbers show — let the coach interpret. "
+                        f"Grounded strictly in the JSON. For web display."
                     ),
                 },
                 {"role": "user", "content": json.dumps(payload, ensure_ascii=False)},

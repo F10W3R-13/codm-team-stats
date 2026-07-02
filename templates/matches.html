@@ -43,7 +43,7 @@
                 <td>{{ m.map_name or '-' }}</td>
                 <td>{{ m.match_date or '-' }}</td>
                 <td class="num" data-mobile-hide>{{ m.players }}</td>
-                <td class="num">{% if m.avg_zcs is not none %}<strong style="color: var(--accent);">{{ m.avg_zcs }}</strong>{% else %}-{% endif %}</td>
+                <td class="num">{% if m.mode == 'HP' and m.avg_zcs is not none %}<strong style="color: var(--accent);">{{ m.avg_zcs }}</strong>{% else %}-{% endif %}</td>
                 <td class="num">{{ m.avg_kd or '-' }}</td>
             </tr>
             {% endfor %}

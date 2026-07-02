@@ -49,7 +49,12 @@ def compute_ap_pct(capture_kill, kills) -> float:
 
 
 def compute_zcs(obj_time, capture_kill, kills, deaths) -> float:
-    """Zone Control Score = max(0, 1.1·OBJ + 8·CK + 4.1·K − 5·D)."""
+    """Zone Control Score = max(0, 1.1·OBJ + 8·CK + 4.1·K − 5·D).
+
+    ⚠️ HP 전용 지표 — SND 매치/선수 데이터로는 호출 금지.
+    SND에는 OBJ/캡처킬이 없어 4.1·K − 5·D만 남은 의미 없는 점수가 됨.
+    외부에서 직접 호출하지 말 것 — all_hp_metrics() 경유로만 사용.
+    """
     if any(v is None for v in (obj_time, capture_kill, kills, deaths)):
         return None
     val = 1.1 * obj_time + 8 * capture_kill + 4.1 * kills - 5 * deaths
@@ -59,6 +64,7 @@ def compute_zcs(obj_time, capture_kill, kills, deaths) -> float:
 def all_hp_metrics(kills, deaths, obj_time, score, impact, total_damage, capture_kill) -> dict:
     """HP 매치 한 선수분의 모든 커스텀 지표를 한 번에 계산.
 
+    ⚠️ HP 전용 — SND 스탯으로 호출하지 말 것.
     impact가 None이면 공식으로 계산한다.
     """
     imp = impact if impact is not None else compute_impact(kills, deaths, obj_time, total_damage)
