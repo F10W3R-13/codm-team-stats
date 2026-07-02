@@ -586,10 +586,12 @@ def match_history_grouped(mode: str = None, date_page: int = 1,
 
     with db.get_conn() as conn:
         # 1) 고유 날짜 목록 (NULL 포함). NULL은 가장 나중.
-        #    SQLite: 'match_date IS NULL' 정렬 트릭. Postgres도 동일 문법 호환.
+        #    Postgres 제약: SELECT DISTINCT의 ORDER BY엔 SELECT 리스트 표현식만 가능.
+        #    → NULL 여부를 별도 컬럼으로 SELECT해 ORDER BY에서 참조.
         date_rows = conn.execute(
-            f"""SELECT DISTINCT match_date FROM matches {where}
-                ORDER BY (match_date IS NULL), match_date DESC""",
+            f"""SELECT match_date, (match_date IS NULL) is_null FROM matches {where}
+                GROUP BY match_date
+                ORDER BY is_null, match_date DESC""",
             params,
         ).fetchall()
         all_dates = [r["match_date"] for r in date_rows]

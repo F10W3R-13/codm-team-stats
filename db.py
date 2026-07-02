@@ -191,16 +191,22 @@ def init_db() -> None:
         with psycopg2.connect(DATABASE_URL) as conn:
             conn.autocommit = True
             with conn.cursor() as cur:
-                cur.execute(_adapt_sql(SCHEMA))
-                # 마이그레이션: aliases.source 컬럼 (기존 Postgres DB엔 source 없이 생성되어 있음)
-                cur.execute(
-                    "ALTER TABLE aliases ADD COLUMN IF NOT EXISTS source TEXT NOT NULL DEFAULT 'Manual'"
-                )
-                # 마이그레이션: matches 복기 워크플로우 컬럼 (코치 메모 / VOD 링크 / 전사 요약)
-                cur.execute("ALTER TABLE matches ADD COLUMN IF NOT EXISTS coach_note TEXT")
-                cur.execute("ALTER TABLE matches ADD COLUMN IF NOT EXISTS vod_url TEXT")
-                cur.execute("ALTER TABLE matches ADD COLUMN IF NOT EXISTS transcript_summary TEXT")
-            conn.commit()
+                # 동시 init_db(다중 워커)가 ALTER TABLE을 병렬로 실행해 데드락이 나는 것을 방지.
+                # 어드바이저 락으로 직렬화. autocommit 모드여야 즉시 락 획득/해제.
+                cur.execute("SELECT pg_advisory_lock(89473124)")  # 고정 키
+                try:
+                    cur.execute(_adapt_sql(SCHEMA))
+                    # 마이그레이션: aliases.source 컬럼 (기존 Postgres DB엔 source 없이 생성되어 있음)
+                    cur.execute(
+                        "ALTER TABLE aliases ADD COLUMN IF NOT EXISTS source TEXT NOT NULL DEFAULT 'Manual'"
+                    )
+                    # 마이그레이션: matches 복기 워크플로우 컬럼 (코치 메모 / VOD 링크 / 전사 요약)
+                    cur.execute("ALTER TABLE matches ADD COLUMN IF NOT EXISTS coach_note TEXT")
+                    cur.execute("ALTER TABLE matches ADD COLUMN IF NOT EXISTS vod_url TEXT")
+                    cur.execute("ALTER TABLE matches ADD COLUMN IF NOT EXISTS transcript_summary TEXT")
+                    conn.commit()
+                finally:
+                    cur.execute("SELECT pg_advisory_unlock(89473124)")
     else:
         with sqlite3.connect(DB_PATH) as conn:
             schema_no_result_idx = SCHEMA.replace(
