@@ -62,6 +62,7 @@
 - 템플릿 스타일은 `templates/base.html`의 `<style>` 한 곳에 모여 있고, 다른 페이지가 그 클래스를 공유한다. (디자인은 토스 TDS 톤 적용)
 - 비밀정보(`.env`, `service-account.json`)·DB(`codm.db`)·CSV·백업(`*.bak`, `codm.db.backup*`)은 절대 커밋하지 않는다. `.gitignore`에 이미 포함.
 - GPT 프롬프트(`prompt.py`)와 커스텀 지표 공식(`metrics.py`)은 출처가 정해져 있어 함부로 수정 금지.
+- **프로젝트 스킬**: `.agents/skills/` (오픈 표준 위치, Codex 자동 인식). OCR 이름 매칭·alias 사전·퍼지 매칭 작업 시 `.agents/skills/ocr-alias-matching/SKILL.md`를 읽고 따를 것. 스킬 자동 인식이 없는 도구(Cursor 등)도 이 규칙으로 커버된다.
 
 ### 핵심 지표: ZCS (Zone Control Score)
 - **ZCS는 이 프로젝트에서 가장 중요한 코칭 지표다.** K/D와 함께 병기하되, HP 컨텍스트에서는 ZCS를 제1 강조 지표로 다룬다.
@@ -178,6 +179,4 @@ git push origin main
 - DB: Railway Postgres (`DATABASE_URL` 자동 주입).
 - 실행: Procfile → `python start.py` (봇+웹 subprocess).
 - 환경변수: `DISCORD_BOT_TOKEN`, `OPENAI_API_KEY`, `DATABASE_URL`(자동), `PORT`(자동), `GOOGLE_SERVICE_ACCOUNT_JSON`(서비스 계정 JSON 통째로; 로컬은 `GOOGLE_SERVICE_ACCOUNT_FILE` 파일 경로).
-- 배포 후 DB는 비어있음 → `import_sheets.py`로 구글 시트 → Postgres 마이그레이션 필요.
-- **재배포**: `main` push 또는 환경변수 변경 시 자동. 롤백은 Deployments 탭에서.
-- **배포 방법/운영 디테일(초보용 단계별, 문제해결, 용어사전)은 `DEPLOYMENT.md` 참조.**
+- 배포 후 DB는 비어�
