@@ -461,6 +461,33 @@ async def admin_merge_unmatched(payload: dict = Body(...)):
     return result
 
 
+# ── 선수 관리 (삭제/병합) ────────────────────────────────────────────────
+@app.get("/admin/players", response_class=HTMLResponse)
+async def admin_players_page(request: Request, lang: str = Query("ko")):
+    """선수 관리 페이지 — 선수 삭제/병합. 배포 DB 정리(Swish 삭제 등)용."""
+    players = queries.list_players_admin()
+    return render("admin_players.html", lang=lang, players=players)
+
+
+@app.delete("/admin/player/{player_id}")
+async def admin_delete_player(player_id: int):
+    ok = queries.delete_player(player_id)
+    return {"ok": ok}
+
+
+@app.post("/admin/player/merge")
+async def admin_merge_player(payload: dict = Body(...)):
+    """선수 병합 — src 선수의 스탯/alias를 dst 선수로 이관 후 src 삭제.
+    {src_id, dst_player}. db.merge_player 재사용.
+    """
+    src_id = payload.get("src_id")
+    dst_player = (payload.get("dst_player") or "").strip()
+    if not src_id or not dst_player:
+        return {"ok": False, "message": "src_id 와 dst_player 가 필요합니다"}
+    result = db.merge_player(int(src_id), dst_player)
+    return result
+
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("web_api:app", host="0.0.0.0", port=8000, reload=True)

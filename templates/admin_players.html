@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+{% block title %}{{ t.admin_tab_players }} — CODM Stats{% endblock %}
+{% block nav_admin %}active{% endblock %}
+
+{% block content %}
+<a href="/admin?lang={{ lang }}" class="muted" style="text-decoration:none;">← {{ t.nav_admin }}</a>
+<h1>{{ t.admin_tab_players }}</h1>
+
+<!-- admin 서브탭 -->
+<div class="subtabs">
+    <a href="/admin?lang={{ lang }}" class="subtab">📋 {{ t.admin_tab_matches }}</a>
+    <a href="/admin/aliases?lang={{ lang }}" class="subtab">🏷️ {{ t.admin_tab_aliases }}</a>
+    <a href="/admin/unmatched?lang={{ lang }}" class="subtab">🔍 {{ t.admin_tab_unmatched }}</a>
+    <a href="/admin/players?lang={{ lang }}" class="subtab active">👤 {{ t.admin_tab_players }}</a>
+</div>
+
+<p class="muted">{{ t.players_admin_help }}</p>
+
+<!-- 경고 -->
+<div class="card" style="border-left: 4px solid #e74c3c; margin-bottom: 1.5rem;">
+    <p style="font-size:0.85rem; color:#e74c3c;">
+        ⚠️ {{ t.players_admin_warning }}
+    </p>
+</div>
+
+<!-- 선수 목록 -->
+<div class="card">
+    <div class="table-wrap">
+    <table>
+        <thead>
+            <tr>
+                <th class="num">ID</th>
+                <th>{{ t.player }}</th>
+                <th class="num">{{ t.mode_hp }}</th>
+                <th class="num">{{ t.mode_snd }}</th>
+                <th>{{ t.merge_dst }}</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for p in players %}
+            <tr data-player-id="{{ p.id }}">
+                <td class="num muted">{{ p.id }}</td>
+                <td><strong>{{ p.name }}</strong></td>
+                <td class="num">{{ p.hp_matches }}</td>
+                <td class="num">{{ p.snd_matches }}</td>
+                <td>
+                    <select class="merge-dst-{{ p.id }}" style="min-width:120px;">
+                        <option value="">—</option>
+                        {% for other in players %}
+                        {% if other.id != p.id %}
+                        <option value="{{ other.name }}">{{ other.name }}</option>
+                        {% endif %}
+                        {% endfor %}
+                    </select>
+                </td>
+                <td style="white-space:nowrap;">
+                    <button type="button" onclick="mergePlayer({{ p.id }})" style="padding:0.3rem 0.6rem; background:var(--accent-2); color:white; border:none; border-radius:6px; cursor:pointer; font-size:0.8rem;">{{ t.merge }}</button>
+                    <button type="button" onclick="deletePlayer({{ p.id }}, '{{ p.name }}')" style="padding:0.3rem 0.6rem; background:#e74c3c; color:white; border:none; border-radius:6px; cursor:pointer; font-size:0.8rem;">🗑️</button>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    </div>
+</div>
+
+<script>
+function flash(msg, ok=true) {
+    const d = document.createElement('div');
+    d.textContent = msg;
+    d.style.cssText = `position:fixed;top:20px;right:20px;padding:0.8rem 1.2rem;border-radius:10px;color:white;font-weight:600;z-index:1000;background:${ok?'#15c47e':'#e74c3c'};`;
+    document.body.appendChild(d);
+    setTimeout(() => d.remove(), 2500);
+}
+
+function deletePlayer(id, name) {
+    if (!confirm(`{{ t.confirm_delete_player }}`.replace('{name}', name))) return;
+    fetch(`/admin/player/${id}`, { method: 'DELETE' })
+        .then(r => r.json())
+        .then(d => {
+            if (d.ok) {
+                flash("{{ t.deleted_ok }}");
+                const row = document.querySelector(`tr[data-player-id="${id}"]`);
+                if (row) row.remove();
+            } else flash("Error", false);
+        });
+}
+
+function mergePlayer(srcId) {
+    const sel = document.querySelector(`.merge-dst-${srcId}`);
+    const dst = sel.value;
+    if (!dst) { flash("{{ t.merge_select_dst }}", false); return; }
+    if (!confirm(`{{ t.confirm_merge }}`.replace('{dst}', dst))) return;
+    fetch('/admin/player/merge', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({src_id: srcId, dst_player: dst}),
+    }).then(r => r.json()).then(d => {
+        if (d.ok) { flash("{{ t.merged_ok }}"); setTimeout(() => location.reload(), 800); }
+        else flash(d.message || "Error", false);
+    });
+}
+</script>
+{% endblock %}

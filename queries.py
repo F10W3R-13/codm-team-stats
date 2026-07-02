@@ -50,6 +50,31 @@ def list_players_with_ids() -> list:
         return [{"id": r["id"], "name": r["name"]} for r in rows]
 
 
+def list_players_admin() -> list:
+    """선수 관리 페이지용 — id, 이름, HP/SND 매치 수 포함."""
+    with db.get_conn() as conn:
+        rows = conn.execute(
+            """SELECT p.id, p.name,
+                      (SELECT COUNT(*) FROM player_stats_hp WHERE player_id=p.id) hp_matches,
+                      (SELECT COUNT(*) FROM player_stats_snd WHERE player_id=p.id) snd_matches
+               FROM players p ORDER BY p.name"""
+        ).fetchall()
+        return [{"id": r["id"], "name": r["name"],
+                 "hp_matches": r["hp_matches"], "snd_matches": r["snd_matches"]} for r in rows]
+
+
+def delete_player(player_id: int) -> bool:
+    """선수 삭제 — 캐스케이드가 없어 자식 테이블(player_stats_hp/snd, aliases)을
+    먼저 삭제한 뒤 players 행 삭제. 되돌릴 수 없음.
+    """
+    with db.get_conn() as conn:
+        conn.execute("DELETE FROM player_stats_hp WHERE player_id=?", (player_id,))
+        conn.execute("DELETE FROM player_stats_snd WHERE player_id=?", (player_id,))
+        conn.execute("DELETE FROM aliases WHERE player_id=?", (player_id,))
+        cur = conn.execute("DELETE FROM players WHERE id=?", (player_id,))
+        return cur.rowcount > 0
+
+
 def player_overall_stats(player_id: int) -> dict:
     """선수의 HP/SND 종합 평균 스탯.
 
