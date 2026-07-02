@@ -121,12 +121,34 @@ def _adapt_sql(sql: str) -> str:
     out = out.replace("?", "%s")
     out = out.replace("datetime('now')", "NOW()")
     # AVG(...) → AVG(...)::numeric — Postgres는 ROUND(double) 불가, numeric 캐스팅 필요.
-    # AVG 내부는 단순 컬럼(중첩 괄호 없음)으로 가정.
-    out = re.sub(
-        r"(AVG\([^()]*\))",
-        r"\1::numeric",
-        out,
-    )
+    # 괄호 중첩(AVG(MAX(0,...)) 등)도 처리: 짝이 맞는 닫는 괄호까지 매칭.
+    def _add_numeric_cast(sql: str) -> str:
+        out = []
+        i = 0
+        while i < len(sql):
+            m = re.match(r'AVG\(', sql[i:], flags=re.IGNORECASE)
+            if m:
+                start = i + len(m.group(0)) - 1  # '(' 위치
+                depth = 0
+                j = start
+                while j < len(sql):
+                    if sql[j] == '(':
+                        depth += 1
+                    elif sql[j] == ')':
+                        depth -= 1
+                        if depth == 0:
+                            break
+                    j += 1
+                # AVG(...) 전체 블록 (i부터 j 포함)
+                block = sql[i:j + 1]
+                out.append(block + "::numeric")
+                i = j + 1
+            else:
+                out.append(sql[i])
+                i += 1
+        return "".join(out)
+
+    out = _add_numeric_cast(out)
     # date('now', '-N days') → CURRENT_DATE - INTERVAL 'N days'
     out = re.sub(
         r"date\('now',\s*'-(\d+) days'\)",
