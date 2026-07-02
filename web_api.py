@@ -124,8 +124,6 @@ async def player_detail(request: Request, name: str, lang: str = Query("ko")):
     if stats["hp"] and team_hp:
         import metrics
         stats["hp"]["role"] = metrics.classify_role(stats["hp"], team_hp)
-    trend_hp = queries.player_kd_trend(pid, "HP", 30) if stats["hp"] else []
-    trend_snd = queries.player_kd_trend(pid, "SND", 30) if stats["snd"] else []
     # AI 인사이트 (캐싱 — 1시간 TTL, 매치 기록 시 무효화)
     cache_key = stats["name"] if stats["name"] else ""
     insight = insight_cache.get("player", cache_key, lang)
@@ -216,19 +214,6 @@ async def match_detail(request: Request, match_id: int, lang: str = Query("ko"))
 
 
 # ── JSON API (차트용) ────────────────────────────────────────────────────
-@app.get("/api/overview")
-async def api_overview():
-    return queries.overview_stats()
-
-
-@app.get("/api/player/{name}/trend")
-async def api_player_trend(name: str, mode: str = "HP", limit: int = 30):
-    pid = queries.get_player_id(name)
-    if not pid:
-        raise HTTPException(404, "선수 없음")
-    return queries.player_kd_trend(pid, mode, limit)
-
-
 @app.get("/api/player/{name}/timeseries")
 async def api_player_timeseries(name: str, mode: str = "HP", limit: int = 50):
     """모든 지표 시계열 JSON (trends 차트용)."""
