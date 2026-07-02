@@ -92,6 +92,16 @@ CREATE TABLE IF NOT EXISTS player_stats_snd (
 
 CREATE INDEX IF NOT EXISTS idx_hp_player  ON player_stats_hp(player_id);
 CREATE INDEX IF NOT EXISTS idx_snd_player ON player_stats_snd(player_id);
+
+-- 날짜 단위 복기 데이터 (VOD/코치메모/전사요약). matches가 매치 단위라
+-- 하루치 VOD/전사가 매치마다 중복 저장되는 문제를 해결하기 위해 날짜 PK로 분리.
+CREATE TABLE IF NOT EXISTS match_day_notes (
+    match_date          TEXT PRIMARY KEY,
+    coach_note          TEXT,
+    vod_url             TEXT,
+    transcript_summary  TEXT,
+    created_at          TEXT NOT NULL DEFAULT (datetime('now'))
+);
 """
 
 

@@ -177,9 +177,13 @@ async def matches_page(
     mode_filter = None if mode == "ALL" else mode
     # 날짜 그룹 페이지네이션 — 한 페이지 = 최근 7일치 매치
     data = queries.match_history_grouped(mode_filter, date_page=page, dates_per_page=7)
+    # 코치 로그인 여부 → 날짜 헤더 '복기 편집' 링크 노출
+    cookie_val = request.cookies.get(auth.COOKIE_NAME)
+    is_admin = bool(cookie_val and auth.check_cookie(cookie_val))
     return render(
         "matches.html", lang=lang,
         data=data, mode=mode, page=data["date_page"], total_pages=data["total_date_pages"],
+        is_admin=is_admin,
     )
 
 
@@ -191,12 +195,15 @@ async def match_detail(request: Request, match_id: int, lang: str = Query("ko"))
     # 코치 로그인 여부 → '편집' 링크 노출 (VOD/메모/전사 패널 진입)
     cookie_val = request.cookies.get(auth.COOKIE_NAME)
     is_admin = bool(cookie_val and auth.check_cookie(cookie_val))
+    # 날짜 단위 복기 데이터 (VOD/메모/전사는 날짜 단위)
+    day_notes = queries.get_day_notes(report.get("match_date")) or {}
     # GPT 매치 인사이트 (캐싱 — 1시간 TTL, 매치 기록 시 무효화)
     insight = insight_cache.get("match", str(match_id), lang)
     if insight is None:
         insight = analytics_insights.match_insight(report, lang=lang)
         insight_cache.set("match", str(match_id), lang, insight)
-    return render("match_detail.html", lang=lang, report=report, insight=insight, is_admin=is_admin)
+    return render("match_detail.html", lang=lang, report=report, insight=insight,
+                  is_admin=is_admin, day_notes=day_notes)
 
 
 # ── JSON API (차트용) ────────────────────────────────────────────────────
@@ -336,11 +343,25 @@ async def admin_add_player(match_id: int, mode: str = Query(...), payload: dict 
     return {"ok": ok}
 
 
-@app.post("/admin/match/{match_id}/transcript")
-async def admin_upload_transcript(match_id: int, lang: str = Query("ko"),
-                                  file: UploadFile = File(...)):
-    """전사 파일(.txt/.md) 업로드 → AI 요약 생성 → DB 저장. 원본은 저장 안 함."""
-    # 파일 크기/타입 검증
+# ── 날짜 단위 복기 편집 (VOD/코치메모/전사) ───────────────────────────────
+@app.get("/admin/day/{match_date}", response_class=HTMLResponse)
+async def admin_day_edit(request: Request, match_date: str, lang: str = Query("ko")):
+    day_notes = queries.get_day_notes(match_date) or {}
+    matches = queries.matches_by_date(match_date)
+    return render("admin_day.html", lang=lang,
+                  match_date=match_date, day_notes=day_notes, matches=matches)
+
+
+@app.post("/admin/day/{match_date}/meta")
+async def admin_update_day_meta(match_date: str, payload: dict = Body(...)):
+    ok = queries.update_day_meta(match_date, **payload)
+    return {"ok": ok}
+
+
+@app.post("/admin/day/{match_date}/transcript")
+async def admin_upload_day_transcript(match_date: str, lang: str = Query("ko"),
+                                      file: UploadFile = File(...)):
+    """전사 파일(.txt/.md) 업로드 → AI 요약 생성 → 날짜 단위 저장. 원본은 저장 안 함."""
     content = await file.read()
     if len(content) > 1_500_000:  # 1.5MB 상한
         return {"ok": False, "error": "file_too_large"}
@@ -351,16 +372,19 @@ async def admin_upload_transcript(match_id: int, lang: str = Query("ko"),
     if not text.strip():
         return {"ok": False, "error": "empty"}
 
-    # match_report로 수치 컨텍스트 확보 (전사와 연결 위함)
-    report = analytics.match_report(match_id)
+    # 그 날짜의 대표 매치(첫 매치) 수치를 전사 요약 컨텍스트로 사용
+    matches = queries.matches_by_date(match_date)
+    if not matches:
+        return {"ok": False, "error": "no_matches_on_date"}
+    report = analytics.match_report(matches[0]["id"])
     if not report:
-        return {"ok": False, "error": "match_not_found"}
+        return {"ok": False, "error": "report_failed"}
 
     summary = analytics_insights.summarize_transcript(report, text, lang=lang)
     if not summary:
         return {"ok": False, "error": "summary_failed"}
 
-    queries.update_match_meta(match_id, transcript_summary=summary)
+    queries.update_day_meta(match_date, transcript_summary=summary)
     return {"ok": True, "summary": summary}
 
 

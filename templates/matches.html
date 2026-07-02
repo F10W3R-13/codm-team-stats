@@ -15,6 +15,9 @@
 <div class="card" style="margin-bottom: 1.5rem;">
     <h2 style="margin-bottom: 1rem;">📅 {{ grp.date or (t.date_unknown if t.date_unknown is defined else '날짜 미상') }}
         <span class="muted" style="font-size:0.9rem; font-weight:normal;">({{ grp.matches|length }} {{ t.matches|lower if t.matches else '경기' }})</span>
+        {% if grp.vod_url %}<a href="{{ grp.vod_url }}" target="_blank" rel="noopener" class="muted" style="font-size:0.85rem; text-decoration:none; margin-left:0.5rem;" title="VOD">🎬</a>{% endif %}
+        {% if grp.transcript_summary %}<span class="muted" style="font-size:0.85rem; margin-left:0.3rem;" title="{{ t.transcript_summary }}">🗣️</span>{% endif %}
+        {% if is_admin and grp.date %}<a href="/admin/day/{{ grp.date }}?lang={{ lang }}" class="muted" style="font-size:0.85rem; text-decoration:none; margin-left:0.5rem; float:right;" title="{{ t.day_review_title }}">✏️</a>{% endif %}
     </h2>
     <div class="table-wrap">
     <table>

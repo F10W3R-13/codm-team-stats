@@ -22,13 +22,13 @@
 </div>
 {% endif %}
 
-<!-- 복기 워크플로우 패널: VOD + 코치 메모 + 전사 요약 -->
-{% if report.vod_url or report.coach_note or report.transcript_summary %}
+<!-- 복기 워크플로우 패널: 날짜 단위 VOD + 코치 메모 + 전사 요약 -->
+{% if day_notes and (day_notes.vod_url or day_notes.coach_note or day_notes.transcript_summary) %}
 <div class="grid grid-2" style="margin: 1.5rem 0;">
-    {% if report.vod_url %}
+    {% if day_notes.vod_url %}
     <div class="card" style="border-left: 4px solid #ff0000;">
-        <h2>🎬 {{ t.vod_link }}</h2>
-        {% set yt = report.vod_url %}
+        <h2>🎬 {{ t.vod_link }} <span class="muted" style="font-size:0.75rem;">({{ report.match_date }})</span></h2>
+        {% set yt = day_notes.vod_url %}
         {% set vid = yt.split('v=')[1].split('&')[0] if 'v=' in yt else (yt.split('/')[-1] if 'youtu.be/' in yt else '') %}
         {% if vid %}
         <div style="position:relative; padding-bottom:56.25%; height:0; overflow:hidden; border-radius:8px;">
@@ -40,18 +40,18 @@
     </div>
     {% endif %}
 
-    {% if report.coach_note %}
+    {% if day_notes.coach_note %}
     <div class="card" style="border-left: 4px solid var(--accent);">
-        <h2>📝 {{ t.coach_note }}</h2>
-        <p style="line-height:1.7; white-space:pre-wrap;">{{ report.coach_note }}</p>
+        <h2>📝 {{ t.coach_note }} <span class="muted" style="font-size:0.75rem;">({{ report.match_date }})</span></h2>
+        <p style="line-height:1.7; white-space:pre-wrap;">{{ day_notes.coach_note }}</p>
     </div>
     {% endif %}
 </div>
 
-{% if report.transcript_summary %}
+{% if day_notes.transcript_summary %}
 <div class="card" style="margin: 1.5rem 0; border-left: 4px solid #8b5cf6;">
-    <h2>🗣️ {{ t.transcript_summary }}</h2>
-    <p style="line-height:1.7; white-space:pre-wrap;">{{ report.transcript_summary }}</p>
+    <h2>🗣️ {{ t.transcript_summary }} <span class="muted" style="font-size:0.75rem;">({{ report.match_date }})</span></h2>
+    <p style="line-height:1.7; white-space:pre-wrap;">{{ day_notes.transcript_summary }}</p>
 </div>
 {% endif %}
 {% endif %}

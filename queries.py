@@ -627,6 +627,18 @@ def match_history_grouped(mode: str = None, date_page: int = 1,
         qp = [d for d in page_dates if d is not None] + ([mode] if mode else [])
         rows = conn.execute(db._adapt_sql(sql), qp).fetchall()
 
+        # 날짜 단위 복기 데이터(match_day_notes) 일괄 조회 (커넥션 열려있을 때)
+        non_null_dates = [d for d in page_dates if d is not None]
+        day_notes_map = {}
+        if non_null_dates:
+            dn_ph = ",".join(["?"] * len(non_null_dates))
+            dn_rows = conn.execute(
+                f"SELECT match_date, coach_note, vod_url, transcript_summary "
+                f"FROM match_day_notes WHERE match_date IN ({dn_ph})",
+                non_null_dates,
+            ).fetchall()
+            day_notes_map = {r["match_date"]: dict(r) for r in dn_rows}
+
     # 3) 날짜별 그룹핑 (page_dates 순서 = 내림차순, NULL은 끝)
     matches = [
         {
@@ -646,7 +658,13 @@ def match_history_grouped(mode: str = None, date_page: int = 1,
         if d is None:
             grp_matches = [m for m in matches if m["match_date"] is None]
         if grp_matches:
-            groups.append({"date": d, "matches": grp_matches})
+            dn = day_notes_map.get(d, {}) if d is not None else {}
+            groups.append({
+                "date": d, "matches": grp_matches,
+                "coach_note": dn.get("coach_note"),
+                "vod_url": dn.get("vod_url"),
+                "transcript_summary": dn.get("transcript_summary"),
+            })
 
     return {"groups": groups, "total_date_pages": total_date_pages, "date_page": date_page}
 
@@ -701,11 +719,11 @@ def update_match_meta(match_id: int, **fields) -> bool:
     """매치 메타(result, team_score, opponent_score, map_name, match_date, mode) 수정.
 
     허용 필드만 업데이트. 반환: 성공 여부.
+    주의: coach_note/vod_url/transcript_summary는 날짜 단위(match_day_notes)로 이관됨.
     """
-    allowed = {"result", "team_score", "opponent_score", "map_name", "match_date", "mode",
-               "coach_note", "vod_url", "transcript_summary"}
-    # 복기 필드(coach_note/vod_url/transcript_summary)는 None(빈값) 저장 허용 — 클리어 목적.
-    nullable = {"coach_note", "vod_url", "transcript_summary", "result"}
+    allowed = {"result", "team_score", "opponent_score", "map_name", "match_date", "mode"}
+    # result는 None(빈값) 저장 허용 — 클리어 목적.
+    nullable = {"result"}
     updates = {k: v for k, v in fields.items()
                if k in allowed and (v is not None or k in nullable)}
     if not updates:
@@ -797,6 +815,59 @@ def delete_match(match_id: int) -> bool:
         conn.execute("DELETE FROM player_stats_snd WHERE match_id=?", (match_id,))
         cur = conn.execute("DELETE FROM matches WHERE id=?", (match_id,))
         return cur.rowcount > 0
+
+
+# ── 날짜 단위 복기 (match_day_notes) ───────────────────────────────────────
+# VOD/코치메모/전사요약은 하루 치가 하나라 매치 단위가 아닌 날짜 단위로 저장.
+
+def get_day_notes(match_date: str) -> dict:
+    """특정 날짜의 복기 데이터. 반환: {coach_note, vod_url, transcript_summary} or None."""
+    if not match_date:
+        return None
+    with db.get_conn() as conn:
+        r = conn.execute(
+            "SELECT coach_note, vod_url, transcript_summary FROM match_day_notes WHERE match_date=?",
+            (match_date,),
+        ).fetchone()
+        return dict(r) if r else None
+
+
+def update_day_meta(match_date: str, **fields) -> bool:
+    """날짜 단위 복기(coach_note/vod_url/transcript_summary) 갱신 (UPSERT).
+
+    빈값(None)도 저장=클리어 허용.
+    """
+    if not match_date:
+        return False
+    allowed = {"coach_note", "vod_url", "transcript_summary"}
+    vals = {k: v for k, v in fields.items() if k in allowed}
+    if not vals:
+        return False
+    with db.get_conn() as conn:
+        conn.upsert(
+            "match_day_notes",
+            ["match_date", "coach_note", "vod_url", "transcript_summary"],
+            (match_date,
+             vals.get("coach_note"), vals.get("vod_url"), vals.get("transcript_summary")),
+            conflict_col="match_date",
+            update_cols=["coach_note", "vod_url", "transcript_summary"],
+        )
+        return True
+
+
+def matches_by_date(match_date: str) -> list:
+    """특정 날짜의 매치 요약 목록 (날짜 편집 페이지용). 반환: [{id, mode, map_name, result, ...}]."""
+    if not match_date:
+        return []
+    with db.get_conn() as conn:
+        rows = conn.execute(
+            """SELECT id, mode, map_name, result, team_score, opponent_score,
+                      (SELECT COUNT(*) FROM player_stats_hp WHERE match_id=m.id) +
+                      (SELECT COUNT(*) FROM player_stats_snd WHERE match_id=m.id) as players
+               FROM matches m WHERE match_date=? ORDER BY id DESC""",
+            (match_date,),
+        ).fetchall()
+        return [dict(r) for r in rows]
 
 
 def admin_match_list(limit: int = 50, offset: int = 0, mode: str = None,
