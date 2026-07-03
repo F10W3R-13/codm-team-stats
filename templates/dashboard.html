@@ -2,6 +2,16 @@
 {% block title %}{{ t.nav_dashboard }} — CODM Stats{% endblock %}
 {% block nav_overview %}active{% endblock %}
 
+{% block head %}
+<style>
+/* dashboard 전용 — 4단 카드 그리드 */
+.grid-4 { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+@media (max-width: 600px) {
+    .grid-4 { grid-template-columns: 1fr; }
+}
+</style>
+{% endblock %}
+
 {% block content %}
 <h1>{{ t.dashboard_title }}</h1>
 <p class="muted">{{ t.period }}: {{ data.date_range.start }} ~ {{ data.date_range.end }}</p>
@@ -103,20 +113,18 @@ new Chart(document.getElementById('mapChart'), {
         datasets: [{
             label: '{{ t.matches }}',
             data: mapData.map(m => m.count),
-            backgroundColor: '#3182f6',
+            backgroundColor: TDS.accent,
             borderRadius: 6,
         }]
     },
-    options: {
+    options: chartOptions({
         indexAxis: 'y',
-        responsive: true,
-        maintainAspectRatio: false,
         plugins: { legend: { display: false } },
         scales: {
-            x: { grid: { color: '#e5e8eb' }, ticks: { color: '#8b95a1' } },
-            y: { grid: { display: false }, ticks: { color: '#4e5968' } },
-        }
-    }
+            x: { grid: { color: TDS.border }, ticks: { color: TDS.muted } },
+            y: { grid: { display: false }, ticks: { color: TDS.text } },
+        },
+    })
 });
 </script>
 
@@ -134,9 +142,7 @@ new Chart(document.getElementById('formChart'), {
             borderRadius: 4,
         }]
     },
-    options: {
-        responsive: true,
-        maintainAspectRatio: false,
+    options: chartOptions({
         plugins: { legend: { display: false }, tooltip: {
             callbacks: {
                 label: function(ctx) {
@@ -147,12 +153,12 @@ new Chart(document.getElementById('formChart'), {
             }
         }},
         scales: {
-            x: { grid: { display: false }, ticks: { color: '#8b95a1' } },
-            y: { grid: { color: '#f0f3f6' }, min: -1.2, max: 1.2,
-                 ticks: { color: '#8b95a1', stepSize: 1,
+            x: { grid: { display: false }, ticks: { color: TDS.muted } },
+            y: { grid: { color: TDS.border }, min: -1.2, max: 1.2,
+                 ticks: { color: TDS.muted, stepSize: 1,
                           callback: v => v === 1 ? '{{ t.win }}' : (v === -1 ? '{{ t.loss }}' : '') } },
         }
-    }
+    })
 });
 </script>
 {% endif %}

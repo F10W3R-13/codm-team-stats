@@ -74,15 +74,15 @@
     <div class="table-wrap">
     <table style="margin-top:0.8rem;">
         <thead>
-            <tr><th>{{ t.player }}</th><th class="num">{{ t.hub_season_kd }}</th><th class="num">{{ t.hub_recent_kd }}</th><th class="num">{{ t.zcs_label }}</th><th class="num">Δ</th></tr>
+            <tr><th>{{ t.player }}</th><th class="num" data-mobile-hide>{{ t.hub_season_kd }}</th><th class="num">{{ t.hub_recent_kd }}</th><th class="num" data-mobile-hide>{{ t.zcs_label }}</th><th class="num">Δ</th></tr>
         </thead>
         <tbody>
             {% for p in data.form_alerts %}
             <tr>
                 <td><a href="/players/{{ p.name }}?lang={{ lang }}" class="player-link">{{ p.name }}</a></td>
-                <td class="num">{{ p.season_kd }}</td>
+                <td class="num" data-mobile-hide>{{ p.season_kd }}</td>
                 <td class="num">{{ p.recent_kd }}</td>
-                <td class="num"><strong style="color: var(--accent);">{{ p.season_zcs or '-' }}</strong></td>
+                <td class="num" data-mobile-hide><strong style="color: var(--accent);">{{ p.season_zcs or '-' }}</strong></td>
                 <td class="num" style="color:#f04452;font-weight:600;">{{ p.delta_pct }}%</td>
             </tr>
             {% endfor %}
@@ -122,7 +122,7 @@
     <div class="table-wrap">
     <table style="margin-top:0.8rem;">
         <thead>
-            <tr><th>{{ t.player }}</th><th>{{ t.role_badge }}</th><th class="num">{{ t.m_kills }}</th><th class="num">{{ t.m_obj }}</th><th class="num">{{ t.m_dmg }}</th><th class="num">Cap</th></tr>
+            <tr><th>{{ t.player }}</th><th>{{ t.role_badge }}</th><th class="num" data-mobile-hide>{{ t.m_kills }}</th><th class="num" data-mobile-hide>{{ t.m_obj }}</th><th class="num" data-mobile-hide>{{ t.m_dmg }}</th><th class="num" data-mobile-hide>Cap</th></tr>
         </thead>
         <tbody>
             {% for p in data.roles %}
@@ -133,10 +133,10 @@
                     {{ t['role_' + p.role] }}
                     </span>
                 </td>
-                <td class="num">{{ p.avg_k }}</td>
-                <td class="num">{{ p.avg_obj }}</td>
-                <td class="num">{{ p.avg_dmg }}</td>
-                <td class="num">{{ p.avg_capture }}</td>
+                <td class="num" data-mobile-hide>{{ p.avg_k }}</td>
+                <td class="num" data-mobile-hide>{{ p.avg_obj }}</td>
+                <td class="num" data-mobile-hide>{{ p.avg_dmg }}</td>
+                <td class="num" data-mobile-hide>{{ p.avg_capture }}</td>
             </tr>
             {% endfor %}
         </tbody>
@@ -183,19 +183,15 @@ new Chart(document.getElementById('zcsChart'), {
         labels: zcsData.map(r => '#' + r.id),
         datasets: [{
             data: zcsData.map(r => r.avg_zcs),
-            borderColor: '#3182f6',
+            borderColor: TDS.accent,
             backgroundColor: 'rgba(49,130,246,0.1)',
             fill: true, tension: 0.3, pointRadius: 2,
         }]
     },
-    options: {
-        responsive: true, maintainAspectRatio: false,
+    options: chartOptions({
         plugins: { legend: { display: false } },
-        scales: {
-            x: { display: false },
-            y: { grid: { color: '#f0f3f6' }, ticks: { color: '#8b95a1' } },
-        }
-    }
+        scales: { x: { display: false }, y: { grid: { color: TDS.border }, ticks: { color: TDS.muted } } },
+    })
 });
 </script>
 {% endif %}

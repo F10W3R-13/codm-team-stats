@@ -19,7 +19,7 @@
     <div class="table-wrap">
     <table>
         <thead>
-            <tr><th>{{ t.metric_label }}</th><th class="num">{{ t.player }}</th><th class="num">{{ t.team_avg }}</th><th class="num">±%</th></tr>
+            <tr><th>{{ t.metric_label }}</th><th class="num">{{ t.player }}</th><th class="num" data-mobile-hide>{{ t.team_avg }}</th><th class="num" data-mobile-hide>±%</th></tr>
         </thead>
         <tbody>
         {% for k, label, lower in [
@@ -41,8 +41,8 @@
             <tr>
                 <td>{{ label }}{% if lower %} <span class="muted" style="font-size:0.75rem;">({{ t.lower_better }})</span>{% endif %}</td>
                 <td class="num">{% if k == 'zcs' and mine is not none %}<strong style="color:var(--accent);">{{ mine }}</strong>{% elif mine is not none %}{{ mine }}{% else %}-{% endif %}</td>
-                <td class="num muted">{{ team_v if team_v is not none else '-' }}</td>
-                <td class="num">
+                <td class="num muted" data-mobile-hide>{{ team_v if team_v is not none else '-' }}</td>
+                <td class="num" data-mobile-hide>
                     {% if mine is not none and team_v and team_v != 0 %}
                         {% set pct = ((mine - team_v) / team_v * 100) | round(1) %}
                         {% if (lower and pct < 0) or (not lower and pct > 0) %}
@@ -237,7 +237,7 @@ function renderChart() {
     if (chartInstance) { chartInstance.destroy(); chartInstance = null; }
     if (!seriesData.length) { return; }
     document.getElementById('tableTitle').textContent = playerName + ' (' + currentMode + ')';
-    const color = currentMode === 'HP' ? '#ff9d00' : '#8b5cf6';
+    const color = currentMode === 'HP' ? TDS.hp : TDS.snd;
     chartInstance = new Chart(canvas, {
         type: 'line',
         data: {
@@ -246,18 +246,15 @@ function renderChart() {
                 label: L[currentMetric] || currentMetric,
                 data: seriesData.map(d => d[currentMetric]),
                 borderColor: color,
-                backgroundColor: color.replace(')', ',0.08)').replace('rgb','rgba'),
                 fill: false, tension: 0.3, pointRadius: 3, pointHoverRadius: 6,
             }]
         },
-        options: {
-            responsive: true, maintainAspectRatio: false,
-            plugins: { legend: { labels: { color: '#4e5968' } } },
+        options: chartOptions({
             scales: {
-                x: { grid: { color: '#e5e8eb' }, ticks: { color: '#8b95a1', maxTicksLimit: 10 } },
-                y: { grid: { color: '#e5e8eb' }, ticks: { color: '#8b95a1' }, beginAtZero: false },
+                x: { grid: { color: TDS.border }, ticks: { color: TDS.muted, maxTicksLimit: 10 } },
+                y: { grid: { color: TDS.border }, ticks: { color: TDS.muted }, beginAtZero: false },
             }
-        }
+        })
     });
     renderTable();
 }

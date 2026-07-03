@@ -32,6 +32,21 @@
             --radius-sm: 12px;
             --shadow: 0 1px 3px rgba(0,0,0,0.04), 0 6px 20px rgba(0,0,0,0.04);
         }
+        /* 다크모드 — 시스템 설정(prefers-color-scheme)만 지원. 토큰만 재정의해
+           카드/표/텍스트/차트 대부분 자동 적용. 브랜드색(accent-2/hp/snd)은 공통 유지. */
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg: #1a1d21;
+                --card: #25292e;
+                --card-2: #2d3239;
+                --border: #3a4048;
+                --text: #f2f4f6;
+                --text-2: #c5ccd6;
+                --accent: #4b9bff;
+                --accent-weak: #1e3a5f;
+                --shadow: 0 1px 3px rgba(0,0,0,0.3), 0 6px 20px rgba(0,0,0,0.3);
+            }
+        }
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             font-family: 'Pretendard', 'Pretendard Variable', system-ui, -apple-system, 'Segoe UI', sans-serif;
@@ -70,6 +85,7 @@
         }
         .nav a:hover { color: var(--text); background: var(--card-2); }
         .nav a.active { color: var(--accent); background: var(--accent-weak); }
+        .nav-admin { margin-left: 1rem; }
         .container {
             max-width: 1200px;
             margin: 0 auto;
@@ -79,7 +95,6 @@
             display: grid;
             gap: 1.25rem;
         }
-        .grid-4 { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
         .grid-3 { grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
         .grid-2 { grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); }
         .card {
@@ -174,10 +189,6 @@
         .pagination a.active { background: var(--accent); color: white; border-color: var(--accent); }
         .muted { color: var(--muted); }
         .text-center { text-align: center; }
-        .mom-box {
-            background: linear-gradient(135deg, var(--accent-weak), #f5f9ff);
-            border: 1px solid #cfe3ff;
-        }
         .lang-switcher {
             margin-left: auto;
             display: flex;
@@ -271,7 +282,7 @@
                 padding: 0.6rem 0.75rem;
                 border-radius: 10px;
                 font-size: 0.95rem;
-                margin-left: 0 !important;  /* admin 여백 제거 */
+                margin-left: 0;  /* 모바일에선 admin 여백 제거 (.nav-links a가 .nav-admin보다 구체성 높음) */
             }
             /* 언어 스위치는 햄버거 옆(상단 우측) 유지 */
             .lang-switcher { order: 2; }
@@ -288,7 +299,7 @@
             .card { padding: 1.1rem; border-radius: 14px; }
             .stat-card .value { font-size: 1.9rem; }
             /* 카드 그리드 강제 1단 */
-            .grid-2, .grid-3, .grid-4 {
+            .grid-2, .grid-3 {
                 grid-template-columns: 1fr;
             }
             .chart-wrap { height: 220px; }
@@ -308,11 +319,12 @@
             .stat-card .value { font-size: 1.7rem; }
         }
     </style>
+    {% block head %}{% endblock %}
 </head>
 <body>
     <nav class="nav" id="nav">
         <div class="nav-brand">{{ t.nav_brand }}</div>
-        <div class="nav-links">
+        <div class="nav-links" id="navLinks">
             <a href="/?lang={{ lang }}" class="{% block nav_dashboard %}{% endblock %}">{{ t.nav_hub }}</a>
             <a href="/overview?lang={{ lang }}" class="{% block nav_overview %}{% endblock %}">{{ t.nav_dashboard }}</a>
             <a href="/players?lang={{ lang }}" class="{% block nav_players %}{% endblock %}">{{ t.nav_players }}</a>
@@ -320,21 +332,54 @@
             <a href="/compare?lang={{ lang }}" class="{% block nav_compare %}{% endblock %}">{{ t.nav_compare }}</a>
             <a href="/matches?lang={{ lang }}" class="{% block nav_matches %}{% endblock %}">{{ t.nav_matches }}</a>
             <a href="/maps?lang={{ lang }}" class="{% block nav_maps %}{% endblock %}">{{ t.nav_maps }}</a>
-            <a href="/admin?lang={{ lang }}" class="{% block nav_admin %}{% endblock %}" style="margin-left:1rem;">{{ t.nav_admin }}</a>
+            <a href="/admin?lang={{ lang }}" class="nav-admin {% block nav_admin %}{% endblock %}">{{ t.nav_admin }}</a>
         </div>
         <div class="lang-switcher">
             <a href="javascript:setLang('ko')" class="{{ 'active' if lang == 'ko' else '' }}">한국어</a>
             <a href="javascript:setLang('en')" class="{{ 'active' if lang == 'en' else '' }}">EN</a>
             <a href="javascript:setLang('es')" class="{{ 'active' if lang == 'es' else '' }}">ES</a>
         </div>
-        <button class="nav-toggle" id="navToggle" aria-label="menu">
-            <span></span><span></span><span></span>
+        <button class="nav-toggle" id="navToggle" aria-label="menu" aria-expanded="false" aria-controls="navLinks">
+            <span aria-hidden="true"></span><span aria-hidden="true"></span><span aria-hidden="true"></span>
         </button>
     </nav>
     <div class="container">
         {% block content %}{% endblock %}
     </div>
     <script>
+    // ── Chart.js 공통 기본 옵션 (TDS 톤) ────────────────────────────────
+    // TDS 토큰값 — base.html :root 토큰과 동기화. 색 변경 시 양쪽 수정.
+    const TDS = {
+        border: '#e5e8eb',   // --border
+        text: '#4e5968',     // --text-2
+        muted: '#8b95a1',    // --muted
+        accent: '#3182f6',   // --accent
+        accent2: '#15c47e',  // --accent-2
+        hp: '#ff9d00',       // --hp
+        snd: '#8b5cf6',      // --snd
+    };
+    // Cartesian(line/bar) 기본 옵션. overrides로 차이점만 지정.
+    function chartOptions(overrides = {}) {
+        return Object.assign({
+            responsive: true, maintainAspectRatio: false,
+            plugins: { legend: { labels: { color: TDS.text } } },
+            scales: {
+                x: { grid: { color: TDS.border }, ticks: { color: TDS.muted } },
+                y: { grid: { color: TDS.border }, ticks: { color: TDS.muted } },
+            },
+        }, overrides);
+    }
+    // Radial(radar) 기본 옵션.
+    function radarOptions(overrides = {}) {
+        return Object.assign({
+            responsive: true, maintainAspectRatio: false,
+            plugins: { legend: { labels: { color: TDS.text } } },
+            scales: { r: { grid: { color: TDS.border }, angleLines: { color: TDS.border },
+                           ticks: { color: TDS.muted },
+                           pointLabels: { color: TDS.text, font: { size: 10 } } } },
+        }, overrides);
+    }
+
     // 언어 전환: 현재 URL의 lang 파라미터만 교체하고 이동.
     function setLang(lang) {
         const url = new URL(window.location.href);
@@ -346,15 +391,18 @@
         const nav = document.getElementById('nav');
         const btn = document.getElementById('navToggle');
         if (!btn) return;
+        const syncAria = () => btn.setAttribute('aria-expanded', nav.classList.contains('open'));
         btn.addEventListener('click', () => {
             nav.classList.toggle('open');
             btn.classList.toggle('open');
+            syncAria();
         });
         // 메뉴 링크 클릭 시 자동 닫힘
         nav.querySelectorAll('.nav-links a').forEach(a => {
             a.addEventListener('click', () => {
                 nav.classList.remove('open');
                 btn.classList.remove('open');
+                syncAria();
             });
         });
     })();
