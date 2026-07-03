@@ -25,6 +25,7 @@ load_dotenv()
 
 import db
 import queries
+import admin_write
 import analytics
 import analytics_insights
 import insight_cache
@@ -203,7 +204,7 @@ async def match_detail(request: Request, match_id: int, lang: str = Query("ko"))
     cookie_val = request.cookies.get(auth.COOKIE_NAME)
     is_admin = bool(cookie_val and auth.check_cookie(cookie_val))
     # 날짜 단위 복기 데이터 (VOD/메모/전사는 날짜 단위)
-    day_notes = queries.get_day_notes(report.get("match_date")) or {}
+    day_notes = admin_write.get_day_notes(report.get("match_date")) or {}
     # GPT 매치 인사이트 (캐싱 — 1시간 TTL, 매치 기록 시 무효화)
     insight = insight_cache.get("match", str(match_id), lang)
     if insight is None:
@@ -292,7 +293,7 @@ async def admin_page(
     offset = (page - 1) * page_size
     mode_filter = None if mode == "ALL" else mode
     hr = {"ALL": None, "YES": True, "NO": False}[has_result]
-    data = queries.admin_match_list(page_size, offset, mode_filter, hr)
+    data = admin_write.admin_match_list(page_size, offset, mode_filter, hr)
     total_pages = max(1, (data["total"] + page_size - 1) // page_size)
     return render(
         "admin.html", lang=lang,
@@ -303,22 +304,22 @@ async def admin_page(
 
 @app.get("/admin/match/{match_id}", response_class=HTMLResponse)
 async def admin_match_edit(request: Request, match_id: int, lang: str = Query("ko")):
-    match = queries.match_raw_stats(match_id)
+    match = admin_write.match_raw_stats(match_id)
     if not match:
         raise HTTPException(404, "매치 없음")
-    players = queries.list_players_with_ids()  # 선수 재매핑 드롭다운용
+    players = admin_write.list_players_with_ids()  # 선수 재매핑 드롭다운용
     return render("admin_match.html", lang=lang, match=match, players=players)
 
 
 @app.post("/admin/match/{match_id}/meta")
 async def admin_update_meta(match_id: int, payload: dict = Body(...)):
-    ok = queries.update_match_meta(match_id, **payload)
+    ok = admin_write.update_match_meta(match_id, **payload)
     return {"ok": ok}
 
 
 @app.post("/admin/stat/{stat_id}")
 async def admin_update_stat(stat_id: int, mode: str = Query(...), payload: dict = Body(...)):
-    ok = queries.update_player_stat(stat_id, mode, **payload)
+    ok = admin_write.update_player_stat(stat_id, mode, **payload)
     return {"ok": ok}
 
 
@@ -333,22 +334,22 @@ async def admin_add_player(match_id: int, mode: str = Query(...), payload: dict 
         player_id = int(player_id)
     except (ValueError, TypeError):
         return {"ok": False, "error": "invalid player_id"}
-    ok = queries.add_player_to_match(match_id, mode, player_id, **payload)
+    ok = admin_write.add_player_to_match(match_id, mode, player_id, **payload)
     return {"ok": ok}
 
 
 # ── 날짜 단위 복기 편집 (VOD/코치메모/전사) ───────────────────────────────
 @app.get("/admin/day/{match_date}", response_class=HTMLResponse)
 async def admin_day_edit(request: Request, match_date: str, lang: str = Query("ko")):
-    day_notes = queries.get_day_notes(match_date) or {}
-    matches = queries.matches_by_date(match_date)
+    day_notes = admin_write.get_day_notes(match_date) or {}
+    matches = admin_write.matches_by_date(match_date)
     return render("admin_day.html", lang=lang,
                   match_date=match_date, day_notes=day_notes, matches=matches)
 
 
 @app.post("/admin/day/{match_date}/meta")
 async def admin_update_day_meta(match_date: str, payload: dict = Body(...)):
-    ok = queries.update_day_meta(match_date, **payload)
+    ok = admin_write.update_day_meta(match_date, **payload)
     return {"ok": ok}
 
 
@@ -367,7 +368,7 @@ async def admin_upload_day_transcript(match_date: str, lang: str = Query("ko"),
         return {"ok": False, "error": "empty"}
 
     # 그 날짜의 대표 매치(첫 매치) 수치를 전사 요약 컨텍스트로 사용
-    matches = queries.matches_by_date(match_date)
+    matches = admin_write.matches_by_date(match_date)
     if not matches:
         return {"ok": False, "error": "no_matches_on_date"}
     report = analytics.match_report(matches[0]["id"])
@@ -378,13 +379,13 @@ async def admin_upload_day_transcript(match_date: str, lang: str = Query("ko"),
     if not summary:
         return {"ok": False, "error": "summary_failed"}
 
-    queries.update_day_meta(match_date, transcript_summary=summary)
+    admin_write.update_day_meta(match_date, transcript_summary=summary)
     return {"ok": True, "summary": summary}
 
 
 @app.delete("/admin/match/{match_id}")
 async def admin_delete_match(match_id: int):
-    ok = queries.delete_match(match_id)
+    ok = admin_write.delete_match(match_id)
     return {"ok": ok}
 
 
@@ -450,13 +451,13 @@ async def admin_merge_unmatched(payload: dict = Body(...)):
 @app.get("/admin/players", response_class=HTMLResponse)
 async def admin_players_page(request: Request, lang: str = Query("ko")):
     """선수 관리 페이지 — 선수 삭제/병합. 배포 DB 정리(Swish 삭제 등)용."""
-    players = queries.list_players_admin()
+    players = admin_write.list_players_admin()
     return render("admin_players.html", lang=lang, players=players)
 
 
 @app.delete("/admin/player/{player_id}")
 async def admin_delete_player(player_id: int):
-    ok = queries.delete_player(player_id)
+    ok = admin_write.delete_player(player_id)
     return {"ok": ok}
 
 
