@@ -138,7 +138,31 @@ git push origin main
 
 ---
 
-## 8. 아키텍처 개요
+## 8. 코드 품질·함정 (이번 세션 교훈)
+
+### DB — 로컬 SQLite ≠ 배포 Postgres
+- 로컬 `codm.db`의 변경(선수 삭제 등)은 **배포 Postgres에 자동 반영되지 않는다.** `codm.db`는 `.gitignore`라 커밋 안 됨. 배포 DB 정리는 admin UI(`/admin/players` 등)로 직접.
+- **Postgres 전용 SQL 함정**(로컬 SQLite에선 통과라 배포에서만 터짐):
+  - `SELECT DISTINCT ... ORDER BY <표현식>` — Postgres는 ORDER BY 표현식이 SELECT 리스트에 있어야 함. SQLite는 느슨.
+  - `AVG(MAX(0, ...))` 중첩 괄호 — `_adapt_sql`의 AVG→`::numeric` 변환 정규식이 중첩 괄호를 못 처리하면 Postgres에서 `ROUND(double, int)` 에러. 괄호 짝 매칭 파서로 처리됨.
+  - `WHERE a=? OR b=? AND c=?` — 연산자 우선순위(`AND`가 `OR`보다 먼저)로 의도와 다르게 해석. 복합 조건은 괄호로 묶기.
+- 쿼리 작성 시 SQLite/Postgres 양쪽 호환 염두. `_adapt_sql`이 `?`→`%s`, `MAX(0,x)`→`GREATEST`, `AVG()`→`::numeric` 변환 담당.
+
+### 모듈 분리 (읽기 vs 쓰기)
+- **`queries.py`** = 읽기 전용 조회(봇·웹 공통). **`admin_write.py`** = 쓰기·admin 전용(web_api `/admin/*`만). 새 함수는 성격에 맞게 배치.
+- **`i18n/`** 패키지 — `_ko.py`/`_en.py`/`_es.py` 분리. 키 추가 시 `pytest test_i18n.py`로 누락 검증(세 언어 키 동일성 강제).
+
+### 템플릿 — Jinja2 vs JavaScript 충돌
+- `{{ ... }}` 안에서 JS 연산자(`||`, `&&`) 쓰면 Jinja2가 필터/논리연산자로 파싱해 **TemplateSyntaxError → 500**. JS 논리는 `{{ }}` 밖 순수 JS 컨텍스트에서만.
+- `t.a if t.a else t.b` 형태로 Jinja2 내 분기.
+
+### CSS 토큰 — 정의된 변수만 참조
+- `:root`에 정의된 토큰만 써야 함. 미정의 변수(`--text-muted`, `--bg-elevated` 등) 참조 시 브라우저가 무시해 스타일 깨짐. **같은 오타 패턴이 여러 파일에 반복될 수 있으니** 새 템플릿 작성/수정 시 `grep "var(--"`로 정의 확인. 토큰 목록은 `base.html` `:root` 참조.
+
+### 데드 코드·문서 드리프트
+- 라우트/함수/템플릿 삭제 시 **이를 참조하는 곳(API 호출처, 문서)을 전수 확인**. `/trends` 삭제 후 AGENTS.md에 잔류한 사례 반복. 사용처 grep 습관화.
+
+## 9. 아키텍처 개요
 
 ```
 디스코드 채널 ──스크린샷──▶ bot.py (on_message)
@@ -159,14 +183,14 @@ git push origin main
 **3개 실행 단위가 같은 DB 공유**: `bot.py`(봇), `web_api.py`(웹), `import_sheets.py`(일회성 마이그레이션).
 봇이 쓰면 웹에 즉시 반영. 통합 실행은 `start.py`.
 
-## 9. 데이터 모델 특이점 (핵심)
+## 10. 데이터 모델 특이점 (핵심)
 
 - **매치 분할 규칙**: 구글 시트에 match_id가 없어서 "이전 매치에 이미 등장한 선수가 다시 나오면 새 매치 시작"으로 분할 (`import_sheets.py`의 `group_matches()`). 단순 행수(4/5)로 자르면 안 됨.
 - **ZCS 시트 오류 정정**: 구글 시트 Dashboard의 "ZCS" 열에 Total Damage 값이 잘못 배치되어 있었음. ZCS는 `metrics.py` 공식 `max(0, 1.1·OBJ+8·CK+4.1·K−5·D)`으로 재계산한 값이 정답.
 - **이름 정규화**: 대소문자 섞임 (`Unravel`/`unravel`) → `import_sheets.py`의 `normalize_name()`으로 통일.
 - **DB 수정 시**: 봇/웹을 먼저 중지하고 백업 후 수정 (SQLite 동시 쓰기 취약).
 
-## 10. 언어/i18n 정책
+## 11. 언어/i18n 정책
 
 - **코치용 = 한국어**, **선수용 = 영어/스페인어**.
 - **디스코드 봇**: 영어 고정 (선수들이 보는 채널).
@@ -174,7 +198,7 @@ git push origin main
 - **AI 인사이트**: `lang` 파라미터 따라 GPT 응답 언어 변경 (캐싱: `insight_cache.py`, TTL 1시간 + 매치 기록 시 무효화).
 - **로그(콘솔)**: 한국어.
 
-## 11. 배포 (Railway)
+## 12. 배포 (Railway)
 
 - PaaS: Railway.app, GitHub 연동 (`F10W3R-13/codm-team-stats`).
 - DB: Railway Postgres (`DATABASE_URL` 자동 주입).
