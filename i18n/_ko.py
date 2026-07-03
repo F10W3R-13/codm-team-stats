@@ -230,6 +230,7 @@ STRINGS = {
         "recent_form": "최근 승패 흐름",
         "match_insight_title": "🧠 AI 매치 분석",
         "insight_loading": "분석 불가 (API 키를 확인하세요)",
+        "insight_fetching": "AI 분석 생성 중",
         # 코칭 허브
         "hub_title": "코칭 허브",
         "hub_subtitle": "지금 봐야 할 것 — 한눈에",

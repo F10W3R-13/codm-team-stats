@@ -66,12 +66,24 @@
 {% endif %}
 {% endif %}
 
-{% if insight %}
-<div class="card" style="margin: 1.5rem 0; border-left: 4px solid var(--accent);">
+<div class="card" id="insightCard" style="margin: 1.5rem 0; border-left: 4px solid var(--accent);">
     <h2>{{ t.match_insight_title }}</h2>
-    <p style="line-height:1.7;">{{ insight }}</p>
+    {% if insight %}
+    <p id="insightText" style="line-height:1.7;">{{ insight }}</p>
+    {% else %}
+    <p id="insightText" class="muted">⏳ {{ t.insight_fetching }}...</p>
+    <script>
+    const _matchId = {{ report.match_id }};
+    const _lang = "{{ lang }}";
+    fetch(`/api/insight/match/${_matchId}?lang=${_lang}`)
+        .then(r => r.json()).then(d => {
+            const el = document.getElementById('insightText');
+            if (d.insight) { el.textContent = d.insight; el.className = ''; el.style = 'line-height:1.7;'; }
+            else { document.getElementById('insightCard').style.display = 'none'; }
+        }).catch(() => { document.getElementById('insightCard').style.display = 'none'; });
+    </script>
+    {% endif %}
 </div>
-{% endif %}
 
 {% if report.mom %}
 <div class="card mom-box" style="margin: 1.5rem 0;">

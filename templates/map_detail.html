@@ -71,13 +71,26 @@
 </div>
 {% endif %}
 
-{# ── AI 간접 제언 ── #}
-{% if advice %}
-<div class="card" style="margin: 1.5rem 0; border-left: 4px solid var(--accent);">
+{# ── AI 간접 제언 ── 캐시 hit 시 즉시, miss면 fetch #}
+<div class="card" id="adviceCard" style="margin: 1.5rem 0; border-left: 4px solid var(--accent);">
     <h2>{{ t.map_advice_title }}</h2>
-    <p style="line-height:1.7;">{{ advice }}</p>
+    {% if advice %}
+    <p id="adviceText" style="line-height:1.7;">{{ advice }}</p>
+    {% else %}
+    <p id="adviceText" class="muted">⏳ {{ t.insight_fetching }}...</p>
+    <script>
+    const _mapName = {{ data.map_name | tojson }};
+    const _mode = {{ data.mode | tojson }};
+    const _lang = "{{ lang }}";
+    fetch(`/api/insight/map/${encodeURIComponent(_mapName)}?mode=${_mode}&lang=${_lang}`)
+        .then(r => r.json()).then(d => {
+            const el = document.getElementById('adviceText');
+            if (d.insight) { el.textContent = d.insight; el.className = ''; el.style = 'line-height:1.7;'; }
+            else { document.getElementById('adviceCard').style.display = 'none'; }
+        }).catch(() => { document.getElementById('adviceCard').style.display = 'none'; });
+    </script>
+    {% endif %}
 </div>
-{% endif %}
 
 {# ── 선수별 퍼포먼스 ── #}
 <div class="card" style="margin: 1.5rem 0;">

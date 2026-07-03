@@ -26,7 +26,9 @@ _LANG_INSTRUCT = {
 def _client():
     global _openai
     if _openai is None:
-        _openai = OpenAI(api_key=config.OPENAI_API_KEY)
+        # timeout=15s: 인사이트 동기 대기 무한정 블록 방지.
+        # max_retries=1: 지연 시 재시도 최소화 (기본 2 → 3배 지연 위험).
+        _openai = OpenAI(api_key=config.OPENAI_API_KEY, timeout=15.0, max_retries=1)
     return _openai
 
 

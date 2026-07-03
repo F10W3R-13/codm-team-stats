@@ -14,6 +14,7 @@
 # 인증 없음 (로컬 전용).
 
 import os
+import asyncio
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -125,12 +126,9 @@ async def player_detail(request: Request, name: str, lang: str = Query("ko")):
     if stats["hp"] and team_hp:
         import metrics
         stats["hp"]["role"] = metrics.classify_role(stats["hp"], team_hp)
-    # AI 인사이트 (캐싱 — 1시간 TTL, 매치 기록 시 무효화)
+    # AI 인사이트 — 캐시 hit 시에만 즉시 렌더. miss면 None (프런트가 fetch로 비동기 로드).
     cache_key = stats["name"] if stats["name"] else ""
     insight = insight_cache.get("player", cache_key, lang)
-    if insight is None and (stats["hp"] or stats["snd"]):
-        insight = analytics_insights.player_profile_insight(stats, team_hp, lang=lang)
-        insight_cache.set("player", cache_key, lang, insight)
     return render(
         "player_detail.html", lang=lang,
         stats=stats, team_hp=team_hp,
@@ -205,11 +203,8 @@ async def match_detail(request: Request, match_id: int, lang: str = Query("ko"))
     is_admin = bool(cookie_val and auth.check_cookie(cookie_val))
     # 날짜 단위 복기 데이터 (VOD/메모/전사는 날짜 단위)
     day_notes = admin_write.get_day_notes(report.get("match_date")) or {}
-    # GPT 매치 인사이트 (캐싱 — 1시간 TTL, 매치 기록 시 무효화)
+    # GPT 매치 인사이트 — 캐시 hit 시에만 즉시 렌더. miss면 None (프런트 fetch).
     insight = insight_cache.get("match", str(match_id), lang)
-    if insight is None:
-        insight = analytics_insights.match_insight(report, lang=lang)
-        insight_cache.set("match", str(match_id), lang, insight)
     return render("match_detail.html", lang=lang, report=report, insight=insight,
                   is_admin=is_admin, day_notes=day_notes)
 
@@ -222,6 +217,67 @@ async def api_player_timeseries(name: str, mode: str = "HP", limit: int = 50):
     if not pid:
         raise HTTPException(404, "선수 없음")
     return queries.player_metric_timeseries(pid, mode, limit)
+
+
+# ── 인사이트 비동기 API (페이지는 즉시 렌더, 인사이트는 fetch로 로드) ───────
+# 캐시 hit 시 즉시 반환. miss면 run_in_executor로 GPT 호출 (이벤트 루프 블록 방지).
+@app.get("/api/insight/player/{name}")
+async def api_player_insight(name: str, lang: str = "ko"):
+    cache_key = name
+    cached = insight_cache.get("player", cache_key, lang)
+    if cached is not None:
+        return {"insight": cached, "cached": True}
+    pid = queries.get_player_id(name)
+    if not pid:
+        raise HTTPException(404, "선수 없음")
+    stats = queries.player_overall_stats(pid)
+    if not (stats.get("hp") or stats.get("snd")):
+        return {"insight": "", "cached": False}
+    team_hp = queries.team_averages("HP") if stats["hp"] else {}
+    if team_hp:
+        if "avg_capture" not in team_hp and "avg_ck" in team_hp:
+            team_hp["avg_capture"] = team_hp["avg_ck"]
+        if "impact_delta" not in team_hp and "id" in team_hp:
+            team_hp["impact_delta"] = team_hp["id"]
+    loop = asyncio.get_event_loop()
+    insight = await loop.run_in_executor(
+        None, lambda: analytics_insights.player_profile_insight(stats, team_hp, lang=lang))
+    if insight:
+        insight_cache.set("player", cache_key, lang, insight)
+    return {"insight": insight, "cached": False}
+
+
+@app.get("/api/insight/match/{match_id}")
+async def api_match_insight(match_id: int, lang: str = "ko"):
+    cached = insight_cache.get("match", str(match_id), lang)
+    if cached is not None:
+        return {"insight": cached, "cached": True}
+    report = analytics.match_report(match_id)
+    if not report:
+        raise HTTPException(404, "매치 없음")
+    loop = asyncio.get_event_loop()
+    insight = await loop.run_in_executor(
+        None, lambda: analytics_insights.match_insight(report, lang=lang))
+    if insight:
+        insight_cache.set("match", str(match_id), lang, insight)
+    return {"insight": insight, "cached": False}
+
+
+@app.get("/api/insight/map/{map_name}")
+async def api_map_insight(map_name: str, mode: str = "HP", lang: str = "ko"):
+    cache_key = f"{map_name}_{mode}"
+    cached = insight_cache.get("map", cache_key, lang)
+    if cached is not None:
+        return {"insight": cached, "cached": True}
+    data = analytics.map_detail(map_name, mode)
+    if not data:
+        raise HTTPException(404, "맵 데이터 없음")
+    loop = asyncio.get_event_loop()
+    advice = await loop.run_in_executor(
+        None, lambda: analytics_insights.map_advice(data, lang=lang))
+    if advice:
+        insight_cache.set("map", cache_key, lang, advice)
+    return {"insight": advice, "cached": False}
 
 
 # ── 맵 페이지 ─────────────────────────────────────────────────────────────
@@ -245,12 +301,9 @@ async def map_detail_page(
     data = analytics.map_detail(map_name, mode)
     if not data:
         raise HTTPException(404, "맵 데이터를 찾을 수 없습니다")
-    # AI 간접 제언 (캐싱 — map+mode+lang 키)
+    # AI 간접 제언 — 캐시 hit 시에만 즉시 렌더. miss면 None (프런트 fetch).
     cache_key = f"{map_name}_{mode}"
     advice = insight_cache.get("map", cache_key, lang)
-    if advice is None:
-        advice = analytics_insights.map_advice(data, lang=lang)
-        insight_cache.set("map", cache_key, lang, advice)
     return render("map_detail.html", lang=lang, data=data, advice=advice)
 
 

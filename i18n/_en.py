@@ -219,6 +219,7 @@ STRINGS = {
         "recent_form": "Recent Form",
         "match_insight_title": "🧠 AI Match Analysis",
         "insight_loading": "Analysis unavailable (check API key)",
+        "insight_fetching": "Generating AI analysis",
         "hub_title": "Coaching Hub",
         "hub_subtitle": "What to look at now — at a glance",
         "hub_team_trend": "Team Trend",

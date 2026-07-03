@@ -113,13 +113,23 @@
 </div>
 {% endif %}
 
-<!-- AI 인사이트 -->
-{% if insight %}
-<div class="card" style="margin-top: 1.5rem; border-left: 4px solid var(--accent);">
+<!-- AI 인사이트 — 캐시 hit 시 즉시 표시, miss면 fetch로 비동기 로드 -->
+<div class="card" id="insightCard" style="margin-top: 1.5rem; border-left: 4px solid var(--accent);{% if not insight and not stats.hp and not stats.snd %} display:none;{% endif %}">
     <h2>🧠 AI {{ t.insight_title }}</h2>
-    <p style="line-height:1.7; white-space:pre-wrap;">{{ insight }}</p>
+    {% if insight %}
+    <p id="insightText" style="line-height:1.7; white-space:pre-wrap;">{{ insight }}</p>
+    {% else %}
+    <p id="insightText" class="muted">⏳ {{ t.insight_fetching }}...</p>
+    <script>
+    fetch(`/api/insight/player/${encodeURIComponent(playerName)}?lang=${lang}`)
+        .then(r => r.json()).then(d => {
+            const el = document.getElementById('insightText');
+            if (d.insight) { el.textContent = d.insight; el.className = ''; el.style = 'line-height:1.7; white-space:pre-wrap;'; }
+            else { document.getElementById('insightCard').style.display = 'none'; }
+        }).catch(() => { document.getElementById('insightCard').style.display = 'none'; });
+    </script>
+    {% endif %}
 </div>
-{% endif %}
 
 <!-- 시계열 (선수 페이지에 통합) -->
 <div class="card" style="margin-top: 1.5rem;">

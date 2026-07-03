@@ -219,6 +219,7 @@ STRINGS = {
         "recent_form": "Forma Reciente",
         "match_insight_title": "🧠 Análisis IA",
         "insight_loading": "Análisis no disponible (revisa la API key)",
+        "insight_fetching": "Generando análisis IA",
         "hub_title": "Centro de Coaching",
         "hub_subtitle": "Lo que hay que ver ahora — de un vistazo",
         "hub_team_trend": "Tendencia del Equipo",
