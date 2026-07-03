@@ -2,6 +2,16 @@
 {% block title %}{{ t.match }} #{{ report.match_id }} — CODM Stats{% endblock %}
 {% block nav_matches %}active{% endblock %}
 
+{% block head %}
+<style>
+/* match_detail 전용 — MOM 카드 강조 */
+.mom-box {
+    background: linear-gradient(135deg, var(--accent-weak), #f5f9ff);
+    border: 1px solid #cfe3ff;
+}
+</style>
+{% endblock %}
+
 {% block content %}
 <a href="/matches?lang={{ lang }}" class="muted" style="text-decoration:none;">{{ t.back_to_list }}</a>
 {% if is_admin %}

@@ -18,9 +18,9 @@
 
 <!-- 필터 -->
 <div class="filters" style="margin-bottom: 1.5rem;">
-    <a href="/admin/aliases?source=ALL&player={{ player }}&lang={{ lang }}" class="badge {% if source == 'ALL' %}active{% endif %}" style="background:{% if source == 'ALL' %}var(--accent){% else %}var(--bg-elevated){% endif %}; color:{% if source == 'ALL' %}white{% else %}var(--text){% endif %};">{{ t.filter_all }} ({{ total }})</a>
-    <a href="/admin/aliases?source=Manual&player={{ player }}&lang={{ lang }}" class="badge {% if source == 'Manual' %}active{% endif %}" style="background:{% if source == 'Manual' %}var(--accent){% else %}var(--bg-elevated){% endif %}; color:{% if source == 'Manual' %}white{% else %}var(--text){% endif %};">{{ t.source_manual }} ({{ counts.get('Manual', 0) }})</a>
-    <a href="/admin/aliases?source=OCR Auto&player={{ player }}&lang={{ lang }}" class="badge {% if source == 'OCR Auto' %}active{% endif %}" style="background:{% if source == 'OCR Auto' %}var(--accent){% else %}var(--bg-elevated){% endif %}; color:{% if source == 'OCR Auto' %}white{% else %}var(--text){% endif %};">{{ t.source_ocr_auto }} ({{ counts.get('OCR Auto', 0) }})</a>
+    <a href="/admin/aliases?source=ALL&player={{ player }}&lang={{ lang }}" class="badge {% if source == 'ALL' %}active{% endif %}" style="background:{% if source == 'ALL' %}var(--accent){% else %}var(--card-2){% endif %}; color:{% if source == 'ALL' %}white{% else %}var(--text){% endif %};">{{ t.filter_all }} ({{ total }})</a>
+    <a href="/admin/aliases?source=Manual&player={{ player }}&lang={{ lang }}" class="badge {% if source == 'Manual' %}active{% endif %}" style="background:{% if source == 'Manual' %}var(--accent){% else %}var(--card-2){% endif %}; color:{% if source == 'Manual' %}white{% else %}var(--text){% endif %};">{{ t.source_manual }} ({{ counts.get('Manual', 0) }})</a>
+    <a href="/admin/aliases?source=OCR Auto&player={{ player }}&lang={{ lang }}" class="badge {% if source == 'OCR Auto' %}active{% endif %}" style="background:{% if source == 'OCR Auto' %}var(--accent){% else %}var(--card-2){% endif %}; color:{% if source == 'OCR Auto' %}white{% else %}var(--text){% endif %};">{{ t.source_ocr_auto }} ({{ counts.get('OCR Auto', 0) }})</a>
 </div>
 
 <!-- 추가 폼 -->
@@ -67,7 +67,7 @@
                     {% if a.source == 'OCR Auto' %}
                     <span class="badge" style="background:rgba(20,184,166,0.15); color:#0d9488; font-size:0.75rem;">🤖 {{ t.source_ocr_auto }}</span>
                     {% else %}
-                    <span class="badge" style="background:var(--bg-elevated); color:var(--text-muted); font-size:0.75rem;">✋ {{ t.source_manual }}</span>
+                    <span class="badge" style="background:var(--card-2); color:var(--muted); font-size:0.75rem;">✋ {{ t.source_manual }}</span>
                     {% endif %}
                 </td>
                 <td><button type="button" onclick="delAlias('{{ a.ign }}', this)" style="padding:0.3rem 0.7rem; background:#e74c3c; color:white; border:none; border-radius:8px; cursor:pointer; font-size:0.85rem;">🗑</button></td>
