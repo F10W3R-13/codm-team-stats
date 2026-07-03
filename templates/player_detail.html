@@ -121,12 +121,17 @@
     {% else %}
     <p id="insightText" class="muted">⏳ {{ t.insight_fetching }}...</p>
     <script>
-    fetch(`/api/insight/player/${encodeURIComponent(playerName)}?lang=${lang}`)
-        .then(r => r.json()).then(d => {
-            const el = document.getElementById('insightText');
-            if (d.insight) { el.textContent = d.insight; el.className = ''; el.style = 'line-height:1.7; white-space:pre-wrap;'; }
-            else { document.getElementById('insightCard').style.display = 'none'; }
-        }).catch(() => { document.getElementById('insightCard').style.display = 'none'; });
+    (() => {
+        // ★ playerName/lang은 아래쪽 스크립트에서 선언되므로 여기선 지역 변수 사용 (ReferenceError 방지)
+        const _name = {{ stats.name | tojson }};
+        const _lang = "{{ lang }}";
+        fetch(`/api/insight/player/${encodeURIComponent(_name)}?lang=${_lang}`)
+            .then(r => r.json()).then(d => {
+                const el = document.getElementById('insightText');
+                if (d.insight) { el.textContent = d.insight; el.className = ''; el.style = 'line-height:1.7; white-space:pre-wrap;'; }
+                else { document.getElementById('insightCard').style.display = 'none'; }
+            }).catch(() => { document.getElementById('insightCard').style.display = 'none'; });
+    })();
     </script>
     {% endif %}
 </div>
