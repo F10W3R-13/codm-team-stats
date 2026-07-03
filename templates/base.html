@@ -348,15 +348,17 @@
     </div>
     <script>
     // ── Chart.js 공통 기본 옵션 (TDS 톤) ────────────────────────────────
-    // TDS 토큰값 — base.html :root 토큰과 동기화. 색 변경 시 양쪽 수정.
+    // CSS 변수(:root 토큰)를 런타임에 읽어옴 — 다크모드(prefers-color-scheme)에서도
+    // 자동으로 어두운 톤의 색이 차트에 적용됨. 토큰은 base.html :root에서 단일 관리.
+    const _cssVar = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
     const TDS = {
-        border: '#e5e8eb',   // --border
-        text: '#4e5968',     // --text-2
-        muted: '#8b95a1',    // --muted
-        accent: '#3182f6',   // --accent
-        accent2: '#15c47e',  // --accent-2
-        hp: '#ff9d00',       // --hp
-        snd: '#8b5cf6',      // --snd
+        border:  _cssVar('--border')  || '#e5e8eb',
+        text:    _cssVar('--text-2')  || '#4e5968',
+        muted:   _cssVar('--muted')   || '#8b95a1',
+        accent:  _cssVar('--accent')  || '#3182f6',
+        accent2: _cssVar('--accent-2')|| '#15c47e',
+        hp:      _cssVar('--hp')      || '#ff9d00',
+        snd:     _cssVar('--snd')     || '#8b5cf6',
     };
     // Cartesian(line/bar) 기본 옵션. overrides로 차이점만 지정.
     function chartOptions(overrides = {}) {
