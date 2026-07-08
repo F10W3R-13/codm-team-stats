@@ -240,7 +240,7 @@ STRINGS = {
         "hub_low_sample": "muestra baja",
         # 역할 스펙트럼
         "hub_role_spectrum": "Espectro de Roles",
-        "hub_spectrum_help": "Posición en eje slay ↔ obj. Concentración a un lado = desequilibrio.",
+        "hub_spectrum_help": "Posición en eje slay ↔ obj. Desviaciones ampliadas para legibilidad.",
         "hub_spectrum_slay": "SLAY",
         "hub_spectrum_obj": "OBJ",
         "hub_spectrum_balanced": "EQUILIBRADO",

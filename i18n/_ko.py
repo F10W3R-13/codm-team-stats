@@ -252,7 +252,7 @@ STRINGS = {
         "hub_low_sample": "표본 부족",
         # 역할 스펙트럼
         "hub_role_spectrum": "역할 스펙트럼",
-        "hub_spectrum_help": "slay ↔ obj 축 위 선수 위치. 한쪽으로 몰리면 역할 편중.",
+        "hub_spectrum_help": "slay ↔ obj 축 위 선수 위치. 가독성을 위해 편차를 확대 표시합니다.",
         "hub_spectrum_slay": "SLAY",
         "hub_spectrum_obj": "OBJ",
         "hub_spectrum_balanced": "BALANCED",

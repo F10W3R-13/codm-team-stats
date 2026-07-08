@@ -240,7 +240,7 @@ STRINGS = {
         "hub_low_sample": "low sample",
         # 역할 스펙트럼
         "hub_role_spectrum": "Role Spectrum",
-        "hub_spectrum_help": "Position on slay ↔ obj axis. Clustering to one side = role skew.",
+        "hub_spectrum_help": "Position on slay ↔ obj axis. Deviations are magnified for readability.",
         "hub_spectrum_slay": "SLAY",
         "hub_spectrum_obj": "OBJ",
         "hub_spectrum_balanced": "BALANCED",
