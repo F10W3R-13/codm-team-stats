@@ -369,11 +369,12 @@ def briefing_insight(hub_data: dict, lang: str = "ko") -> str:
                  "season_kd": p["season_kd"], "recent_kd": p["recent_kd"]}
                 for p in (hub_data.get("form_alerts") or [])
             ],
-            "map_board": [
-                {"map": m["map_name"], "kd_delta": m["delta_pct"]["kd"],
-                 "zcs_delta": m["delta_pct"]["zcs"], "rec": m["rec"]}
-                for m in (hub_data.get("map_board") or [])
-                if m.get("delta_pct", {}).get("kd") is not None
+            "banpick": [
+                {"map": m["map_name"], "mode": mode,
+                 "score": m["score"], "delta": m["delta_pct"],
+                 "badge": m["badge"], "n": m["recent_matches"]}
+                for mode in ("HP", "SND")
+                for m in ((hub_data.get("banpick") or {}).get(mode, {}) or {}).get("ranked", [])
             ],
             "roles": [
                 {"name": r["name"], "role": r["role"],
@@ -392,8 +393,9 @@ def briefing_insight(hub_data: dict, lang: str = "ko") -> str:
                     "content": prompt_context.build_system_prompt(
                         "You are the coach's pre-match briefing. Produce EXACTLY 3 items, "
                         "each item = one action line + one supporting number. "
-                        "Sources: form_alerts (slumping players), map_board deltas (rising/falling maps), "
-                        "role spectrum (composition skew), open_notes (unresolved action items from past reviews). "
+                        "Sources: form_alerts (slumping players), banpick (map score/delta/badge — "
+                        "PICK maps are strong, BAN maps are weak), "
+                        "role spectrum (composition skew), open_notes (unresolved action items). "
                         "Be DIRECT and prescriptive (the coach acts on this) — unlike player-facing map advice, "
                         "you MAY give concrete directives ('Focus X', 'Ban Y'). "
                         "Format strictly: 3 lines, each '1. <conclusion> — <number>'. "
