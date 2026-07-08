@@ -225,7 +225,8 @@
         {% set ss = p.slay_score if p.slay_score else 1.0 %}
         {% set os = p.obj_score if p.obj_score else 1.0 %}
         {% set norm = ((ss - os) / (ss + os)) %} {# -1(순obj) ~ +1(순slay) #}
-        {% set pos = 50 + (norm * 50)|round(1) %} {# 0% ~ 100% #}
+        {# 데이터가 0 근처에 몰리므로 분포를 확장: norm×4.5로 증폭 후 5~95% 범위로 clamp #}
+        {% set pos = [5, [95, (50 + norm * 450)|round(1)]|min]|max %}
         <div class="spectrum__row">
             <a href="/players/{{ p.name }}?lang={{ lang }}" class="player-link spectrum__name">{{ p.name }}</a>
             <div class="spectrum-track">
