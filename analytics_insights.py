@@ -68,7 +68,7 @@ def match_insight(report: dict, lang: str = "ko") -> str:
                         lang,
                     ),
                 },
-                {"role": "user", "content": json.dumps(data, ensure_ascii=False)},
+                {"role": "user", "content": json.dumps(data, ensure_ascii=False, default=str)},
             ],
         )
         return completion.choices[0].message.content.strip()
@@ -102,7 +102,7 @@ def weekly_insight(report: dict, lang: str = "ko") -> str:
                         lang,
                     ),
                 },
-                {"role": "user", "content": json.dumps(data, ensure_ascii=False)},
+                {"role": "user", "content": json.dumps(data, ensure_ascii=False, default=str)},
             ],
         )
         return completion.choices[0].message.content.strip()
@@ -138,7 +138,7 @@ def trend_insight(trend: dict, lang: str = "ko") -> str:
                         f"Include whether rising/falling with specific numeric evidence. Concise."
                     ),
                 },
-                {"role": "user", "content": json.dumps(data, ensure_ascii=False)},
+                {"role": "user", "content": json.dumps(data, ensure_ascii=False, default=str)},
             ],
         )
         return completion.choices[0].message.content.strip()
@@ -181,7 +181,7 @@ def player_profile_insight(stats: dict, team_hp: dict = None, lang: str = "ko") 
                         lang,
                     ),
                 },
-                {"role": "user", "content": json.dumps(data, ensure_ascii=False)},
+                {"role": "user", "content": json.dumps(data, ensure_ascii=False, default=str)},
             ],
         )
         return completion.choices[0].message.content.strip()
@@ -217,7 +217,7 @@ def team_insight(team_data: dict, lang: str = "ko") -> str:
                         lang,
                     ),
                 },
-                {"role": "user", "content": json.dumps(team_data, ensure_ascii=False)},
+                {"role": "user", "content": json.dumps(team_data, ensure_ascii=False, default=str)},
             ],
         )
         return completion.choices[0].message.content.strip()
@@ -280,7 +280,7 @@ def map_advice(map_data: dict, lang: str = "ko") -> str:
                         lang,
                     ),
                 },
-                {"role": "user", "content": json.dumps(payload, ensure_ascii=False)},
+                {"role": "user", "content": json.dumps(payload, ensure_ascii=False, default=str)},
             ],
         )
         return completion.choices[0].message.content.strip()
@@ -338,7 +338,7 @@ def summarize_transcript(report: dict, transcript: str, lang: str = "ko") -> str
                     ),
                 },
                 {"role": "user", "content": json.dumps(
-                    {"match_context": ctx, "transcript": trunc}, ensure_ascii=False
+                    {"match_context": ctx, "transcript": trunc}, ensure_ascii=False, default=str
                 )},
             ],
         )
@@ -404,7 +404,7 @@ def briefing_insight(hub_data: dict, lang: str = "ko") -> str:
                         lang,
                     ),
                 },
-                {"role": "user", "content": json.dumps(data, ensure_ascii=False)},
+                {"role": "user", "content": json.dumps(data, ensure_ascii=False, default=str)},
             ],
         )
         return completion.choices[0].message.content.strip()
