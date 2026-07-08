@@ -277,6 +277,7 @@ STRINGS = {
         "briefing_title": "프리매치 브리핑",
         "briefing_generate": "브리핑 생성",
         "briefing_loading": "생성 중…",
+        "briefing_retry": "재시도",
         "matches_suffix": "매치",
         "hub_link_insights": "AI 팀 분석 · 맵별 성적",
         "hub_link_players": "선수별 스탯 · 커스텀 지표",

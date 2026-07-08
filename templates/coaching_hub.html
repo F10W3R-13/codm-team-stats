@@ -72,12 +72,15 @@
                     result.textContent = d.insight;
                     result.hidden = false;
                 } else {
-                    // 빈 결과/실패 → 위젯 자체 숨김 (에러 문구로 허브 오염 방지)
-                    widget.style.display = 'none';
+                    // 빈 결과/실패 — 버튼 복구 + 원인 표시 (진단 위해 숨기지 않음)
+                    btn.hidden = false;
+                    btn.textContent = d.error ? ('⚠️ ' + d.error) : '{{ t.briefing_retry }}';
                 }
             })
-            .catch(function () {
-                widget.style.display = 'none';
+            .catch(function (err) {
+                loading.hidden = true;
+                btn.hidden = false;
+                btn.textContent = '⚠️ ' + err;
             });
     };
 })();

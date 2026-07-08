@@ -316,8 +316,13 @@ async def api_briefing(recent: str = Query("10")):
     if cached is not None:
         return {"insight": cached, "cached": True}
     n = None if recent == "season" else int(recent)
-    hub_data = analytics.coaching_hub(recent_matches=n)
-    hub_data["open_notes"] = queries.open_notes()
+    try:
+        hub_data = analytics.coaching_hub(recent_matches=n)
+        hub_data["open_notes"] = queries.open_notes()
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return {"insight": "", "error": f"data: {e}"}
     loop = asyncio.get_event_loop()
     insight = await loop.run_in_executor(
         None, lambda: analytics_insights.briefing_insight(hub_data, lang="ko"))

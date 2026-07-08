@@ -265,6 +265,7 @@ STRINGS = {
         "briefing_title": "Briefing Pre-partido",
         "briefing_generate": "Generar Briefing",
         "briefing_loading": "Generando…",
+        "briefing_retry": "Reintentar",
         "matches_suffix": "partidos",
         "hub_link_insights": "Análisis IA · stats por mapa",
         "hub_link_players": "Stats de jugadores · métricas",

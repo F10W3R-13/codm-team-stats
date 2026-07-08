@@ -265,6 +265,7 @@ STRINGS = {
         "briefing_title": "Pre-match Briefing",
         "briefing_generate": "Generate Briefing",
         "briefing_loading": "Generating…",
+        "briefing_retry": "Retry",
         "matches_suffix": "matches",
         "hub_link_insights": "AI team analysis · per-map stats",
         "hub_link_players": "Player stats · custom metrics",

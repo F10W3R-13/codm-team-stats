@@ -408,5 +408,7 @@ def briefing_insight(hub_data: dict, lang: str = "ko") -> str:
             ],
         )
         return completion.choices[0].message.content.strip()
-    except Exception:
+    except Exception as e:
+        import traceback
+        print(f"[briefing_insight] ERROR: {e}\n{traceback.format_exc()}", flush=True)
         return ""
