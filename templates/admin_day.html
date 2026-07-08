@@ -3,13 +3,13 @@
 {% block nav_admin %}active{% endblock %}
 
 {% block content %}
-<a href="/matches?lang={{ lang }}" class="muted" style="text-decoration:none;">← {{ t.nav_matches }}</a>
+<a href="/matches?lang={{ lang }}" class="muted back-link">← {{ t.nav_matches }}</a>
 <h1>📅 {{ match_date }} — {{ t.day_review_title }}</h1>
-<p class="muted" style="margin-bottom:1.5rem;">{{ t.day_review_help }}</p>
+<p class="muted section-help">{{ t.day_review_help }}</p>
 
 <!-- 그 날짜의 매치 요약 (조회용) -->
 {% if matches %}
-<div class="card" style="margin-bottom: 1.5rem;">
+<div class="card section">
     <h2>{{ t.matches }} ({{ matches|length }})</h2>
     <div class="table-wrap">
     <table>
@@ -24,8 +24,8 @@
             <tr>
                 <td class="num"><a href="/matches/{{ m.id }}?lang={{ lang }}" class="player-link">{{ m.id }}</a></td>
                 <td><span class="badge {{ m.mode|lower }}">{{ t['mode_' + m.mode.lower()] }}</span></td>
-                <td>{% if m.result == 'WIN' %}<span style="color:#04c09e;">🟢</span>
-                    {% elif m.result == 'LOSS' %}<span style="color:#f04452;">🔴</span>
+                <td>{% if m.result == 'WIN' %}<span class="delta-up">🟢</span>
+                    {% elif m.result == 'LOSS' %}<span class="delta-down">🔴</span>
                     {% else %}<span class="muted">—</span>{% endif %}</td>
                 <td class="num">{{ m.team_score }}-{{ m.opponent_score }}</td>
                 <td>{{ m.map_name or '-' }}</td>
@@ -36,52 +36,66 @@
     </div>
 </div>
 {% else %}
-<div class="card" style="margin-bottom: 1.5rem;"><p class="muted">{{ t.no_data }}</p></div>
+<div class="card section"><p class="muted">{{ t.no_data }}</p></div>
 {% endif %}
 
 <!-- VOD + 코치 메모 -->
-<div class="card" style="margin-bottom: 1.5rem;">
+<div class="card section">
     <h2>{{ t.match_meta }}</h2>
-    <form id="dayForm" style="display:grid; grid-template-columns: 1fr; gap: 1rem;">
-        <div>
-            <label class="muted" style="font-size:0.8rem;">🎬 {{ t.vod_link }}</label>
-            <input type="text" name="vod_url" value="{{ day_notes.vod_url or '' }}" placeholder="https://youtube.com/watch?v=..." style="width:100%;">
+    <form id="dayForm" class="meta-form">
+        <div class="meta-field">
+            <label class="muted meta-label" for="vod_url">🎬 {{ t.vod_link }}</label>
+            <input type="text" name="vod_url" id="vod_url" class="input" value="{{ day_notes.vod_url or '' }}" placeholder="https://youtube.com/watch?v=...">
+        </div>
+        <div class="meta-field">
+            <label class="muted meta-label" for="coach_note">📝 {{ t.coach_note }}</label>
+            <textarea name="coach_note" id="coach_note" class="input meta-textarea" rows="5" placeholder="{{ t.coach_note_placeholder }}">{{ day_notes.coach_note or '' }}</textarea>
         </div>
         <div>
-            <label class="muted" style="font-size:0.8rem;">📝 {{ t.coach_note }}</label>
-            <textarea name="coach_note" rows="5" style="width:100%; font-family:inherit; padding:0.5rem; border-radius:8px; border:1px solid #d0d6de;" placeholder="{{ t.coach_note_placeholder }}">{{ day_notes.coach_note or '' }}</textarea>
-        </div>
-        <div>
-            <button type="button" onclick="saveDayMeta()" style="padding:0.5rem 1.2rem; background:var(--accent); color:white; border:none; border-radius:10px; cursor:pointer; font-weight:600;">{{ t.save }}</button>
+            <button type="button" class="btn btn--primary" onclick="saveDayMeta()">{{ t.save }}</button>
         </div>
     </form>
 </div>
 
 <!-- 전사 파일 업로드 → AI 요약 -->
-<div class="card" style="margin-bottom: 1.5rem; border-left: 4px solid #8b5cf6;">
+<div class="card section card--snd">
     <h2>🗣️ {{ t.transcript_title }}</h2>
-    <p class="muted" style="font-size:0.85rem; margin-bottom:1rem;">{{ t.transcript_help }}</p>
+    <p class="muted section-help">{{ t.transcript_help }}</p>
     {% if day_notes.transcript_summary %}
-    <div style="margin-bottom:1rem; padding:0.8rem; background:rgba(139,92,246,0.06); border-radius:8px;">
-        <strong class="muted" style="font-size:0.8rem;">{{ t.transcript_current }}</strong>
-        <p style="line-height:1.6; white-space:pre-wrap; margin-top:0.4rem;">{{ day_notes.transcript_summary }}</p>
+    <div class="transcript-current">
+        <strong class="muted meta-label">{{ t.transcript_current }}</strong>
+        <p class="transcript-text">{{ day_notes.transcript_summary }}</p>
     </div>
     {% endif %}
-    <div style="display:flex; gap:0.8rem; flex-wrap:wrap; align-items:center;">
-        <input type="file" id="transcriptFile" accept=".txt,.md,text/plain,text/markdown" style="font-size:0.85rem;">
-        <button type="button" id="transcriptBtn" onclick="uploadTranscript()" style="padding:0.5rem 1.2rem; background:#8b5cf6; color:white; border:none; border-radius:10px; cursor:pointer; font-weight:600;">{{ t.transcript_upload }}</button>
-        <span id="transcriptStatus" class="muted" style="font-size:0.85rem;"></span>
+    <div class="transcript-actions">
+        <input type="file" id="transcriptFile" class="transcript-file" accept=".txt,.md,text/plain,text/markdown">
+        <button type="button" id="transcriptBtn" class="btn btn--toggle" onclick="uploadTranscript()">{{ t.transcript_upload }}</button>
+        <span id="transcriptStatus" class="muted meta-label"></span>
     </div>
 </div>
+
+<style>
+.back-link { text-decoration: none; }
+.section-help { font-size: var(--fs-xs); margin-bottom: var(--space-4); }
+.meta-form { display: grid; grid-template-columns: 1fr; gap: var(--space-4); }
+.meta-field { display: flex; flex-direction: column; gap: var(--space-1); }
+.meta-label { font-size: var(--fs-xs); }
+.meta-textarea { font-family: inherit; min-height: 120px; resize: vertical; }
+.transcript-current { margin-bottom: var(--space-4); padding: var(--space-3); background: var(--snd-weak); border-radius: var(--radius-sm); }
+.transcript-text { line-height: 1.6; white-space: pre-wrap; margin-top: var(--space-1); }
+.transcript-actions { display: flex; gap: var(--space-3); flex-wrap: wrap; align-items: center; }
+.transcript-file { font-size: var(--fs-xs); }
+</style>
 
 <script>
 const matchDate = {{ match_date | tojson }};
 const lang = "{{ lang }}";
 
+// flash() — 토스트 알림 (토큰 기반 색)
 function flash(msg, ok=true) {
     const d = document.createElement('div');
     d.textContent = msg;
-    d.style.cssText = `position:fixed;top:20px;right:20px;padding:0.8rem 1.2rem;border-radius:10px;color:white;font-weight:600;z-index:1000;background:${ok?'#15c47e':'#e74c3c'};`;
+    d.className = 'toast toast--' + (ok ? 'ok' : 'err');
     document.body.appendChild(d);
     setTimeout(() => d.remove(), 2000);
 }

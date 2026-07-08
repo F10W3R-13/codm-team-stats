@@ -5,19 +5,19 @@
 {% block content %}
 <h1>{{ t.matches }}</h1>
 
-<div style="display:flex; gap:0.5rem; margin: 1rem 0;">
-    <a href="/matches?mode=ALL&lang={{ lang }}&page=1" class="badge" style="text-decoration:none; {% if mode=='ALL' %}background:#4e5968; color:white;{% else %}color: var(--muted);{% endif %}">ALL</a>
-    <a href="/matches?mode=HP&lang={{ lang }}&page=1" class="badge" style="text-decoration:none; {% if mode=='HP' %}background:var(--accent); color:white;{% else %}color: var(--muted);{% endif %}">🎯 {{ t.mode_hp }}</a>
-    <a href="/matches?mode=SND&lang={{ lang }}&page=1" class="badge" style="text-decoration:none; {% if mode=='SND' %}background:#8b5cf6; color:white;{% else %}color: var(--muted);{% endif %}">🔍 {{ t.mode_snd }}</a>
+<div class="filters">
+    <a href="/matches?mode=ALL&lang={{ lang }}&page=1" class="{{ 'active' if mode=='ALL' else '' }}">ALL</a>
+    <a href="/matches?mode=HP&lang={{ lang }}&page=1" class="{{ 'active' if mode=='HP' else '' }}">🎯 {{ t.mode_hp }}</a>
+    <a href="/matches?mode=SND&lang={{ lang }}&page=1" class="{{ 'active' if mode=='SND' else '' }}">🔍 {{ t.mode_snd }}</a>
 </div>
 
 {% for grp in data.groups %}
-<div class="card" style="margin-bottom: 1.5rem;">
-    <h2 style="margin-bottom: 1rem;">📅 {{ grp.date or (t.date_unknown if t.date_unknown is defined else '날짜 미상') }}
-        <span class="muted" style="font-size:0.9rem; font-weight:normal;">({{ grp.matches|length }} {{ t.matches|lower if t.matches else '경기' }})</span>
-        {% if grp.vod_url %}<a href="{{ grp.vod_url }}" target="_blank" rel="noopener" class="muted" style="font-size:0.85rem; text-decoration:none; margin-left:0.5rem;" title="VOD">🎬</a>{% endif %}
-        {% if grp.transcript_summary %}<span class="muted" style="font-size:0.85rem; margin-left:0.3rem;" title="{{ t.transcript_summary }}">🗣️</span>{% endif %}
-        {% if is_admin and grp.date %}<a href="/admin/day/{{ grp.date }}?lang={{ lang }}" class="muted" style="font-size:0.85rem; text-decoration:none; margin-left:0.5rem; float:right;" title="{{ t.day_review_title }}">✏️</a>{% endif %}
+<div class="card section">
+    <h2 class="match-group-title">📅 {{ grp.date or (t.date_unknown if t.date_unknown is defined else '날짜 미상') }}
+        <span class="muted match-group-count">({{ grp.matches|length }} {{ t.matches|lower if t.matches else '경기' }})</span>
+        {% if grp.vod_url %}<a href="{{ grp.vod_url }}" target="_blank" rel="noopener" class="muted match-group-icon" title="VOD">🎬</a>{% endif %}
+        {% if grp.transcript_summary %}<span class="muted match-group-icon" title="{{ t.transcript_summary }}">🗣️</span>{% endif %}
+        {% if is_admin and grp.date %}<a href="/admin/day/{{ grp.date }}?lang={{ lang }}" class="muted match-group-edit" title="{{ t.day_review_title }}">✏️</a>{% endif %}
     </h2>
     <div class="table-wrap">
     <table>
@@ -30,7 +30,7 @@
                 <th>{{ t.map }}</th>
                 <th class="num" data-mobile-hide>{{ t.players }}</th>
                 <th class="num">{{ t.zcs_label }}</th>
-                <th class="num">{{ t.avg_kd_col }}</th>
+                <th class="num" data-mobile-hide>{{ t.avg_kd_col }}</th>
             </tr>
         </thead>
         <tbody>
@@ -39,16 +39,16 @@
                 <td class="num"><a href="/matches/{{ m.id }}?lang={{ lang }}" class="player-link">{{ m.id }}</a></td>
                 <td><span class="badge {{ m.mode|lower }}">{{ t['mode_' + m.mode.lower()] }}</span></td>
                 <td>
-                    {% if m.result == 'WIN' %}<span style="color:#04c09e;font-weight:600;">🟢 {{ t.win }}</span>
-                    {% elif m.result == 'LOSS' %}<span style="color:#f04452;font-weight:600;">🔴 {{ t.loss }}</span>
+                    {% if m.result == 'WIN' %}<span class="win-badge">🟢 {{ t.win }}</span>
+                    {% elif m.result == 'LOSS' %}<span class="loss-badge">🔴 {{ t.loss }}</span>
                     {% elif m.result == 'DRAW' %}<span class="muted">⚪ {{ t.draw }}</span>
                     {% else %}<span class="muted">—</span>{% endif %}
                 </td>
                 <td class="num">{{ m.team_score }}-{{ m.opponent_score }}</td>
                 <td>{{ m.map_name or '-' }}</td>
                 <td class="num" data-mobile-hide>{{ m.players }}</td>
-                <td class="num">{% if m.mode == 'HP' and m.avg_zcs is not none %}<strong style="color: var(--accent);">{{ m.avg_zcs }}</strong>{% else %}-{% endif %}</td>
-                <td class="num">{{ m.avg_kd or '-' }}</td>
+                <td class="num">{% if m.mode == 'HP' and m.avg_zcs is not none %}<strong class="zcs-strong">{{ m.avg_zcs }}</strong>{% else %}-{% endif %}</td>
+                <td class="num" data-mobile-hide>{{ m.avg_kd or '-' }}</td>
             </tr>
             {% endfor %}
         </tbody>
@@ -64,10 +64,19 @@
     {% if page > 1 %}
     <a href="/matches?mode={{ mode }}&lang={{ lang }}&page={{ page - 1 }}">← {{ t.prev }}</a>
     {% endif %}
-    <span class="muted" style="padding: 0.4rem 0.9rem;">{{ page }} / {{ total_pages }}</span>
+    <span class="muted pagination-current">{{ page }} / {{ total_pages }}</span>
     {% if page < total_pages %}
     <a href="/matches?mode={{ mode }}&lang={{ lang }}&page={{ page + 1 }}">{{ t.next }} →</a>
     {% endif %}
 </div>
 {% endif %}
+
+<style>
+.match-group-title { margin-bottom: var(--space-4); display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-1); }
+.match-group-count { font-size: var(--fs-sm); font-weight: var(--fw-normal); }
+.match-group-icon { font-size: var(--fs-sm); text-decoration: none; }
+.match-group-edit { font-size: var(--fs-sm); text-decoration: none; margin-left: auto; }
+.zcs-strong { color: var(--accent); }
+.pagination-current { padding: var(--space-2) var(--space-3); }
+</style>
 {% endblock %}

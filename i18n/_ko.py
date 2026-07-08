@@ -12,6 +12,7 @@ STRINGS = {
         "nav_matches": "매치",
         "nav_timeseries": "시계열",
         "lang_label": "언어",
+        "theme_toggle": "테마 전환",
 
         # 공통
         "mode_hp": "하드포인트",

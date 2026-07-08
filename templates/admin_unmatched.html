@@ -3,7 +3,7 @@
 {% block nav_admin %}active{% endblock %}
 
 {% block content %}
-<a href="/admin?lang={{ lang }}" class="muted" style="text-decoration:none;">← {{ t.nav_admin }}</a>
+<a href="/admin?lang={{ lang }}" class="muted back-link">← {{ t.nav_admin }}</a>
 <h1>{{ t.unmatched_title }}</h1>
 
 <!-- admin 서브탭 -->
@@ -37,7 +37,7 @@
                 <td class="num">{{ u.matches }}</td>
                 <td class="num">{{ u.aliases }}</td>
                 <td>
-                    <select class="merge-dst-{{ u.id }}" style="min-width:120px;">
+                    <select class="select merge-dst-{{ u.id }} merge-select">
                         <option value="" disabled selected>{{ t.alias_select_player }}</option>
                         {% for r in roster %}
                         <option value="{{ r }}">{{ r }}</option>
@@ -45,8 +45,7 @@
                     </select>
                 </td>
                 <td>
-                    <button type="button" onclick="mergePlayer('{{ u.id }}', '{{ u.name }}')"
-                        style="padding:0.3rem 0.7rem; background:var(--accent); color:white; border:none; border-radius:8px; cursor:pointer; font-size:0.85rem;">
+                    <button type="button" class="btn btn--primary btn--sm" onclick="mergePlayer('{{ u.id }}', '{{ u.name }}')">
                         {{ t.unmatched_merge_btn }} →
                     </button>
                 </td>
@@ -56,19 +55,18 @@
     </table>
     </div>
     {% else %}
-    <p class="muted" style="padding:1.5rem 0;">✅ {{ t.unmatched_empty }}</p>
+    <p class="muted empty-list">✅ {{ t.unmatched_empty }}</p>
     {% endif %}
 </div>
 
-<script>
-function flash(msg, ok=true) {
-    const d = document.createElement('div');
-    d.textContent = msg;
-    d.style.cssText = `position:fixed;top:20px;right:20px;padding:0.8rem 1.2rem;border-radius:10px;color:white;font-weight:600;z-index:1000;background:${ok?'#15c47e':'#e74c3c'};`;
-    document.body.appendChild(d);
-    setTimeout(() => d.remove(), 2500);
-}
+<style>
+.back-link { text-decoration: none; }
+.merge-select { min-width: 120px; }
+.btn--sm { padding: var(--space-1) var(--space-2); font-size: var(--fs-xs); }
+.empty-list { padding: var(--space-6) 0; }
+</style>
 
+<script>
 function mergePlayer(srcId, srcName) {
     const dst = document.querySelector('.merge-dst-' + srcId).value;
     if (!dst) { flash("{{ t.unmatched_pick_dst }}", false); return; }

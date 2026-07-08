@@ -3,7 +3,7 @@
 {% block nav_admin %}active{% endblock %}
 
 {% block content %}
-<a href="/admin?lang={{ lang }}" class="muted" style="text-decoration:none;">← {{ t.nav_admin }}</a>
+<a href="/admin?lang={{ lang }}" class="muted back-link">← {{ t.nav_admin }}</a>
 <h1>{{ t.alias_title }}</h1>
 
 <!-- admin 서브탭 -->
@@ -17,30 +17,30 @@
 <p class="muted">{{ t.alias_subtitle }}</p>
 
 <!-- 필터 -->
-<div class="filters" style="margin-bottom: 1.5rem;">
-    <a href="/admin/aliases?source=ALL&player={{ player }}&lang={{ lang }}" class="badge {% if source == 'ALL' %}active{% endif %}" style="background:{% if source == 'ALL' %}var(--accent){% else %}var(--card-2){% endif %}; color:{% if source == 'ALL' %}white{% else %}var(--text){% endif %};">{{ t.filter_all }} ({{ total }})</a>
-    <a href="/admin/aliases?source=Manual&player={{ player }}&lang={{ lang }}" class="badge {% if source == 'Manual' %}active{% endif %}" style="background:{% if source == 'Manual' %}var(--accent){% else %}var(--card-2){% endif %}; color:{% if source == 'Manual' %}white{% else %}var(--text){% endif %};">{{ t.source_manual }} ({{ counts.get('Manual', 0) }})</a>
-    <a href="/admin/aliases?source=OCR Auto&player={{ player }}&lang={{ lang }}" class="badge {% if source == 'OCR Auto' %}active{% endif %}" style="background:{% if source == 'OCR Auto' %}var(--accent){% else %}var(--card-2){% endif %}; color:{% if source == 'OCR Auto' %}white{% else %}var(--text){% endif %};">{{ t.source_ocr_auto }} ({{ counts.get('OCR Auto', 0) }})</a>
+<div class="filters alias-filters">
+    <a href="/admin/aliases?source=ALL&player={{ player }}&lang={{ lang }}" class="filter-pill {{ 'active' if source == 'ALL' else '' }}">{{ t.filter_all }} ({{ total }})</a>
+    <a href="/admin/aliases?source=Manual&player={{ player }}&lang={{ lang }}" class="filter-pill {{ 'active' if source == 'Manual' else '' }}">{{ t.source_manual }} ({{ counts.get('Manual', 0) }})</a>
+    <a href="/admin/aliases?source=OCR Auto&player={{ player }}&lang={{ lang }}" class="filter-pill {{ 'active' if source == 'OCR Auto' else '' }}">{{ t.source_ocr_auto }} ({{ counts.get('OCR Auto', 0) }})</a>
 </div>
 
 <!-- 추가 폼 -->
-<div class="card" style="margin-bottom: 1.5rem;">
+<div class="card section">
     <h2>{{ t.alias_add }}</h2>
-    <form id="addForm" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 1rem; align-items:end;">
-        <div>
-            <label class="muted" style="font-size:0.8rem;">{{ t.alias_ign }}</label>
-            <input type="text" name="ign" placeholder="Renegul8808" style="width:100%;" required>
+    <form id="addForm" class="alias-add-form">
+        <div class="alias-field">
+            <label class="muted meta-label" for="ign">{{ t.alias_ign }}</label>
+            <input type="text" name="ign" id="ign" class="input" placeholder="Renegul8808" required>
         </div>
-        <div>
-            <label class="muted" style="font-size:0.8rem;">{{ t.player }}</label>
-            <select name="player" required>
+        <div class="alias-field">
+            <label class="muted meta-label" for="player">{{ t.player }}</label>
+            <select name="player" id="player" class="select" required>
                 <option value="" disabled selected>{{ t.alias_select_player }}</option>
                 {% for p in players %}
                 <option value="{{ p }}">{{ p }}</option>
                 {% endfor %}
             </select>
         </div>
-        <button type="button" onclick="addAlias()" style="padding:0.5rem 1.2rem; background:var(--accent); color:white; border:none; border-radius:10px; cursor:pointer; font-weight:600;">+ {{ t.alias_add_btn }}</button>
+        <button type="button" class="btn btn--primary" onclick="addAlias()">+ {{ t.alias_add_btn }}</button>
     </form>
 </div>
 
@@ -65,31 +65,42 @@
                 <td>{{ a.player_name }}</td>
                 <td>
                     {% if a.source == 'OCR Auto' %}
-                    <span class="badge" style="background:rgba(20,184,166,0.15); color:#0d9488; font-size:0.75rem;">🤖 {{ t.source_ocr_auto }}</span>
+                    <span class="badge badge--ocr">🤖 {{ t.source_ocr_auto }}</span>
                     {% else %}
-                    <span class="badge" style="background:var(--card-2); color:var(--muted); font-size:0.75rem;">✋ {{ t.source_manual }}</span>
+                    <span class="badge badge--manual">✋ {{ t.source_manual }}</span>
                     {% endif %}
                 </td>
-                <td><button type="button" onclick="delAlias('{{ a.ign }}', this)" style="padding:0.3rem 0.7rem; background:#e74c3c; color:white; border:none; border-radius:8px; cursor:pointer; font-size:0.85rem;">🗑</button></td>
+                <td><button type="button" class="btn btn--danger btn--sm" onclick="delAlias('{{ a.ign }}', this)">🗑</button></td>
             </tr>
             {% endfor %}
         </tbody>
     </table>
     </div>
     {% else %}
-    <p class="muted" style="padding:1.5rem 0;">{{ t.alias_empty }}</p>
+    <p class="muted empty-list">{{ t.alias_empty }}</p>
     {% endif %}
 </div>
 
-<script>
-function flash(msg, ok=true) {
-    const d = document.createElement('div');
-    d.textContent = msg;
-    d.style.cssText = `position:fixed;top:20px;right:20px;padding:0.8rem 1.2rem;border-radius:10px;color:white;font-weight:600;z-index:1000;background:${ok?'#15c47e':'#e74c3c'};`;
-    document.body.appendChild(d);
-    setTimeout(() => d.remove(), 2500);
+<style>
+.back-link { text-decoration: none; }
+.alias-filters { margin-bottom: var(--space-6); }
+.filter-pill {
+    display: inline-block; padding: var(--space-1) var(--space-3);
+    border-radius: var(--radius-sm); text-decoration: none;
+    background: var(--card-2); color: var(--text); font-size: var(--fs-sm); font-weight: var(--fw-semibold);
+    border: 1px solid var(--border);
 }
+.filter-pill.active { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+.alias-add-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: var(--space-4); align-items: end; }
+.alias-field { display: flex; flex-direction: column; gap: var(--space-1); }
+.meta-label { font-size: var(--fs-xs); }
+.badge--ocr    { background: var(--hp-weak); color: var(--hp); }
+.badge--manual { background: var(--card-2); color: var(--muted); }
+.btn--sm { padding: var(--space-1) var(--space-2); font-size: var(--fs-xs); }
+.empty-list { padding: var(--space-6) 0; }
+</style>
 
+<script>
 function addAlias() {
     const form = document.getElementById('addForm');
     const payload = {};

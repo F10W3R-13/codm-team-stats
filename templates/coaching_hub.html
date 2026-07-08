@@ -7,60 +7,42 @@
 <p class="muted">{{ t.hub_subtitle }}</p>
 
 {% if data.team_zcs is not none %}
-<div class="card" style="margin: 1.5rem 0; border-left: 4px solid var(--accent); display:flex; align-items:center; gap:2rem; flex-wrap:wrap;">
+<div class="card section card--accent zcs-banner">
     <div>
-        <div class="muted" style="font-size:.85rem;">{{ t.zcs_team }}</div>
-        <div style="font-size:2.4rem; font-weight:800; color: var(--accent);">{{ data.team_zcs }}</div>
+        <div class="stat-label">{{ t.zcs_team }}</div>
+        <div class="stat-value text-accent">{{ data.team_zcs }}</div>
     </div>
     {% if data.zcs_trend %}
-    <div style="flex:1; min-width:300px; height:80px;"><canvas id="zcsChart"></canvas></div>
+    <div class="zcs-banner__spark"><canvas id="zcsChart"></canvas></div>
     {% endif %}
 </div>
 {% endif %}
 
 {# ── 팀 트렌드 요약 (최근 vs 시즌) ── #}
-<div class="card" style="margin: 1.5rem 0;">
+<div class="card section">
     <h2>{{ t.hub_team_trend }}</h2>
     {% if data.trend.recent.matches %}
     <div class="grid grid-3">
-        <div>
-            <div class="muted" style="font-size:.85rem;">{{ t.hub_kd }}</div>
-            <div style="font-size:1.5rem;font-weight:700;">
-                {{ data.trend.recent.avg_kd }}
-                {% if data.trend.delta_pct.avg_kd is not none %}
-                <span style="font-size:.95rem; color: {{ 'var(--accent-2)' if data.trend.delta_pct.avg_kd >= 0 else '#f04452' }};">
-                    {{ '+' if data.trend.delta_pct.avg_kd >= 0 }}{{ data.trend.delta_pct.avg_kd }}%
+        {% set trend_metrics = [
+            ('avg_kd', t.hub_kd), ('avg_k', t.hub_kills), ('avg_dmg', t.hub_dmg)
+        ] %}
+        {% for key, label in trend_metrics %}
+        <div class="trend-stat">
+            <div class="stat-label">{{ label }}</div>
+            <div class="trend-stat__value">
+                {{ data.trend.recent[key] }}
+                {% if data.trend.delta_pct[key] is not none %}
+                {% set delta = data.trend.delta_pct[key]|float %}
+                <span class="delta-{{ 'up' if delta >= 0 else 'down' }} delta-sm">
+                    {{ '+' if delta >= 0 }}{{ delta }}%
                 </span>
                 {% endif %}
             </div>
-            <div class="muted" style="font-size:.8rem;">{{ t.hub_season }} {{ data.trend.season.avg_kd }}</div>
+            <div class="muted trend-stat__season">{{ t.hub_season }} {{ data.trend.season[key] }}</div>
         </div>
-        <div>
-            <div class="muted" style="font-size:.85rem;">{{ t.hub_kills }}</div>
-            <div style="font-size:1.5rem;font-weight:700;">
-                {{ data.trend.recent.avg_k }}
-                {% if data.trend.delta_pct.avg_k is not none %}
-                <span style="font-size:.95rem; color: {{ 'var(--accent-2)' if data.trend.delta_pct.avg_k >= 0 else '#f04452' }};">
-                    {{ '+' if data.trend.delta_pct.avg_k >= 0 }}{{ data.trend.delta_pct.avg_k }}%
-                </span>
-                {% endif %}
-            </div>
-            <div class="muted" style="font-size:.8rem;">{{ t.hub_season }} {{ data.trend.season.avg_k }}</div>
-        </div>
-        <div>
-            <div class="muted" style="font-size:.85rem;">{{ t.hub_dmg }}</div>
-            <div style="font-size:1.5rem;font-weight:700;">
-                {{ data.trend.recent.avg_dmg }}
-                {% if data.trend.delta_pct.avg_dmg is not none %}
-                <span style="font-size:.95rem; color: {{ 'var(--accent-2)' if data.trend.delta_pct.avg_dmg >= 0 else '#f04452' }};">
-                    {{ '+' if data.trend.delta_pct.avg_dmg >= 0 }}{{ data.trend.delta_pct.avg_dmg }}%
-                </span>
-                {% endif %}
-            </div>
-            <div class="muted" style="font-size:.8rem;">{{ t.hub_season }} {{ data.trend.season.avg_dmg }}</div>
-        </div>
+        {% endfor %}
     </div>
-    <p class="muted" style="margin-top:0.8rem;font-size:.85rem;">{{ t.hub_recent }} {{ data.days }}{{ t.days_suffix }} · {{ data.trend.recent.matches }}{{ t.matches }}</p>
+    <p class="muted trend-note">{{ t.hub_recent }} {{ data.days }}{{ t.days_suffix }} · {{ data.trend.recent.matches }}{{ t.matches }}</p>
     {% else %}
     <p class="muted">{{ t.no_data }}</p>
     {% endif %}
@@ -68,11 +50,11 @@
 
 {# ── 폼 경고 (하락 선수) ── #}
 {% if data.form_alerts %}
-<div class="card" style="margin: 1.5rem 0; border-left: 4px solid #f04452;">
+<div class="card section card--danger">
     <h2>⚠️ {{ t.hub_form_alerts }}</h2>
-    <p class="muted" style="font-size:.85rem;">{{ t.hub_form_help }}</p>
+    <p class="muted stat-label">{{ t.hub_form_help }}</p>
     <div class="table-wrap">
-    <table style="margin-top:0.8rem;">
+    <table>
         <thead>
             <tr><th>{{ t.player }}</th><th class="num" data-mobile-hide>{{ t.hub_season_kd }}</th><th class="num">{{ t.hub_recent_kd }}</th><th class="num" data-mobile-hide>{{ t.zcs_label }}</th><th class="num">Δ</th></tr>
         </thead>
@@ -82,8 +64,8 @@
                 <td><a href="/players/{{ p.name }}?lang={{ lang }}" class="player-link">{{ p.name }}</a></td>
                 <td class="num" data-mobile-hide>{{ p.season_kd }}</td>
                 <td class="num">{{ p.recent_kd }}</td>
-                <td class="num" data-mobile-hide><strong style="color: var(--accent);">{{ p.season_zcs or '-' }}</strong></td>
-                <td class="num" style="color:#f04452;font-weight:600;">{{ p.delta_pct }}%</td>
+                <td class="num" data-mobile-hide><strong class="text-accent">{{ p.season_zcs or '-' }}</strong></td>
+                <td class="num delta-down">{{ p.delta_pct }}%</td>
             </tr>
             {% endfor %}
         </tbody>
@@ -94,33 +76,33 @@
 
 {# ── 맵 하이라이트 + 밴픽 힌트 ── #}
 {% if data.strong_map or data.weak_map %}
-<div class="grid grid-2" style="margin: 1.5rem 0;">
+<div class="grid grid-2 section">
     {% if data.strong_map %}
-    <a href="/maps/{{ data.strong_map.map_name }}?mode={{ data.mode }}&lang={{ lang }}" class="card" style="border-left: 4px solid var(--accent-2); text-decoration:none;color:inherit;">
+    <a href="/maps/{{ data.strong_map.map_name }}?mode={{ data.mode }}&lang={{ lang }}" class="card card-link card--success">
         <h2>🟢 {{ t.hub_strong_map }}</h2>
-        <p style="font-size:1.3rem;font-weight:700;">{{ data.strong_map.map_name }}</p>
+        <p class="map-name">{{ data.strong_map.map_name }}</p>
         <p class="muted">{{ t.hub_kd }} {{ data.strong_map.avg_kd }} · {{ data.strong_map.matches }}{{ t.matches }}</p>
-        <p style="margin-top:0.5rem;font-size:.9rem;">📌 {{ t.hub_pick_hint }}</p>
+        <p class="map-hint">📌 {{ t.hub_pick_hint }}</p>
     </a>
     {% endif %}
     {% if data.weak_map %}
-    <a href="/maps/{{ data.weak_map.map_name }}?mode={{ data.mode }}&lang={{ lang }}" class="card" style="border-left: 4px solid #f04452; text-decoration:none;color:inherit;">
+    <a href="/maps/{{ data.weak_map.map_name }}?mode={{ data.mode }}&lang={{ lang }}" class="card card-link card--danger">
         <h2>🔴 {{ t.hub_weak_map }}</h2>
-        <p style="font-size:1.3rem;font-weight:700;">{{ data.weak_map.map_name }}</p>
+        <p class="map-name">{{ data.weak_map.map_name }}</p>
         <p class="muted">{{ t.hub_kd }} {{ data.weak_map.avg_kd }} · {{ data.weak_map.matches }}{{ t.matches }}</p>
-        <p style="margin-top:0.5rem;font-size:.9rem;">🚫 {{ t.hub_ban_hint }}</p>
+        <p class="map-hint">🚫 {{ t.hub_ban_hint }}</p>
     </a>
     {% endif %}
 </div>
 {% endif %}
 
-{# ── 승률 요약 ── #}
+{# ── 역할 분포 ── #}
 {% if data.roles %}
-<div class="card" style="margin: 1.5rem 0;">
+<div class="card section">
     <h2>👥 {{ t.role_title }}</h2>
-    <p class="muted" style="font-size:.85rem;">{{ t.role_help }}</p>
+    <p class="muted stat-label">{{ t.role_help }}</p>
     <div class="table-wrap">
-    <table style="margin-top:0.8rem;">
+    <table>
         <thead>
             <tr><th>{{ t.player }}</th><th>{{ t.role_badge }}</th><th class="num" data-mobile-hide>{{ t.m_kills }}</th><th class="num" data-mobile-hide>{{ t.m_obj }}</th><th class="num" data-mobile-hide>{{ t.m_dmg }}</th><th class="num" data-mobile-hide>Cap</th></tr>
         </thead>
@@ -128,11 +110,7 @@
             {% for p in data.roles %}
             <tr>
                 <td><a href="/players/{{ p.name }}?lang={{ lang }}" class="player-link">{{ p.name }}</a></td>
-                <td>
-                    <span class="badge" style="background: {{ 'rgba(240,68,82,0.12)' if p.role == 'slayer' else ('rgba(49,130,246,0.12)' if p.role == 'objective' else 'rgba(4,192,158,0.12)') }}; color: {{ '#f04452' if p.role == 'slayer' else ('var(--accent)' if p.role == 'objective' else '#04c09e') }};">
-                    {{ t['role_' + p.role] }}
-                    </span>
-                </td>
+                <td><span class="role-badge role-badge--{{ p.role }}">{{ t['role_' + p.role] }}</span></td>
                 <td class="num" data-mobile-hide>{{ p.avg_k }}</td>
                 <td class="num" data-mobile-hide>{{ p.avg_obj }}</td>
                 <td class="num" data-mobile-hide>{{ p.avg_dmg }}</td>
@@ -145,12 +123,12 @@
 </div>
 {% endif %}
 
-{# ── 승률 요약 (기존) ── #}
+{# ── 승률 요약 ── #}
 {% if data.win_loss.total > 0 %}
-<div class="card" style="margin: 1.5rem 0;">
+<div class="card section">
     <h2>{{ t.win_rate }}</h2>
     {% if data.win_loss.win_rate is not none %}
-    <p style="font-size:1.5rem;font-weight:700;color:#04c09e;">{{ data.win_loss.win_rate }}%</p>
+    <p class="win-rate-value">{{ data.win_loss.win_rate }}%</p>
     <p class="muted">{{ data.win_loss.wins }}{{ t.win }} {{ data.win_loss.losses }}{{ t.loss }} · HP {{ data.win_loss.by_mode.HP.win_rate if data.win_loss.by_mode.HP.win_rate is not none else '-' }}% · SND {{ data.win_loss.by_mode.SND.win_rate if data.win_loss.by_mode.SND.win_rate is not none else '-' }}%</p>
     {% else %}
     <p class="muted">{{ t.no_result_data }}</p>
@@ -159,32 +137,50 @@
 {% endif %}
 
 {# ── 빠른 링크 ── #}
-<div class="grid grid-3" style="margin: 1.5rem 0;">
-    <a href="/maps?lang={{ lang }}" class="card" style="text-decoration:none;color:inherit;">
+<div class="grid grid-3 section">
+    <a href="/maps?lang={{ lang }}" class="card card-link">
         <h3>🗺️ {{ t.nav_maps }}</h3>
-        <p class="muted" style="font-size:.85rem;">{{ t.hub_link_insights }}</p>
+        <p class="muted stat-label">{{ t.hub_link_insights }}</p>
     </a>
-    <a href="/players?lang={{ lang }}" class="card" style="text-decoration:none;color:inherit;">
+    <a href="/players?lang={{ lang }}" class="card card-link">
         <h3>👥 {{ t.nav_players }}</h3>
-        <p class="muted" style="font-size:.85rem;">{{ t.hub_link_players }}</p>
+        <p class="muted stat-label">{{ t.hub_link_players }}</p>
     </a>
-    <a href="/overview?lang={{ lang }}" class="card" style="text-decoration:none;color:inherit;">
+    <a href="/overview?lang={{ lang }}" class="card card-link">
         <h3>📊 {{ t.hub_link_overview }}</h3>
-        <p class="muted" style="font-size:.85rem;">{{ t.hub_link_overview_help }}</p>
+        <p class="muted stat-label">{{ t.hub_link_overview_help }}</p>
     </a>
 </div>
+
+<style>
+/* coaching_hub 페이지 로컬 — 인라인 스타일 대체 클래스 */
+.zcs-banner { display: flex; align-items: center; gap: var(--space-8); flex-wrap: wrap; }
+.zcs-banner__spark { flex: 1; min-width: 300px; height: 80px; }
+.trend-stat__value { font-size: var(--fs-2xl); font-weight: var(--fw-bold); }
+.delta-sm { font-size: var(--fs-sm); margin-left: var(--space-1); }
+.trend-stat__season { font-size: var(--fs-xs); margin-top: var(--space-1); }
+.trend-note { margin-top: var(--space-3); font-size: var(--fs-xs); }
+.card-link { text-decoration: none; color: inherit; display: block; transition: transform 0.15s, box-shadow 0.15s; }
+.card-link:hover { transform: translateY(-2px); box-shadow: var(--shadow-lg); }
+.map-name { font-size: var(--fs-xl); font-weight: var(--fw-bold); }
+.map-hint { margin-top: var(--space-2); font-size: var(--fs-sm); }
+.win-rate-value { font-size: var(--fs-2xl); font-weight: var(--fw-bold); color: var(--success); }
+@media (max-width: 600px) {
+    .zcs-banner__spark { min-width: 100%; }
+}
+</style>
 
 {% if data.zcs_trend %}
 <script>
 const zcsData = {{ data.zcs_trend | tojson }};
-new Chart(document.getElementById('zcsChart'), {
+const zcsChart = new Chart(document.getElementById('zcsChart'), {
     type: 'line',
     data: {
         labels: zcsData.map(r => '#' + r.id),
         datasets: [{
             data: zcsData.map(r => r.avg_zcs),
             borderColor: TDS.accent,
-            backgroundColor: 'rgba(49,130,246,0.1)',
+            backgroundColor: 'rgba(38,38,38,0.08)',  /* neutral 액센트 기반 옅은 채움 */
             fill: true, tension: 0.3, pointRadius: 2,
         }]
     },
@@ -193,6 +189,7 @@ new Chart(document.getElementById('zcsChart'), {
         scales: { x: { display: false }, y: { grid: { color: TDS.border }, ticks: { color: TDS.muted } } },
     })
 });
+_chartRegistry.set('zcsChart', zcsChart);
 </script>
 {% endif %}
 {% endblock %}

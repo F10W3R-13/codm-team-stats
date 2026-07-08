@@ -11,6 +11,7 @@ STRINGS = {
         "nav_matches": "Partidas",
         "nav_timeseries": "Tendencias",
         "lang_label": "Idioma",
+        "theme_toggle": "Cambiar tema",
 
         "mode_hp": "Punto Fuerte",
         "mode_snd": "Buscar y Destruir",

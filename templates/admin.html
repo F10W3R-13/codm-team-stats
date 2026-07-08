@@ -19,7 +19,7 @@
     <a href="/admin?mode=ALL&lang={{ lang }}&page=1" class="{{ 'active' if mode == 'ALL' else '' }}">{{ t.all }}</a>
     <a href="/admin?mode=HP&lang={{ lang }}&page=1" class="{{ 'active' if mode == 'HP' else '' }}">🎯 {{ t.mode_hp }}</a>
     <a href="/admin?mode=SND&lang={{ lang }}&page=1" class="{{ 'active' if mode == 'SND' else '' }}">🔍 {{ t.mode_snd }}</a>
-    <span style="width:1rem;"></span>
+    <span class="filter-divider"></span>
     <a href="/admin?mode={{ mode }}&lang={{ lang }}&page=1&has_result=ALL" class="{{ 'active' if has_result == 'ALL' else '' }}">{{ t.all }}</a>
     <a href="/admin?mode={{ mode }}&lang={{ lang }}&page=1&has_result=YES" class="{{ 'active' if has_result == 'YES' else '' }}">✅</a>
     <a href="/admin?mode={{ mode }}&lang={{ lang }}&page=1&has_result=NO" class="{{ 'active' if has_result == 'NO' else '' }}">❌ {{ t.filter_no_result }}</a>
@@ -33,11 +33,11 @@
                 <th class="num">#</th>
                 <th>{{ t.mode_col }}</th>
                 <th>{{ t.result }}</th>
-                <th class="num">{{ t.team_score }}</th>
-                <th class="num">{{ t.opponent_score }}</th>
+                <th class="num" data-mobile-hide>{{ t.team_score }}</th>
+                <th class="num" data-mobile-hide>{{ t.opponent_score }}</th>
                 <th>{{ t.map }}</th>
-                <th>{{ t.date }}</th>
-                <th class="num">{{ t.players }}</th>
+                <th class="num" data-mobile-hide>{{ t.date }}</th>
+                <th class="num" data-mobile-hide>{{ t.players }}</th>
                 <th>{{ t.edit }}</th>
             </tr>
         </thead>
@@ -47,15 +47,15 @@
                 <td class="num">{{ m.id }}</td>
                 <td><span class="badge {{ m.mode|lower }}">{{ m.mode }}</span></td>
                 <td>
-                    {% if m.result == 'WIN' %}🟢 WIN
-                    {% elif m.result == 'LOSS' %}🔴 LOSS
+                    {% if m.result == 'WIN' %}<span class="win-badge">🟢 WIN</span>
+                    {% elif m.result == 'LOSS' %}<span class="loss-badge">🔴 LOSS</span>
                     {% else %}<span class="muted">—</span>{% endif %}
                 </td>
-                <td class="num">{{ m.team_score if m.team_score is not none else '-' }}</td>
-                <td class="num">{{ m.opponent_score if m.opponent_score is not none else '-' }}</td>
+                <td class="num" data-mobile-hide>{{ m.team_score if m.team_score is not none else '-' }}</td>
+                <td class="num" data-mobile-hide>{{ m.opponent_score if m.opponent_score is not none else '-' }}</td>
                 <td>{{ m.map_name or '-' }}</td>
-                <td>{{ m.match_date or '-' }}</td>
-                <td class="num">{{ m.players }}</td>
+                <td class="num" data-mobile-hide>{{ m.match_date or '-' }}</td>
+                <td class="num" data-mobile-hide>{{ m.players }}</td>
                 <td><a href="/admin/match/{{ m.id }}?lang={{ lang }}" class="player-link">{{ t.edit }} →</a></td>
             </tr>
             {% endfor %}
@@ -69,10 +69,15 @@
     {% if page > 1 %}
     <a href="/admin?mode={{ mode }}&lang={{ lang }}&page={{ page - 1 }}&has_result={{ has_result }}">{{ t.prev }}</a>
     {% endif %}
-    <span class="muted" style="padding:0.4rem 0.9rem;">{{ page }} / {{ total_pages }}</span>
+    <span class="muted pagination-current">{{ page }} / {{ total_pages }}</span>
     {% if page < total_pages %}
     <a href="/admin?mode={{ mode }}&lang={{ lang }}&page={{ page + 1 }}&has_result={{ has_result }}">{{ t.next }}</a>
     {% endif %}
 </div>
 {% endif %}
+
+<style>
+.filter-divider { width: var(--space-4); }
+.pagination-current { padding: var(--space-2) var(--space-3); }
+</style>
 {% endblock %}

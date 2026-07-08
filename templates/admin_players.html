@@ -3,7 +3,7 @@
 {% block nav_admin %}active{% endblock %}
 
 {% block content %}
-<a href="/admin?lang={{ lang }}" class="muted" style="text-decoration:none;">← {{ t.nav_admin }}</a>
+<a href="/admin?lang={{ lang }}" class="muted back-link">← {{ t.nav_admin }}</a>
 <h1>{{ t.admin_tab_players }}</h1>
 
 <!-- admin 서브탭 -->
@@ -17,10 +17,8 @@
 <p class="muted">{{ t.players_admin_help }}</p>
 
 <!-- 경고 -->
-<div class="card" style="border-left: 4px solid #e74c3c; margin-bottom: 1.5rem;">
-    <p style="font-size:0.85rem; color:#e74c3c;">
-        ⚠️ {{ t.players_admin_warning }}
-    </p>
+<div class="card section card--danger">
+    <p class="warning-text">⚠️ {{ t.players_admin_warning }}</p>
 </div>
 
 <!-- 선수 목록 -->
@@ -45,7 +43,7 @@
                 <td class="num">{{ p.hp_matches }}</td>
                 <td class="num">{{ p.snd_matches }}</td>
                 <td>
-                    <select class="merge-dst-{{ p.id }}" style="min-width:120px;">
+                    <select class="select merge-dst-{{ p.id }} merge-select">
                         <option value="">—</option>
                         {% for other in players %}
                         {% if other.id != p.id %}
@@ -54,9 +52,9 @@
                         {% endfor %}
                     </select>
                 </td>
-                <td style="white-space:nowrap;">
-                    <button type="button" onclick="mergePlayer({{ p.id }})" style="padding:0.3rem 0.6rem; background:var(--accent-2); color:white; border:none; border-radius:6px; cursor:pointer; font-size:0.8rem;">{{ t.merge }}</button>
-                    <button type="button" onclick="deletePlayer({{ p.id }}, '{{ p.name }}')" style="padding:0.3rem 0.6rem; background:#e74c3c; color:white; border:none; border-radius:6px; cursor:pointer; font-size:0.8rem;">🗑️</button>
+                <td class="row-actions">
+                    <button type="button" class="btn btn--toggle btn--sm" onclick="mergePlayer({{ p.id }})">{{ t.merge }}</button>
+                    <button type="button" class="btn btn--danger btn--sm" onclick="deletePlayer({{ p.id }}, '{{ p.name }}')">🗑️</button>
                 </td>
             </tr>
             {% endfor %}
@@ -65,15 +63,15 @@
     </div>
 </div>
 
-<script>
-function flash(msg, ok=true) {
-    const d = document.createElement('div');
-    d.textContent = msg;
-    d.style.cssText = `position:fixed;top:20px;right:20px;padding:0.8rem 1.2rem;border-radius:10px;color:white;font-weight:600;z-index:1000;background:${ok?'#15c47e':'#e74c3c'};`;
-    document.body.appendChild(d);
-    setTimeout(() => d.remove(), 2500);
-}
+<style>
+.back-link { text-decoration: none; }
+.warning-text { font-size: var(--fs-xs); color: var(--danger); }
+.merge-select { min-width: 120px; }
+.row-actions { white-space: nowrap; display: flex; gap: var(--space-1); }
+.btn--sm { padding: var(--space-1) var(--space-2); font-size: var(--fs-xs); }
+</style>
 
+<script>
 function deletePlayer(id, name) {
     if (!confirm(`{{ t.confirm_delete_player }}`.replace('{name}', name))) return;
     fetch(`/admin/player/${id}`, { method: 'DELETE' })

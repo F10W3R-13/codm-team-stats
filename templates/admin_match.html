@@ -3,108 +3,98 @@
 {% block nav_admin %}active{% endblock %}
 
 {% block content %}
-<a href="/admin?lang={{ lang }}" class="muted" style="text-decoration:none;">← {{ t.nav_admin }}</a>
+<a href="/admin?lang={{ lang }}" class="muted back-link">← {{ t.nav_admin }}</a>
 <h1>{{ t.edit }} — {{ t.match }} #{{ match.id }} <span class="badge {{ match.mode|lower }}">{{ match.mode }}</span></h1>
 
 <!-- 매치 메타 수정 -->
-<div class="card" style="margin-bottom: 1.5rem;">
+<div class="card section">
     <h2>{{ t.match_meta }}</h2>
-    <form id="metaForm" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem;">
-        <div>
-            <label class="muted" style="font-size:0.8rem;">{{ t.result }}</label>
-            <select name="result">
+    <form id="metaForm" class="meta-form">
+        <div class="meta-field">
+            <label class="muted meta-label">{{ t.result }}</label>
+            <select name="result" class="select">
                 <option value="" {{ 'selected' if not match.result }}>-</option>
                 <option value="WIN" {{ 'selected' if match.result == 'WIN' }}>🟢 WIN</option>
                 <option value="LOSS" {{ 'selected' if match.result == 'LOSS' }}>🔴 LOSS</option>
             </select>
         </div>
-        <div>
-            <label class="muted" style="font-size:0.8rem;">{{ t.team_score }}</label>
-            <input type="number" name="team_score" value="{{ match.team_score if match.team_score is not none else '' }}">
+        <div class="meta-field">
+            <label class="muted meta-label">{{ t.team_score }}</label>
+            <input type="number" name="team_score" class="input" value="{{ match.team_score if match.team_score is not none else '' }}">
         </div>
-        <div>
-            <label class="muted" style="font-size:0.8rem;">{{ t.opponent_score }}</label>
-            <input type="number" name="opponent_score" value="{{ match.opponent_score if match.opponent_score is not none else '' }}">
+        <div class="meta-field">
+            <label class="muted meta-label">{{ t.opponent_score }}</label>
+            <input type="number" name="opponent_score" class="input" value="{{ match.opponent_score if match.opponent_score is not none else '' }}">
         </div>
-        <div>
-            <label class="muted" style="font-size:0.8rem;">{{ t.map }}</label>
-            <input type="text" name="map_name" value="{{ match.map_name or '' }}">
+        <div class="meta-field">
+            <label class="muted meta-label">{{ t.map }}</label>
+            <input type="text" name="map_name" class="input" value="{{ match.map_name or '' }}">
         </div>
-        <div>
-            <label class="muted" style="font-size:0.8rem;">{{ t.date }}</label>
-            <input type="date" name="match_date" value="{{ match.match_date or '' }}">
+        <div class="meta-field">
+            <label class="muted meta-label">{{ t.date }}</label>
+            <input type="date" name="match_date" class="input" value="{{ match.match_date or '' }}">
         </div>
-        <div style="display:flex; align-items:end;">
-            <button type="button" onclick="saveMeta()" style="padding:0.5rem 1.2rem; background:var(--accent); color:white; border:none; border-radius:10px; cursor:pointer; font-weight:600;">{{ t.save }}</button>
+        <div class="meta-submit">
+            <button type="button" class="btn btn--primary" onclick="saveMeta()">{{ t.save }}</button>
         </div>
     </form>
 </div>
 
 <!-- 선수 스탯 수정 -->
-<div class="card" style="margin-bottom: 1.5rem;">
+<div class="card section">
     <h2>{{ t.player_stats }}</h2>
+    {# ── 데스크탑: 테이블 / 모바일: 선수별 스택 카드 ── #}
     {% if match.mode == 'HP' %}
-    <div class="table-wrap">
-    <table>
+    {% set hp_fields = [('kills','Kills',60), ('deaths','Deaths',60), ('kd_ratio','K/D',70), ('obj_time','OBJ',70), ('score','Score',80), ('impact','Impact',70), ('total_damage','DMG',80), ('capture_kill','CapKill',60)] %}
+    <div class="table-wrap stat-table-wrap">
+    <table class="stat-table">
         <thead>
             <tr>
                 <th>{{ t.player }}</th>
-                <th class="num">Kills</th><th class="num">Deaths</th><th class="num">K/D</th>
-                <th class="num">OBJ</th><th class="num">Score</th><th class="num">Impact</th>
-                <th class="num">DMG</th><th class="num">CapKill</th><th></th>
+                {% for _, label, _ in hp_fields %}<th class="num">{{ label }}</th>{% endfor %}
+                <th></th>
             </tr>
         </thead>
         <tbody>
             {% for p in match.players %}
             <tr data-stat-id="{{ p.stat_id }}">
-                <td><select class="edit-player_id" style="min-width:100px;">
+                <td><select class="select edit-player_id edit-select">
                     {% for pl in players %}
                     <option value="{{ pl.id }}" {% if pl.id == p.player_id %}selected{% endif %}>{{ pl.name }}</option>
                     {% endfor %}
                 </select></td>
-                <td class="num"><input type="number" class="edit-kills" value="{{ p.kills }}" style="width:60px;"></td>
-                <td class="num"><input type="number" class="edit-deaths" value="{{ p.deaths }}" style="width:60px;"></td>
-                <td class="num"><input type="number" step="0.01" class="edit-kd_ratio" value="{{ p.kd_ratio }}" style="width:70px;"></td>
-                <td class="num"><input type="number" class="edit-obj_time" value="{{ p.obj_time }}" style="width:70px;"></td>
-                <td class="num"><input type="number" class="edit-score" value="{{ p.score }}" style="width:80px;"></td>
-                <td class="num"><input type="number" step="0.1" class="edit-impact" value="{{ p.impact }}" style="width:70px;"></td>
-                <td class="num"><input type="number" class="edit-total_damage" value="{{ p.total_damage }}" style="width:80px;"></td>
-                <td class="num"><input type="number" step="0.1" class="edit-capture_kill" value="{{ p.capture_kill }}" style="width:60px;"></td>
-                <td><button type="button" onclick="saveStat(this)" data-stat="{{ p.stat_id }}" style="padding:0.3rem 0.7rem; background:var(--accent-2); color:white; border:none; border-radius:8px; cursor:pointer; font-size:0.85rem;">✓</button></td>
+                {% for key, _, w in hp_fields %}
+                <td class="num"><input type="number" class="input edit-{{ key }} stat-input" style="width:{{ w }}px;" value="{{ p[key] }}"></td>
+                {% endfor %}
+                <td><button type="button" class="btn btn--toggle btn--sm" onclick="saveStat(this)" data-stat="{{ p.stat_id }}">✓</button></td>
             </tr>
             {% endfor %}
         </tbody>
     </table>
     </div>
     {% else %}
-    <div class="table-wrap">
-    <table>
+    {% set snd_fields = [('kills','Kills',55), ('deaths','Deaths',55), ('assists','Assists',55), ('kd_ratio','K/D',65), ('score','Score',75), ('impact','Impact',65), ('adr','ADR',65), ('first_kill','FK',50), ('lone_wolf_win','LWW',50)] %}
+    <div class="table-wrap stat-table-wrap">
+    <table class="stat-table">
         <thead>
             <tr>
                 <th>{{ t.player }}</th>
-                <th class="num">Kills</th><th class="num">Deaths</th><th class="num">Assists</th>
-                <th class="num">K/D</th><th class="num">Score</th><th class="num">Impact</th>
-                <th class="num">ADR</th><th class="num">FK</th><th class="num">LWW</th><th></th>
+                {% for _, label, _ in snd_fields %}<th class="num">{{ label }}</th>{% endfor %}
+                <th></th>
             </tr>
         </thead>
         <tbody>
             {% for p in match.players %}
             <tr data-stat-id="{{ p.stat_id }}">
-                <td><select class="edit-player_id" style="min-width:100px;">
+                <td><select class="select edit-player_id edit-select">
                     {% for pl in players %}
                     <option value="{{ pl.id }}" {% if pl.id == p.player_id %}selected{% endif %}>{{ pl.name }}</option>
                     {% endfor %}
                 </select></td>
-                <td class="num"><input type="number" class="edit-kills" value="{{ p.kills }}" style="width:55px;"></td>
-                <td class="num"><input type="number" class="edit-deaths" value="{{ p.deaths }}" style="width:55px;"></td>
-                <td class="num"><input type="number" class="edit-assists" value="{{ p.assists }}" style="width:55px;"></td>
-                <td class="num"><input type="number" step="0.01" class="edit-kd_ratio" value="{{ p.kd_ratio }}" style="width:65px;"></td>
-                <td class="num"><input type="number" class="edit-score" value="{{ p.score }}" style="width:75px;"></td>
-                <td class="num"><input type="number" step="0.1" class="edit-impact" value="{{ p.impact }}" style="width:65px;"></td>
-                <td class="num"><input type="number" step="0.1" class="edit-adr" value="{{ p.adr }}" style="width:65px;"></td>
-                <td class="num"><input type="number" class="edit-first_kill" value="{{ p.first_kill }}" style="width:50px;"></td>
-                <td class="num"><input type="number" step="0.1" class="edit-lone_wolf_win" value="{{ p.lone_wolf_win }}" style="width:50px;"></td>
-                <td><button type="button" onclick="saveStat(this)" data-stat="{{ p.stat_id }}" style="padding:0.3rem 0.7rem; background:var(--accent-2); color:white; border:none; border-radius:8px; cursor:pointer; font-size:0.85rem;">✓</button></td>
+                {% for key, _, w in snd_fields %}
+                <td class="num"><input type="number" class="input edit-{{ key }} stat-input" style="width:{{ w }}px;" value="{{ p[key] }}"></td>
+                {% endfor %}
+                <td><button type="button" class="btn btn--toggle btn--sm" onclick="saveStat(this)" data-stat="{{ p.stat_id }}">✓</button></td>
             </tr>
             {% endfor %}
         </tbody>
@@ -112,36 +102,44 @@
     </div>
     {% endif %}
     <!-- + 선수 추가 (AI 누락 보정) -->
-    <button type="button" id="addRowBtn" onclick="addPlayerRow()" style="margin-top:1rem; padding:0.5rem 1rem; background:var(--accent); color:white; border:none; border-radius:8px; cursor:pointer; font-weight:600;">＋ {{ t.add_player }}</button>
+    <button type="button" id="addRowBtn" class="btn btn--primary" onclick="addPlayerRow()">＋ {{ t.add_player }}</button>
 </div>
 
 <!-- 날짜 단위 복기 편집으로 이동 (VOD/코치메모/전사는 날짜 단위) -->
 {% if match.match_date %}
-<div class="card" style="margin-bottom: 1.5rem; border-left: 4px solid #8b5cf6;">
+<div class="card section card--snd">
     <h2>📅 {{ t.day_review_title }}</h2>
-    <p class="muted" style="font-size:0.85rem; margin-bottom:1rem;">{{ t.day_review_help }}</p>
-    <a href="/admin/day/{{ match.match_date }}?lang={{ lang }}" style="display:inline-block; padding:0.5rem 1.2rem; background:#8b5cf6; color:white; border:none; border-radius:10px; cursor:pointer; font-weight:600; text-decoration:none;">📅 {{ match.match_date }} {{ t.day_review_title }} →</a>
+    <p class="muted section-help">{{ t.day_review_help }}</p>
+    <a href="/admin/day/{{ match.match_date }}?lang={{ lang }}" class="btn btn--toggle">📅 {{ match.match_date }} {{ t.day_review_title }} →</a>
 </div>
 {% endif %}
 
 <!-- 삭제 -->
-<div class="card" style="border:1px solid #ff6b6b;">
-    <h2 style="color:#e74c3c;">🗑️ {{ t.delete }} {{ t.match }}</h2>
-    <p class="muted" style="margin-bottom:1rem;">{{ t.confirm_delete }}</p>
-    <button type="button" onclick="deleteMatch()" style="padding:0.6rem 1.5rem; background:#e74c3c; color:white; border:none; border-radius:10px; cursor:pointer; font-weight:600;">🗑️ {{ t.delete }}</button>
+<div class="card card--danger danger-card">
+    <h2 class="danger-title">🗑️ {{ t.delete }} {{ t.match }}</h2>
+    <p class="muted section-help">{{ t.confirm_delete }}</p>
+    <button type="button" class="btn btn--danger" onclick="deleteMatch()">🗑️ {{ t.delete }}</button>
 </div>
+
+<style>
+.back-link { text-decoration: none; }
+.meta-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: var(--space-4); }
+.meta-field { display: flex; flex-direction: column; gap: var(--space-1); }
+.meta-label { font-size: var(--fs-xs); }
+.meta-submit { display: flex; align-items: flex-end; }
+.section-help { font-size: var(--fs-xs); margin-bottom: var(--space-4); }
+.stat-table-wrap { overflow-x: auto; }
+.stat-table { min-width: 720px; }
+.edit-select { min-width: 100px; }
+.stat-input { padding: var(--space-1) var(--space-2); font-size: var(--fs-xs); }
+.btn--sm { padding: var(--space-1) var(--space-2); font-size: var(--fs-xs); }
+.danger-card { border: 1px solid var(--danger); }
+.danger-title { color: var(--danger); }
+</style>
 
 <script>
 const matchId = {{ match.id }};
 const mode = "{{ match.mode }}";
-
-function flash(msg, ok=true) {
-    const d = document.createElement('div');
-    d.textContent = msg;
-    d.style.cssText = `position:fixed;top:20px;right:20px;padding:0.8rem 1.2rem;border-radius:10px;color:white;font-weight:600;z-index:1000;background:${ok?'#15c47e':'#e74c3c'};`;
-    document.body.appendChild(d);
-    setTimeout(() => d.remove(), 2000);
-}
 
 function saveMeta() {
     const form = document.getElementById('metaForm');
@@ -187,39 +185,24 @@ function deleteMatch() {
 
 // ── 누락 선수 추가 (AI가 4명만 읽은 경우 보정) ──────────────────────────
 function playerOptions(selectedId) {
-    return `{% for pl in players %}<option value="{{ pl.id }}" {{ 'selected' if pl.id == selectedId }}>{{ pl.name }}</option>{% endfor %}`;
+    return `{% for pl in players %}<option value="{{ pl.id }}">{{ pl.name }}</option>{% endfor %}`;
 }
+
+const HP_FIELDS = [['kills',60],['deaths',60],['kd_ratio',70],['obj_time',70],['score',80],['impact',70],['total_damage',80],['capture_kill',60]];
+const SND_FIELDS = [['kills',55],['deaths',55],['assists',55],['kd_ratio',65],['score',75],['impact',65],['adr',65],['first_kill',50],['lone_wolf_win',50]];
 
 function addPlayerRow() {
     const tbody = document.querySelector('table tbody');
     if (!tbody) return;
     const tr = document.createElement('tr');
     tr.dataset.new = "1";
-    const sel = `<td><select class="edit-player_id" style="min-width:100px;">${playerOptions(null)}</select></td>`;
-    if (mode === 'HP') {
-        tr.innerHTML = sel + `
-            <td class="num"><input type="number" class="edit-kills" style="width:60px;"></td>
-            <td class="num"><input type="number" class="edit-deaths" style="width:60px;"></td>
-            <td class="num"><input type="number" step="0.01" class="edit-kd_ratio" style="width:70px;"></td>
-            <td class="num"><input type="number" class="edit-obj_time" style="width:70px;"></td>
-            <td class="num"><input type="number" class="edit-score" style="width:80px;"></td>
-            <td class="num"><input type="number" step="0.1" class="edit-impact" style="width:70px;"></td>
-            <td class="num"><input type="number" class="edit-total_damage" style="width:80px;"></td>
-            <td class="num"><input type="number" step="0.1" class="edit-capture_kill" style="width:60px;"></td>
-            <td><button type="button" onclick="addPlayer(this)" style="padding:0.3rem 0.7rem; background:var(--accent); color:white; border:none; border-radius:8px; cursor:pointer; font-size:0.85rem;">＋</button></td>`;
-    } else {
-        tr.innerHTML = sel + `
-            <td class="num"><input type="number" class="edit-kills" style="width:55px;"></td>
-            <td class="num"><input type="number" class="edit-deaths" style="width:55px;"></td>
-            <td class="num"><input type="number" class="edit-assists" style="width:55px;"></td>
-            <td class="num"><input type="number" step="0.01" class="edit-kd_ratio" style="width:65px;"></td>
-            <td class="num"><input type="number" class="edit-score" style="width:75px;"></td>
-            <td class="num"><input type="number" step="0.1" class="edit-impact" style="width:65px;"></td>
-            <td class="num"><input type="number" step="0.1" class="edit-adr" style="width:65px;"></td>
-            <td class="num"><input type="number" class="edit-first_kill" style="width:50px;"></td>
-            <td class="num"><input type="number" step="0.1" class="edit-lone_wolf_win" style="width:50px;"></td>
-            <td><button type="button" onclick="addPlayer(this)" style="padding:0.3rem 0.7rem; background:var(--accent); color:white; border:none; border-radius:8px; cursor:pointer; font-size:0.85rem;">＋</button></td>`;
-    }
+    const sel = `<td><select class="select edit-player_id edit-select">${playerOptions(null)}</select></td>`;
+    const fields = mode === 'HP' ? HP_FIELDS : SND_FIELDS;
+    const inputs = fields.map(([k, w]) =>
+        `<td class="num"><input type="number" class="input edit-${k} stat-input" style="width:${w}px;"></td>`
+    ).join('');
+    const btn = `<td><button type="button" class="btn btn--primary btn--sm" onclick="addPlayer(this)">＋</button></td>`;
+    tr.innerHTML = sel + inputs + btn;
     tbody.appendChild(tr);
 }
 

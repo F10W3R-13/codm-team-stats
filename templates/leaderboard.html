@@ -5,19 +5,35 @@
 {% block content %}
 <h1>{{ t.leaderboard_title }}</h1>
 
-<div class="filters">
+{% set metric_opts_hp = [('avg_kd', t.kd), ('avg_k', t.avg_k), ('avg_dmg', t.m_dmg), ('avg_score', t.avg_score), ('avg_obj', t.avg_obj), ('dpd', t.m_dpd), ('dpk', t.m_dpk), ('id', t.m_id), ('ap_pct', t.m_ap_pct), ('zcs', t.m_zcs)] %}
+{% set metric_opts_snd = [('avg_kd', t.kd), ('avg_k', t.avg_k), ('avg_dmg', t.m_dmg), ('avg_score', t.avg_score), ('avg_adr', t.avg_impact)] %}
+{% set opts = metric_opts_hp if mode == 'HP' else metric_opts_snd %}
+
+{# 데스크탑: 필터 pills / 모바일: select 드롭다운 (10개 pill 벽 방지) #}
+<div class="filters lb-filters--desktop">
     <a href="/leaderboard?mode=HP&metric={{ metric }}&lang={{ lang }}" class="{{ 'active' if mode == 'HP' else '' }}">🎯 {{ t.mode_hp }}</a>
     <a href="/leaderboard?mode=SND&metric={{ metric }}&lang={{ lang }}" class="{{ 'active' if mode == 'SND' else '' }}">🔍 {{ t.mode_snd }}</a>
-    <span style="width: 1rem;"></span>
-    {% set metric_opts_hp = [('avg_kd', t.kd), ('avg_k', t.avg_k), ('avg_dmg', t.m_dmg), ('avg_score', t.avg_score), ('avg_obj', t.avg_obj), ('dpd', t.m_dpd), ('dpk', t.m_dpk), ('id', t.m_id), ('ap_pct', t.m_ap_pct), ('zcs', t.m_zcs)] %}
-    {% set metric_opts_snd = [('avg_kd', t.kd), ('avg_k', t.avg_k), ('avg_dmg', t.m_dmg), ('avg_score', t.avg_score), ('avg_adr', t.avg_impact)] %}
-    {% set opts = metric_opts_hp if mode == 'HP' else metric_opts_snd %}
+    <span class="filter-divider"></span>
     {% for key, label in opts %}
     <a href="/leaderboard?mode={{ mode }}&metric={{ key }}&lang={{ lang }}" class="{{ 'active' if metric == key else '' }}">{{ label }}</a>
     {% endfor %}
 </div>
 
-<div class="card">
+{# 모바일: select 드롭다운 #}
+<form method="get" class="lb-filters--mobile">
+    <input type="hidden" name="lang" value="{{ lang }}">
+    <select name="mode" class="select" onchange="this.form.submit()">
+        <option value="HP" {{ 'selected' if mode == 'HP' }}>🎯 {{ t.mode_hp }}</option>
+        <option value="SND" {{ 'selected' if mode == 'SND' }}>🔍 {{ t.mode_snd }}</option>
+    </select>
+    <select name="metric" class="select" onchange="this.form.submit()">
+        {% for key, label in opts %}
+        <option value="{{ key }}" {{ 'selected' if metric == key }}>{{ label }}</option>
+        {% endfor %}
+    </select>
+</form>
+
+<div class="card section">
     <h2>{{ t.basis }}: {% for key, label in opts %}{% if metric == key %}{{ label }}{% endif %}{% endfor %}</h2>
     <div class="table-wrap">
     <table>
@@ -41,11 +57,22 @@
                 </td>
                 <td><a href="/players/{{ r.name }}?lang={{ lang }}" class="player-link">{{ r.name }}</a></td>
                 <td class="num">{{ r.matches }}</td>
-                <td class="num"><strong style="color: var(--accent-2);">{{ r.value }}</strong></td>
+                <td class="num"><strong class="rank-value">{{ r.value }}</strong></td>
             </tr>
             {% endfor %}
         </tbody>
     </table>
     </div>
 </div>
+
+<style>
+.filter-divider { width: var(--space-4); }
+.rank-value { color: var(--accent); }
+.lb-filters--mobile { display: none; gap: var(--space-2); margin-bottom: var(--space-4); flex-wrap: wrap; }
+.lb-filters--mobile .select { flex: 1; min-width: 120px; }
+@media (max-width: 600px) {
+    .lb-filters--desktop { display: none; }
+    .lb-filters--mobile { display: flex; }
+}
+</style>
 {% endblock %}

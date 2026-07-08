@@ -4,45 +4,58 @@
 
 {% block head %}
 <style>
-/* match_detail 전용 — MOM 카드 강조 */
+/* match_detail 전용 — MOM 카드 강조 (다크모드 대응) */
 .mom-box {
-    background: linear-gradient(135deg, var(--accent-weak), #f5f9ff);
-    border: 1px solid #cfe3ff;
+    background: var(--accent-weak);
+    border: 1px solid var(--border-strong);
 }
+.result-banner { text-align: center; }
+.result-value { font-size: var(--fs-3xl); font-weight: var(--fw-bold); }
+.video-embed { position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; border-radius: var(--radius-sm); }
+.video-embed iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: 0; }
+.team-avg-list { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-4); line-height: 1.7; }
+.team-avg-item { white-space: nowrap; }
+.team-avg-label { color: var(--muted); font-size: var(--fs-sm); }
+.team-avg-value { font-weight: var(--fw-semibold); }
+.back-link { text-decoration: none; }
+.edit-link { float: right; text-decoration: none; font-weight: var(--fw-semibold); }
+.insight-text { line-height: 1.7; }
+.zcs-strong { color: var(--accent); }
+.meta-note { font-size: var(--fs-xs); }
 </style>
 {% endblock %}
 
 {% block content %}
-<a href="/matches?lang={{ lang }}" class="muted" style="text-decoration:none;">{{ t.back_to_list }}</a>
+<a href="/matches?lang={{ lang }}" class="muted back-link">{{ t.back_to_list }}</a>
 {% if is_admin %}
-<a href="/admin/match/{{ report.match_id }}?lang={{ lang }}" class="player-link" style="float:right; text-decoration:none; font-weight:600;">✏️ {{ t.edit }}</a>
+<a href="/admin/match/{{ report.match_id }}?lang={{ lang }}" class="player-link edit-link">✏️ {{ t.edit }}</a>
 {% endif %}
 <h1>🎮 {{ t.match }} #{{ report.match_id }} <span class="badge {{ report.mode|lower }}">{{ t['mode_' + report.mode.lower()] }}</span></h1>
 <p class="muted">📅 {{ report.match_date or t.date_unknown }} · 🗺️ {{ report.map_name or t.map_unknown }}</p>
 
 {% if report.result %}
-<div class="card" style="margin: 1.5rem 0; text-align:center;">
+<div class="card section result-banner">
     {% if report.result == 'WIN' %}
-    <div style="font-size: 2.2rem; font-weight: 800; color:#04c09e;">🟢 {{ t.win }} {{ report.team_score }}-{{ report.opponent_score }}</div>
+    <div class="result-value delta-up">🟢 {{ t.win }} {{ report.team_score }}-{{ report.opponent_score }}</div>
     {% elif report.result == 'LOSS' %}
-    <div style="font-size: 2.2rem; font-weight: 800; color:#f04452;">🔴 {{ t.loss }} {{ report.team_score }}-{{ report.opponent_score }}</div>
+    <div class="result-value delta-down">🔴 {{ t.loss }} {{ report.team_score }}-{{ report.opponent_score }}</div>
     {% else %}
-    <div style="font-size: 2.2rem; font-weight: 800; color: var(--muted);">⚪ {{ t.draw }} {{ report.team_score }}-{{ report.opponent_score }}</div>
+    <div class="result-value delta-flat">⚪ {{ t.draw }} {{ report.team_score }}-{{ report.opponent_score }}</div>
     {% endif %}
 </div>
 {% endif %}
 
 <!-- 복기 워크플로우 패널: 날짜 단위 VOD + 코치 메모 + 전사 요약 -->
 {% if day_notes and (day_notes.vod_url or day_notes.coach_note or day_notes.transcript_summary) %}
-<div class="grid grid-2" style="margin: 1.5rem 0;">
+<div class="grid grid-2 section">
     {% if day_notes.vod_url %}
-    <div class="card" style="border-left: 4px solid #ff0000;">
-        <h2>🎬 {{ t.vod_link }} <span class="muted" style="font-size:0.75rem;">({{ report.match_date }})</span></h2>
+    <div class="card card--danger">
+        <h2>🎬 {{ t.vod_link }} <span class="muted meta-note">({{ report.match_date }})</span></h2>
         {% set yt = day_notes.vod_url %}
         {% set vid = yt.split('v=')[1].split('&')[0] if 'v=' in yt else (yt.split('/')[-1] if 'youtu.be/' in yt else '') %}
         {% if vid %}
-        <div style="position:relative; padding-bottom:56.25%; height:0; overflow:hidden; border-radius:8px;">
-            <iframe src="https://www.youtube.com/embed/{{ vid }}" style="position:absolute; top:0; left:0; width:100%; height:100%; border:0;" allowfullscreen></iframe>
+        <div class="video-embed">
+            <iframe src="https://www.youtube.com/embed/{{ vid }}" allowfullscreen></iframe>
         </div>
         {% else %}
         <a href="{{ yt }}" target="_blank" rel="noopener" class="player-link">{{ yt }}</a>
@@ -51,25 +64,25 @@
     {% endif %}
 
     {% if day_notes.coach_note %}
-    <div class="card" style="border-left: 4px solid var(--accent);">
-        <h2>📝 {{ t.coach_note }} <span class="muted" style="font-size:0.75rem;">({{ report.match_date }})</span></h2>
-        <p style="line-height:1.7; white-space:pre-wrap;">{{ day_notes.coach_note }}</p>
+    <div class="card card--accent">
+        <h2>📝 {{ t.coach_note }} <span class="muted meta-note">({{ report.match_date }})</span></h2>
+        <p class="insight-text">{{ day_notes.coach_note }}</p>
     </div>
     {% endif %}
 </div>
 
 {% if day_notes.transcript_summary %}
-<div class="card" style="margin: 1.5rem 0; border-left: 4px solid #8b5cf6;">
-    <h2>🗣️ {{ t.transcript_summary }} <span class="muted" style="font-size:0.75rem;">({{ report.match_date }})</span></h2>
-    <p style="line-height:1.7; white-space:pre-wrap;">{{ day_notes.transcript_summary }}</p>
+<div class="card section card--snd">
+    <h2>🗣️ {{ t.transcript_summary }} <span class="muted meta-note">({{ report.match_date }})</span></h2>
+    <p class="insight-text">{{ day_notes.transcript_summary }}</p>
 </div>
 {% endif %}
 {% endif %}
 
-<div class="card" id="insightCard" style="margin: 1.5rem 0; border-left: 4px solid var(--accent);">
+<div class="card section card--accent" id="insightCard">
     <h2>{{ t.match_insight_title }}</h2>
     {% if insight %}
-    <p id="insightText" style="line-height:1.7;">{{ insight }}</p>
+    <p id="insightText" class="insight-text">{{ insight }}</p>
     {% else %}
     <p id="insightText" class="muted">⏳ {{ t.insight_fetching }}...</p>
     <script>
@@ -78,7 +91,7 @@
     fetch(`/api/insight/match/${_matchId}?lang=${_lang}`)
         .then(r => r.json()).then(d => {
             const el = document.getElementById('insightText');
-            if (d.insight) { el.textContent = d.insight; el.className = ''; el.style = 'line-height:1.7;'; }
+            if (d.insight) { el.textContent = d.insight; el.className = 'insight-text'; }
             else { document.getElementById('insightCard').style.display = 'none'; }
         }).catch(() => { document.getElementById('insightCard').style.display = 'none'; });
     </script>
@@ -86,26 +99,30 @@
 </div>
 
 {% if report.mom %}
-<div class="card mom-box" style="margin: 1.5rem 0;">
+<div class="card section mom-box">
     <h2>{{ t.mom_title }}</h2>
-    <p style="font-size: 1.3rem;"><strong>{{ report.mom.name }}</strong> <span class="muted">— {{ report.mom.reason }}</span></p>
+    <p class="mom-text"><strong>{{ report.mom.name }}</strong> <span class="muted">— {{ report.mom.reason }}</span></p>
 </div>
 {% endif %}
 
-<div class="card" style="margin-bottom: 1.5rem;">
+<div class="card section">
     <h2>{{ t.team_avg }}</h2>
     {% if report.mode == 'HP' %}
-    <p>{{ t.zcs_label }} <strong style="color:var(--accent);">{{ report.team_totals.zcs }}</strong> ·
-       {{ t.kills }} <strong>{{ "%.1f"|format(report.team_totals.kills / (report.players|length)) }}</strong> ·
-       {{ t.deaths }} {{ "%.1f"|format(report.team_totals.deaths / (report.players|length)) }} ·
-       {{ t.dmg }} {{ "%.0f"|format(report.team_totals.dmg / (report.players|length)) }} ·
-       {{ t.obj }} {{ "%.0f"|format(report.team_totals.obj / (report.players|length)) }} ·
-       {{ t.score }} {{ "%.0f"|format(report.team_totals.score / (report.players|length)) }}</p>
+    <div class="team-avg-list">
+        <span class="team-avg-item"><span class="team-avg-label">{{ t.zcs_label }}</span> <strong class="zcs-strong">{{ report.team_totals.zcs }}</strong></span>
+        <span class="team-avg-item"><span class="team-avg-label">{{ t.kills }}</span> <span class="team-avg-value">{{ "%.1f"|format(report.team_totals.kills / (report.players|length)) }}</span></span>
+        <span class="team-avg-item"><span class="team-avg-label">{{ t.deaths }}</span> <span class="team-avg-value">{{ "%.1f"|format(report.team_totals.deaths / (report.players|length)) }}</span></span>
+        <span class="team-avg-item"><span class="team-avg-label">{{ t.dmg }}</span> <span class="team-avg-value">{{ "%.0f"|format(report.team_totals.dmg / (report.players|length)) }}</span></span>
+        <span class="team-avg-item"><span class="team-avg-label">{{ t.obj }}</span> <span class="team-avg-value">{{ "%.0f"|format(report.team_totals.obj / (report.players|length)) }}</span></span>
+        <span class="team-avg-item"><span class="team-avg-label">{{ t.score }}</span> <span class="team-avg-value">{{ "%.0f"|format(report.team_totals.score / (report.players|length)) }}</span></span>
+    </div>
     {% else %}
-    <p>{{ t.kills }} <strong>{{ "%.1f"|format(report.team_totals.kills / (report.players|length)) }}</strong> ·
-       {{ t.deaths }} {{ "%.1f"|format(report.team_totals.deaths / (report.players|length)) }} ·
-       {{ t.assists }} {{ "%.1f"|format(report.team_totals.assists / (report.players|length)) }} ·
-       {{ t.fk }} {{ "%.1f"|format(report.team_totals.fk / (report.players|length)) }}</p>
+    <div class="team-avg-list">
+        <span class="team-avg-item"><span class="team-avg-label">{{ t.kills }}</span> <span class="team-avg-value">{{ "%.1f"|format(report.team_totals.kills / (report.players|length)) }}</span></span>
+        <span class="team-avg-item"><span class="team-avg-label">{{ t.deaths }}</span> <span class="team-avg-value">{{ "%.1f"|format(report.team_totals.deaths / (report.players|length)) }}</span></span>
+        <span class="team-avg-item"><span class="team-avg-label">{{ t.assists }}</span> <span class="team-avg-value">{{ "%.1f"|format(report.team_totals.assists / (report.players|length)) }}</span></span>
+        <span class="team-avg-item"><span class="team-avg-label">{{ t.fk }}</span> <span class="team-avg-value">{{ "%.1f"|format(report.team_totals.fk / (report.players|length)) }}</span></span>
+    </div>
     {% endif %}
 </div>
 
@@ -127,12 +144,12 @@
                 <td><a href="/players/{{ p.name }}?lang={{ lang }}" class="player-link">{{ p.name }}</a></td>
                 <td class="num">{{ p.k }}</td>
                 <td class="num" data-mobile-hide>{{ p.d }}</td>
-                <td class="num"><strong style="color: var(--accent-2);">{{ p.kd }}</strong></td>
+                <td class="num"><strong class="delta-up">{{ p.kd }}</strong></td>
                 <td class="num" data-mobile-hide>{{ p.obj }}</td>
                 <td class="num" data-mobile-hide>{{ p.score }}</td>
                 <td class="num" data-mobile-hide>{{ p.dmg }}</td>
                 <td class="num" data-mobile-hide>{{ p.cap }}</td>
-                <td class="num"><strong style="color: var(--accent);">{{ p.zcs }}</strong></td>
+                <td class="num"><strong class="zcs-strong">{{ p.zcs }}</strong></td>
             </tr>
             {% endfor %}
         </tbody>
@@ -155,7 +172,7 @@
                 <td class="num">{{ p.k }}</td>
                 <td class="num" data-mobile-hide>{{ p.d }}</td>
                 <td class="num" data-mobile-hide>{{ p.a }}</td>
-                <td class="num"><strong style="color: var(--accent-2);">{{ p.kd }}</strong></td>
+                <td class="num"><strong class="delta-up">{{ p.kd }}</strong></td>
                 <td class="num" data-mobile-hide>{{ p.score }}</td>
                 <td class="num" data-mobile-hide>{{ p.adr }}</td>
                 <td class="num" data-mobile-hide>{{ p.fk }}</td>

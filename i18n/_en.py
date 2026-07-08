@@ -11,6 +11,7 @@ STRINGS = {
         "nav_matches": "Matches",
         "nav_timeseries": "Trends",
         "lang_label": "Language",
+        "theme_toggle": "Toggle theme",
 
         "mode_hp": "Hardpoint",
         "mode_snd": "Search & Destroy",

@@ -11,28 +11,37 @@
 </div>
 
 {% if not maps %}
-<div class="card"><p class="muted" style="text-align:center; padding:2rem;">{{ t.map_no_data }}</p></div>
+<div class="card"><p class="muted empty-state">{{ t.map_no_data }}</p></div>
 {% else %}
-<div class="grid grid-3" style="margin: 1.5rem 0;">
+<div class="grid grid-3 section">
     {% for m in maps %}
-    <a href="/maps/{{ m.map_name }}?mode={{ mode }}&lang={{ lang }}" class="card stat-card" style="text-decoration:none;color:inherit;">
-        <div style="font-size:1.3rem; font-weight:700; margin-bottom:0.5rem;">🗺️ {{ m.map_name }}</div>
-        <div class="muted" style="font-size:.85rem; margin-bottom:0.8rem;">{{ m.matches }} {{ t.matches }}</div>
+    <a href="/maps/{{ m.map_name }}?mode={{ mode }}&lang={{ lang }}" class="card entity-card">
+        <div class="entity-card__name">🗺️ {{ m.map_name }}</div>
+        <div class="muted entity-card__matches">{{ m.matches }} {{ t.matches }}</div>
         {% if mode == 'HP' %}
-        <div>
-            <div class="muted" style="font-size:.8rem;">{{ t.zcs_label }}</div>
-            <div style="font-size:1.8rem; font-weight:800; color: var(--accent);">{{ m.avg_zcs or '-' }}</div>
-        </div>
-        <div class="muted" style="font-size:.85rem; margin-top:0.3rem;">{{ t.kd }} {{ m.avg_kd }} · {{ t.m_kills }} {{ m.avg_k }}</div>
+        <div class="stat-label">{{ t.zcs_label }}</div>
+        <div class="entity-card__value entity-card__value--hp">{{ m.avg_zcs or '-' }}</div>
+        <div class="muted entity-card__sub">{{ t.kd }} {{ m.avg_kd }} · {{ t.m_kills }} {{ m.avg_k }}</div>
         {% else %}
-        <div>
-            <div class="muted" style="font-size:.8rem;">{{ t.kd }}</div>
-            <div style="font-size:1.8rem; font-weight:800; color: var(--accent-2);">{{ m.avg_kd }}</div>
-        </div>
-        <div class="muted" style="font-size:.85rem; margin-top:0.3rem;">{{ t.m_kills }} {{ m.avg_k }}</div>
+        <div class="stat-label">{{ t.kd }}</div>
+        <div class="entity-card__value entity-card__value--snd">{{ m.avg_kd }}</div>
+        <div class="muted entity-card__sub">{{ t.m_kills }} {{ m.avg_k }}</div>
         {% endif %}
     </a>
     {% endfor %}
 </div>
 {% endif %}
+
+<style>
+/* players.html의 .player-card와 동일 패턴 (맵 카드) */
+.entity-card { text-decoration: none; color: inherit; display: block; transition: transform 0.15s, box-shadow 0.15s; }
+.entity-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-lg); }
+.entity-card__name { font-size: var(--fs-xl); font-weight: var(--fw-bold); margin-bottom: var(--space-2); }
+.entity-card__matches { font-size: var(--fs-xs); margin-bottom: var(--space-3); }
+.entity-card__value { font-size: 1.8rem; font-weight: var(--fw-bold); line-height: 1.2; letter-spacing: -0.03em; }
+.entity-card__value--hp { color: var(--hp); }
+.entity-card__value--snd { color: var(--snd); }
+.entity-card__sub { font-size: var(--fs-xs); margin-top: var(--space-1); }
+.empty-state { text-align: center; padding: var(--space-8); }
+</style>
 {% endblock %}

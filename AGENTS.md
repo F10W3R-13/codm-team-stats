@@ -59,7 +59,7 @@
 - DB는 환경변수 `DATABASE_URL`이 있으면 Postgres, 없으면 로컬 SQLite(`codm.db`).
 - 웹 실행: `uvicorn web_api:app --port 8000` (CWD = 이 폴더여야 DB·템플릿 경로가 맞음).
 - 봇 실행: `python bot.py`. 통합 실행(봇+웹): `python start.py` (배포용, subprocess로 둘 다 띄움).
-- 템플릿 스타일은 `templates/base.html`의 `<style>` 한 곳에 모여 있고, 다른 페이지가 그 클래스를 공유한다. (디자인은 토스 TDS 톤 적용)
+- 템플릿 스타일은 `templates/base.html`의 `<style>` 한 곳에 모여 있고, 다른 페이지가 그 클래스를 공유한다. 디자인 톤은 **Astryx neutral 철학 기반** (UI 액센트 = 흑백 그레이스케일 `#262626`/`#ebebeb`, Pretendard 폰트 유지, HP=주황/SND=보라 데이터 색은 기능적으로 유지). 다크모드는 `<html data-theme="dark">` 토글 (nav 버튼, localStorage 저장) + OS 자동 감지.
 - 비밀정보(`.env`, `service-account.json`)·DB(`codm.db`)·CSV·백업(`*.bak`, `codm.db.backup*`)은 절대 커밋하지 않는다. `.gitignore`에 이미 포함.
 - GPT 프롬프트(`prompt.py`)와 커스텀 지표 공식(`metrics.py`)은 출처가 정해져 있어 함부로 수정 금지.
 - **프로젝트 스킬**: `.agents/skills/` (오픈 표준 위치, Codex 자동 인식). OCR 이름 매칭·alias 사전·퍼지 매칭 작업 시 `.agents/skills/ocr-alias-matching/SKILL.md`를 읽고 따를 것. 스킬 자동 인식이 없는 도구(Cursor 등)도 이 규칙으로 커버된다.
@@ -156,8 +156,32 @@ git push origin main
 - `{{ ... }}` 안에서 JS 연산자(`||`, `&&`) 쓰면 Jinja2가 필터/논리연산자로 파싱해 **TemplateSyntaxError → 500**. JS 논리는 `{{ }}` 밖 순수 JS 컨텍스트에서만.
 - `t.a if t.a else t.b` 형태로 Jinja2 내 분기.
 
-### CSS 토큰 — 정의된 변수만 참조
-- `:root`에 정의된 토큰만 써야 함. 미정의 변수(`--text-muted`, `--bg-elevated` 등) 참조 시 브라우저가 무시해 스타일 깨짐. **같은 오타 패턴이 여러 파일에 반복될 수 있으니** 새 템플릿 작성/수정 시 `grep "var(--"`로 정의 확인. 토큰 목록은 `base.html` `:root` 참조.
+### CSS 토큰 — Astryx neutral 체계 (base.html `:root`)
+토큰 카테고리 (전체 목록은 `base.html:48-180` 참조, 단일 진실):
+- **색 · 표면/텍스트** (neutral 그레이스케일): `--bg`, `--surface`/`--card`, `--card-2`, `--border`, `--border-strong`, `--text`, `--text-2`, `--muted`.
+- **색 · 강조** (UI 액센트 = 흑백): `--accent`, `--accent-weak`, `--accent-2`, `--on-accent`.
+- **색 · status**: `--success`/`--success-weak`, `--danger`/`--danger-weak`, `--warning`/`--warning-weak`. (승/패·삭제·경고 색은 이 토큰 필수 — 하드코딩 금지)
+- **색 · 데이터** (HP/SND 기능색, Astryx 휴 팔레트): `--hp`/`--hp-weak`, `--snd`/`--snd-weak`.
+- **Spacing** (4px 기반): `--space-1`~`--space-12`.
+- **Radius** (의미적): `--radius-sm` (6px), `--radius` (10px), `--radius-lg` (12px), `--radius-full`.
+- **Typography** (Pretendard): `--fs-xs`~`--fs-stat`, `--fw-normal`/`medium`/`semibold`/`bold`.
+- **Shadow**: `--shadow-sm`, `--shadow`, `--shadow-lg`.
+- **다크모드**: `[data-theme="dark"]` 속성 토글 (JS `flash()`/`applyTheme` + nav 버튼, localStorage). 색만 재정의, spacing/radius/type/shadow는 공통.
+
+#### 인라인 스타일 금지 ⭐ (신규)
+- 새 컴포넌트/요소는 **반드시 클래스로 작성**. `style="..."` 인라인 금지.
+- **예외 (구조적 불가피만 허용)**: ① 동적 값 (`width:{{ w }}px` 처럼 Jinja 변수), ② 조건부 `display:none` (`{% if %}` 제어). 이 외는 클래스로.
+- 색 인라인(`style="color:var(--accent)"`) 대신 유틸리티 클래스 `.text-accent`/`.text-success`/`.text-danger`/`.text-hp`/`.text-snd` 사용.
+- 카드 강조 보더는 `.card--accent`/`.card--hp`/`.card--snd`/`.card--success`/`.card--danger`/`.card--warning` (인라인 `border-left` 금지).
+- 버튼은 `.btn` + 변형(`.btn--primary`/`.btn--danger`/`.btn--ghost`/`.btn--toggle`). 폼 입력은 `.input`/`.select`.
+- 승/패·±% 색은 `.win-badge`/`.loss-badge`, `.delta-up`/`.delta-down`/`.delta-flat`. 역할 배지는 `.role-badge--{role}`.
+- 토스트 알림은 글로벌 `flash(msg, ok=true)` 함수 (base.html, `.toast` 클래스). 각 페이지에서 중복 정의 금지.
+- 미정의 변수 참조 금지 — 새 템플릿 작성/수정 시 `python -c "import re,glob; ..."` 또는 `grep "var(--"`로 정의 확인.
+
+#### Chart.js — TDS 객체 + 테마 연동
+- 차트 색은 `TDS` 객체( `_buildTDS()`가 토큰에서 런타임 읽기) 사용. `TDS.accent`/`text`/`muted`/`border`/`success`/`danger`/`hp`/`snd`.
+- 차트 생성 후 `_chartRegistry.set(id, chart)` 로 등록. 다크모드 토글 시 자동 리렌더 (grid/ticks/legend 색 갱신).
+- 커스텀 dataset 색이 있다면 `chart._onThemeChange = (chart, tds) => {...}` 콜백으로 토글 시 갱신 (player_detail/compare/dashboard 참조).
 
 ### 데드 코드·문서 드리프트
 - 라우트/함수/템플릿 삭제 시 **이를 참조하는 곳(API 호출처, 문서)을 전수 확인**. `/trends` 삭제 후 AGENTS.md에 잔류한 사례 반복. 사용처 grep 습관화.

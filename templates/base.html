@@ -3,24 +3,42 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script>
+    // FOUC 방지: 본문 렌더 전에 <html data-theme>을 설정 (테마 토글과 동일 규칙).
+    (function() {
+        var stored = localStorage.getItem('theme');
+        var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        document.documentElement.setAttribute('data-theme', stored || (prefersDark ? 'dark' : 'light'));
+    })();
+    </script>
     <title>{% block title %}CODM Team Stats{% endblock %}</title>
     <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <script>
-    // ── Chart.js 공통 기본 옵션 (TDS 톤) ────────────────────────────────
-    // CSS 변수(:root 토큰)를 런타임에 읽어옴 — 다크모드(prefers-color-scheme)에서도
-    // 자동으로 어두운 톤의 색이 차트에 적용됨. 토큰은 base.html :root에서 단일 관리.
+    // ── Chart.js 공통 옵션 + 테마 연동 (Astryx neutral 톤) ────────────────
+    // CSS 변수(:root / [data-theme])를 런타임에 읽어 차트에 적용.
+    // ★ 다크모드 토글 시 차트 리렌더를 위한 _chartRegistry 지원 (Phase 2).
     // ★ content 블록(자식 템플릿의 new Chart)보다 먼저 실행되도록 <head>에 배치.
     const _cssVar = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
-    const TDS = {
-        border:  _cssVar('--border')  || '#e5e8eb',
-        text:    _cssVar('--text-2')  || '#4e5968',
-        muted:   _cssVar('--muted')   || '#8b95a1',
-        accent:  _cssVar('--accent')  || '#3182f6',
-        accent2: _cssVar('--accent-2')|| '#15c47e',
-        hp:      _cssVar('--hp')      || '#ff9d00',
-        snd:     _cssVar('--snd')     || '#8b5cf6',
-    };
+    function _buildTDS() {
+        return {
+            border:       _cssVar('--border')       || '#ebebeb',
+            borderStrong: _cssVar('--border-strong') || '#d4d4d4',
+            text:         _cssVar('--text-2')        || '#737373',
+            muted:        _cssVar('--muted')         || '#a3a3a3',
+            accent:       _cssVar('--accent')        || '#262626',
+            accent2:      _cssVar('--accent-2')      || '#171717',
+            success:      _cssVar('--success')       || '#007004',
+            danger:       _cssVar('--danger')        || '#a50c25',
+            warning:      _cssVar('--warning')       || '#745b00',
+            hp:           _cssVar('--hp')             || '#f27902',
+            snd:          _cssVar('--snd')            || '#7952ff',
+        };
+    }
+    let TDS = _buildTDS();
+    // 차트 인스턴스 레지스트리 — 테마 토글 시 색 리렌더에 사용.
+    // 각 페이지의 new Chart 후 _chartRegistry.set(id, chart) 로 등록.
+    const _chartRegistry = new Map();
     // Cartesian(line/bar) 기본 옵션. overrides로 차이점만 지정.
     function chartOptions(overrides = {}) {
         return Object.assign({
@@ -44,44 +62,138 @@
     }
     </script>
     <style>
-        /* ── 토스 디자인 시스템(TDS) 토큰 ─────────────────────────── */
+        /* ── 디자인 토큰 (Astryx neutral 철학 기반 · Pretendard) ───────────
+           · UI 액센트는 흑백 그레이스케일(neutral). HP/SND만 기능적 데이터 색으로 유지.
+           · 토큰 카테고리: 색 / spacing / radius / typography / shadow.
+           · 다크모드: [data-theme="dark"] 속성으로 토글 (Phase 2). 없으면 light 기본값.
+           · 토큰 추가/변경 시 AGENTS.md §8 "CSS 토큰" 목록도 함께 갱신할 것. */
         :root {
-            /* 표면 */
-            --bg: #f2f4f6;          /* Grey100 · 토스 앱 배경 */
-            --card: #ffffff;        /* 카드/표면 */
-            --card-2: #f2f4f6;      /* hover·보조 표면 */
-            --border: #e5e8eb;      /* Grey200 · 경계선 */
+            color-scheme: light;
+            /* ── 색 · 표면/텍스트 (neutral 그레이스케일) ── */
+            --bg:            #f1f1f1;  /* 페이지 배경 */
+            --surface:       #ffffff;  /* 주 표면 */
+            --card:          #ffffff;  /* 카드 (= --surface 별칭) */
+            --card-2:        #f1f1f1;  /* hover/보조 표면 (muted) */
+            --border:        #ebebeb;  /* 기본 경계선 */
+            --border-strong: #d4d4d4;  /* 강조 경계선 */
             /* 텍스트 */
-            --text: #191f28;        /* Grey900 · 본문 */
-            --text-2: #4e5968;      /* Grey700 · 부제 */
-            --muted: #8b95a1;       /* Grey500 · 보조 */
-            /* 강조 */
-            --accent: #3182f6;      /* Blue500 · 토스 블루 */
-            --accent-weak: #e8f3ff; /* Blue100 · 옅은 강조 배경 */
-            --accent-2: #15c47e;    /* Green · 긍정 */
-            /* 데이터 종목색(토스 톤) */
-            --hp: #ff9d00;          /* HP · 오렌지 */
-            --hp-weak: #fff3e0;
-            --snd: #8b5cf6;         /* SND · 퍼플 */
-            --snd-weak: #f3effe;
-            /* 라운드/그림자 */
-            --radius: 20px;
-            --radius-sm: 12px;
-            --shadow: 0 1px 3px rgba(0,0,0,0.04), 0 6px 20px rgba(0,0,0,0.04);
+            --text:          #171717;  /* 본문 */
+            --text-2:        #737373;  /* 부제/secondary */
+            --muted:         #a3a3a3;  /* 보조/disabled급 */
+            /* ── 색 · 강조 (UI 액센트 = 흑백) ── */
+            --accent:        #262626;  /* 액센트 (neutral 다크) */
+            --accent-weak:   #f1f1f1;  /* 옅은 액센트 배경 */
+            --accent-2:      #171717;  /* 보조 액센트 (긍정 톤도 다크로 통일) */
+            --on-accent:     #ffffff;  /* 액센트 위 텍스트 */
+            /* ── 색 · status (기존 하드코딩값 토큰화) ── */
+            --success:       #007004;
+            --success-weak:  #c5e5c0;
+            --danger:        #a50c25;
+            --danger-weak:   #facecb;
+            --warning:       #745b00;
+            --warning-weak:  #f8da9d;
+            /* ── 색 · 데이터 종목색 (HP/SND — 기능적, Astryx 휴 팔레트 미세조정) ── */
+            --hp:            #f27902;  /* HP · orange 휴 */
+            --hp-weak:       #fad0b5;
+            --snd:           #7952ff;  /* SND · purple 휴 */
+            --snd-weak:      #eccef3;
+            /* ── Spacing 스케일 (4px 기반, Astryx) ── */
+            --space-1:  4px;
+            --space-2:  8px;
+            --space-3:  12px;
+            --space-4:  16px;
+            --space-5:  20px;
+            --space-6:  24px;
+            --space-8:  32px;
+            --space-10: 40px;
+            --space-12: 48px;
+            /* ── Radius 스케일 (의미적, Astryx) ── */
+            --radius-sm:   6px;
+            --radius:      10px;
+            --radius-lg:   12px;
+            --radius-full: 9999px;
+            /* ── Typography (Pretendard 기반 스케일) ── */
+            --fs-xs:   0.75rem;   /* 12px · label/badge */
+            --fs-sm:   0.875rem;  /* 14px · 본문 기본 */
+            --fs-base: 1rem;      /* 16px */
+            --fs-lg:   1.125rem;  /* 18px */
+            --fs-xl:   1.25rem;   /* 20px · h2 */
+            --fs-2xl:  1.5rem;    /* 24px · h1 */
+            --fs-3xl:  1.875rem;  /* 30px */
+            --fs-stat: 2.25rem;   /* 36px · stat 값 */
+            --lh-tight:  1.3;
+            --lh-normal: 1.5;
+            --fw-normal:   400;
+            --fw-medium:   500;
+            --fw-semibold: 600;
+            --fw-bold:     700;
+            /* ── Shadow (Astryx low/med/high) ── */
+            --shadow-sm: 0 1px 2px rgba(0,0,0,0.05), 0 1px 3px rgba(0,0,0,0.05);
+            --shadow:    0 2px 4px rgba(0,0,0,0.05), 0 4px 12px rgba(0,0,0,0.1);
+            --shadow-lg: 0 4px 6px rgba(0,0,0,0.1), 0 12px 24px rgba(0,0,0,0.15);
         }
-        /* 다크모드 — 시스템 설정(prefers-color-scheme)만 지원. 토큰만 재정의해
-           카드/표/텍스트/차트 대부분 자동 적용. 브랜드색(accent-2/hp/snd)은 공통 유지. */
+        /* ── 다크모드 ──
+           [data-theme="dark"] 토글이 우선 (Phase 2 JS). 토글이 없을 때만 OS 설정을
+           기본값으로 따름. 색만 재정의 — spacing/radius/typography/shadow는 공통. */
+        [data-theme="dark"] {
+            color-scheme: dark;
+            --bg:            #1b1b1b;
+            --surface:       #262626;
+            --card:          #1b1b1b;
+            --card-2:        #262626;
+            --border:        #FFFFFF1A;
+            --border-strong: #525252;
+            --text:          #fafafa;
+            --text-2:        #a3a3a3;
+            --muted:         #737373;
+            --accent:        #ebebeb;
+            --accent-weak:   #262626;
+            --accent-2:      #ebebeb;
+            --on-accent:     #171717;
+            --success:       #9fe59b;
+            --success-weak:  #84c9803D;
+            --danger:        #ffc6c1;
+            --danger-weak:   #ff9e973D;
+            --warning:       #fdcf4f;
+            --warning-weak:  #deb4333D;
+            --hp:            #ffa258;
+            --hp-weak:       #ffa2583D;
+            --snd:           #b3b0fe;
+            --snd-weak:      #f297ff3D;
+            --shadow-sm: 0 1px 2px rgba(0,0,0,0.3), 0 1px 3px rgba(0,0,0,0.3);
+            --shadow:    0 2px 4px rgba(0,0,0,0.3), 0 4px 12px rgba(0,0,0,0.4);
+            --shadow-lg: 0 4px 6px rgba(0,0,0,0.4), 0 12px 24px rgba(0,0,0,0.5);
+        }
+        /* OS 자동 감지 (초기 로드, 토글 전 기본값) — [data-theme]이 없을 때만 */
         @media (prefers-color-scheme: dark) {
-            :root {
-                --bg: #1a1d21;
-                --card: #25292e;
-                --card-2: #2d3239;
-                --border: #3a4048;
-                --text: #f2f4f6;
-                --text-2: #c5ccd6;
-                --accent: #4b9bff;
-                --accent-weak: #1e3a5f;
-                --shadow: 0 1px 3px rgba(0,0,0,0.3), 0 6px 20px rgba(0,0,0,0.3);
+            :root:not([data-theme="light"]) {
+                color-scheme: dark;
+                --bg:            #1b1b1b;
+                --surface:       #262626;
+                --card:          #1b1b1b;
+                --card-2:        #262626;
+                --border:        #FFFFFF1A;
+                --border-strong: #525252;
+                --text:          #fafafa;
+                --text-2:        #a3a3a3;
+                --muted:         #737373;
+                --accent:        #ebebeb;
+                --accent-weak:   #262626;
+                --accent-2:      #ebebeb;
+                --on-accent:     #171717;
+                --success:       #9fe59b;
+                --success-weak:  #84c9803D;
+                --danger:        #ffc6c1;
+                --danger-weak:   #ff9e973D;
+                --warning:       #fdcf4f;
+                --warning-weak:  #deb4333D;
+                --hp:            #ffa258;
+                --hp-weak:       #ffa2583D;
+                --snd:           #b3b0fe;
+                --snd-weak:      #f297ff3D;
+                --shadow-sm: 0 1px 2px rgba(0,0,0,0.3), 0 1px 3px rgba(0,0,0,0.3);
+                --shadow:    0 2px 4px rgba(0,0,0,0.3), 0 4px 12px rgba(0,0,0,0.4);
+                --shadow-lg: 0 4px 6px rgba(0,0,0,0.4), 0 12px 24px rgba(0,0,0,0.5);
             }
         }
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -130,62 +242,170 @@
         }
         .grid {
             display: grid;
-            gap: 1.25rem;
+            gap: var(--space-5);
         }
         .grid-3 { grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
         .grid-2 { grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); }
+        .grid-4 { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
         .card {
             background: var(--card);
             border-radius: var(--radius);
-            padding: 1.5rem;
+            padding: var(--space-6);
             border: 1px solid var(--border);
             box-shadow: var(--shadow);
         }
+        /* 카드 변형 — 좌측 강조/위험 보더 (인라인 스타일 대체) */
+        .card--accent { border-left: 4px solid var(--accent); }
+        .card--hp      { border-left: 4px solid var(--hp); }
+        .card--snd     { border-left: 4px solid var(--snd); }
+        .card--success { border-left: 4px solid var(--success); }
+        .card--danger  { border-left: 4px solid var(--danger); }
+        .card--warning { border-left: 4px solid var(--warning); }
+        /* 카드 간 세로 간격 (인라인 margin 대체) */
+        .section { margin-bottom: var(--space-6); }
         .stat-card { text-align: center; }
         .stat-card .value {
-            font-size: 2.4rem;
-            font-weight: 700;
+            font-size: var(--fs-stat);
+            font-weight: var(--fw-bold);
             line-height: 1.2;
             letter-spacing: -0.03em;
         }
         .stat-card .label {
             color: var(--muted);
-            font-size: 0.85rem;
-            font-weight: 600;
+            font-size: var(--fs-xs);
+            font-weight: var(--fw-semibold);
             letter-spacing: 0.01em;
         }
         .stat-card.hp .value { color: var(--hp); }
         .stat-card.snd .value { color: var(--snd); }
-        h1, h2 { margin-bottom: 1rem; letter-spacing: -0.02em; }
-        h1 { font-size: 1.8rem; font-weight: 700; }
-        h2 { font-size: 1.3rem; font-weight: 700; color: var(--text); }
+        /* 통계 수치/라벨 (stat-card 외부에서도 단독 사용) */
+        .stat-value {
+            font-size: var(--fs-stat);
+            font-weight: var(--fw-bold);
+            line-height: 1.2;
+            letter-spacing: -0.03em;
+        }
+        .stat-label {
+            color: var(--muted);
+            font-size: var(--fs-xs);
+            font-weight: var(--fw-semibold);
+        }
+        h1, h2 { margin-bottom: var(--space-4); letter-spacing: -0.02em; }
+        h1 { font-size: var(--fs-2xl); font-weight: var(--fw-bold); }
+        h2 { font-size: var(--fs-xl); font-weight: var(--fw-bold); color: var(--text); }
         table {
             width: 100%;
             border-collapse: collapse;
         }
         th, td {
-            padding: 0.85rem 0.6rem;
+            padding: var(--space-3) var(--space-2);
             text-align: left;
             border-bottom: 1px solid var(--border);
         }
         th {
             color: var(--muted);
-            font-size: 0.8rem;
+            font-size: var(--fs-xs);
             letter-spacing: 0.01em;
-            font-weight: 600;
+            font-weight: var(--fw-semibold);
         }
         td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
         tbody tr:last-child td { border-bottom: none; }
         tbody tr:hover { background: var(--card-2); }
         .badge {
             display: inline-block;
-            padding: 0.2rem 0.6rem;
-            border-radius: 8px;
-            font-size: 0.75rem;
-            font-weight: 700;
+            padding: 0.2rem var(--space-2);
+            border-radius: var(--radius-sm);
+            font-size: var(--fs-xs);
+            font-weight: var(--fw-bold);
         }
         .badge.hp { background: var(--hp-weak); color: var(--hp); }
         .badge.snd { background: var(--snd-weak); color: var(--snd); }
+        /* status 배지 — 하드코딩 색 토큰화 */
+        .badge.success, .badge.win  { background: var(--success-weak); color: var(--success); }
+        .badge.danger,  .badge.loss { background: var(--danger-weak);  color: var(--danger); }
+        .badge.warning { background: var(--warning-weak); color: var(--warning); }
+        /* 승/패 라벨 (매치 결과 배지) */
+        .win-badge {
+            display: inline-block; padding: 0.2rem var(--space-2);
+            border-radius: var(--radius-sm); font-size: var(--fs-xs); font-weight: var(--fw-bold);
+            background: var(--success-weak); color: var(--success);
+        }
+        .loss-badge {
+            display: inline-block; padding: 0.2rem var(--space-2);
+            border-radius: var(--radius-sm); font-size: var(--fs-xs); font-weight: var(--fw-bold);
+            background: var(--danger-weak); color: var(--danger);
+        }
+        /* ±% 델타 색 — 하드코딩 green/red 대체 */
+        .delta-up   { color: var(--success); font-weight: var(--fw-semibold); }
+        .delta-down { color: var(--danger);  font-weight: var(--fw-semibold); }
+        .delta-flat { color: var(--muted);   font-weight: var(--fw-medium); }
+        /* 역할 배지 (slayer/objective/balanced) — 중복 삼항연산 대체 */
+        .role-badge {
+            display: inline-block; padding: 0.15rem var(--space-2);
+            border-radius: var(--radius-full); font-size: var(--fs-xs); font-weight: var(--fw-bold);
+            background: var(--card-2); color: var(--text-2);
+        }
+        .role-badge--slayer    { background: var(--danger-weak);  color: var(--danger); }
+        .role-badge--objective { background: var(--hp-weak);      color: var(--hp); }
+        .role-badge--balanced  { background: var(--card-2);       color: var(--text-2); }
+        /* 버튼 (기존엔 클래스 없었음 — 인라인 스타일 전면 대체) */
+        .btn {
+            display: inline-flex; align-items: center; justify-content: center; gap: var(--space-2);
+            padding: var(--space-2) var(--space-4);
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--border);
+            background: var(--card); color: var(--text);
+            font-size: var(--fs-sm); font-weight: var(--fw-semibold);
+            font-family: inherit;
+            cursor: pointer; text-decoration: none;
+            transition: background 0.15s, border-color 0.15s, color 0.15s;
+        }
+        .btn:hover { background: var(--card-2); border-color: var(--border-strong); }
+        .btn--primary {
+            background: var(--accent); color: var(--on-accent);
+            border-color: var(--accent);
+        }
+        .btn--primary:hover { background: var(--accent-2); border-color: var(--accent-2); }
+        .btn--danger {
+            background: var(--danger); color: #fff;
+            border-color: var(--danger);
+        }
+        .btn--danger:hover { filter: brightness(0.92); }
+        .btn--ghost {
+            background: transparent; border-color: transparent; color: var(--text-2);
+        }
+        .btn--ghost:hover { background: var(--card-2); color: var(--text); }
+        .btn--toggle {
+            padding: var(--space-1) var(--space-3);
+            background: var(--card); color: var(--text-2);
+            border-color: var(--border); font-size: var(--fs-xs);
+        }
+        .btn--toggle.active {
+            background: var(--accent); color: var(--on-accent);
+            border-color: var(--accent);
+        }
+        /* 폼 입력 통일 — compare/admin 인라인 입력 대체 */
+        .input, .select {
+            padding: var(--space-2) var(--space-3);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            background: var(--card); color: var(--text);
+            font-size: var(--fs-sm); font-family: inherit;
+            transition: border-color 0.15s;
+        }
+        .input:focus, .select:focus {
+            outline: none; border-color: var(--accent);
+        }
+        /* 토스트 알림 (admin flash() 공통) — 인라인 style 대체 */
+        .toast {
+            position: fixed; top: 20px; right: 20px;
+            padding: var(--space-3) var(--space-5);
+            border-radius: var(--radius-sm);
+            color: #fff; font-weight: var(--fw-semibold); font-size: var(--fs-sm);
+            z-index: 1000; box-shadow: var(--shadow-lg);
+        }
+        .toast--ok  { background: var(--success); }
+        .toast--err { background: var(--danger); }
         a.player-link {
             color: var(--accent);
             text-decoration: none;
@@ -211,20 +431,27 @@
             transition: all 0.15s;
         }
         .filters a:hover { background: var(--card-2); }
-        .filters a.active { background: var(--accent); color: white; border-color: var(--accent); }
+        .filters a.active { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
         .pagination { display: flex; gap: 0.5rem; justify-content: center; margin-top: 1.5rem; }
         .pagination a {
             padding: 0.45rem 0.95rem;
             background: var(--card);
             border: 1px solid var(--border);
-            border-radius: 10px;
+            border-radius: var(--radius);
             color: var(--text);
             text-decoration: none;
-            font-weight: 600;
+            font-weight: var(--fw-semibold);
         }
         .pagination a:hover { background: var(--card-2); }
-        .pagination a.active { background: var(--accent); color: white; border-color: var(--accent); }
+        .pagination a.active { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
         .muted { color: var(--muted); }
+        /* 텍스트 색 유틸리티 — 인라인 color:var(...) 대체 */
+        .text-accent  { color: var(--accent); }
+        .text-success { color: var(--success); }
+        .text-danger  { color: var(--danger); }
+        .text-warning { color: var(--warning); }
+        .text-hp      { color: var(--hp); }
+        .text-snd     { color: var(--snd); }
         .text-center { text-align: center; }
         .lang-switcher {
             margin-left: auto;
@@ -284,6 +511,30 @@
             align-items: center;
             justify-content: center;
         }
+        /* ── 테마 토글 버튼 (라이트/다크) ──────────────────── */
+        .theme-toggle {
+            background: none;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-full);
+            width: 34px;
+            height: 34px;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1rem;
+            line-height: 1;
+            padding: 0;
+            color: var(--text);
+            transition: background 0.2s, border-color 0.2s;
+            flex-shrink: 0;
+        }
+        .theme-toggle:hover { background: var(--card-2); border-color: var(--border-strong); }
+        .theme-toggle-icon { display: none; }
+        /* light 모드일 땐 달(🌙) 아이콘을 보여주고(다크로 전환 유도),
+           dark 모드일 땐 해(☀) 아이콘을 보여줌(라이트로 전환 유도). */
+        html[data-theme="light"] .theme-toggle-icon--moon { display: inline; }
+        html[data-theme="dark"]  .theme-toggle-icon--sun  { display: inline; }
         .nav-toggle span {
             display: block;
             width: 22px;
@@ -333,7 +584,7 @@
         /* ═══ 반응형: 폰 (≤600px) ═══ */
         @media (max-width: 600px) {
             .container { padding: 0.85rem; }
-            .card { padding: 1.1rem; border-radius: 14px; }
+            .card { padding: 1.1rem; border-radius: var(--radius); }
             .stat-card .value { font-size: 1.9rem; }
             /* 카드 그리드 강제 1단 */
             .grid-2, .grid-3 {
@@ -376,6 +627,10 @@
             <a href="javascript:setLang('en')" class="{{ 'active' if lang == 'en' else '' }}">EN</a>
             <a href="javascript:setLang('es')" class="{{ 'active' if lang == 'es' else '' }}">ES</a>
         </div>
+        <button class="theme-toggle" id="themeToggle" type="button" aria-label="{{ t.theme_toggle if t.theme_toggle is defined else 'toggle theme' }}" title="{{ t.theme_toggle if t.theme_toggle is defined else 'Toggle theme' }}">
+            <span class="theme-toggle-icon theme-toggle-icon--sun" aria-hidden="true">☀</span>
+            <span class="theme-toggle-icon theme-toggle-icon--moon" aria-hidden="true">🌙</span>
+        </button>
         <button class="nav-toggle" id="navToggle" aria-label="menu" aria-expanded="false" aria-controls="navLinks">
             <span aria-hidden="true"></span><span aria-hidden="true"></span><span aria-hidden="true"></span>
         </button>
@@ -390,6 +645,76 @@
         url.searchParams.set('lang', lang);
         window.location.href = url.toString();
     }
+    // 토스트 알림 (admin 페이지 공통) — .toast 클래스 기반, 토큰 색 사용.
+    function flash(msg, ok=true) {
+        const d = document.createElement('div');
+        d.textContent = msg;
+        d.className = 'toast toast--' + (ok ? 'ok' : 'err');
+        document.body.appendChild(d);
+        setTimeout(() => d.remove(), 2500);
+    }
+    // ── 테마(라이트/다크) 토글 ────────────────────────────────────────
+    // · localStorage('theme') > OS prefers-color-scheme 순 우선.
+    // · <html data-theme="light|dark"> 설정 → CSS 토큰이 자동 전환.
+    // · 차트 색 갱신: 페이지가 _chartRegistry에 등록한 Chart 인스턴스의
+    //   dataset/grid/tick 색을 새 TDS로 재주입 후 chart.update().
+    (function() {
+        const root = document.documentElement;
+        const btn = document.getElementById('themeToggle');
+        const stored = localStorage.getItem('theme');  // 'light' | 'dark' | null
+        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        const initial = stored || (prefersDark ? 'dark' : 'light');
+        root.setAttribute('data-theme', initial);
+
+        function syncIcon() {
+            const dark = root.getAttribute('data-theme') === 'dark';
+            if (btn) btn.classList.toggle('is-dark', dark);
+        }
+        syncIcon();
+
+        // 차트 색 리렌더 — 각 페이지에서 색 주입 콜백을 등록했다면 호출.
+        function rerenderCharts() {
+            TDS = _buildTDS();  // 토큰 재읽기
+            _chartRegistry.forEach((chart) => {
+                try {
+                    // 그리드/축 색 갱신
+                    const opts = chart.options;
+                    if (opts.scales) {
+                        Object.values(opts.scales).forEach(s => {
+                            if (s.grid) s.grid.color = TDS.border;
+                            if (s.angleLines) s.angleLines.color = TDS.border;
+                            if (s.ticks) s.ticks.color = TDS.muted;
+                            if (s.pointLabels) s.pointLabels.color = TDS.text;
+                        });
+                    }
+                    if (opts.plugins && opts.plugins.legend && opts.plugins.legend.labels) {
+                        opts.plugins.legend.labels.color = TDS.text;
+                    }
+                    // 페이지별 커스텀 색 콜백 있으면 실행 (datasets 등)
+                    if (typeof chart._onThemeChange === 'function') chart._onThemeChange(chart, TDS);
+                    chart.update('none');
+                } catch (e) { console.warn('chart rerender failed', e); }
+            });
+        }
+
+        if (btn) {
+            btn.addEventListener('click', () => {
+                const next = root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+                root.setAttribute('data-theme', next);
+                localStorage.setItem('theme', next);
+                syncIcon();
+                rerenderCharts();
+            });
+        }
+        // OS 설정 변경 동기화 (사용자가 수동 선택 안 한 경우만)
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
+            if (!localStorage.getItem('theme')) {
+                root.setAttribute('data-theme', e.matches ? 'dark' : 'light');
+                syncIcon();
+                rerenderCharts();
+            }
+        });
+    })();
     // 햄버거 네비 토글 (모바일)
     (function() {
         const nav = document.getElementById('nav');

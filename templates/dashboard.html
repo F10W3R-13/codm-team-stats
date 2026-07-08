@@ -2,21 +2,11 @@
 {% block title %}{{ t.nav_dashboard }} — CODM Stats{% endblock %}
 {% block nav_overview %}active{% endblock %}
 
-{% block head %}
-<style>
-/* dashboard 전용 — 4단 카드 그리드 */
-.grid-4 { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
-@media (max-width: 600px) {
-    .grid-4 { grid-template-columns: 1fr; }
-}
-</style>
-{% endblock %}
-
 {% block content %}
 <h1>{{ t.dashboard_title }}</h1>
 <p class="muted">{{ t.period }}: {{ data.date_range.start }} ~ {{ data.date_range.end }}</p>
 
-<div class="grid grid-4" style="margin: 1.5rem 0;">
+<div class="grid grid-4 section">
     <div class="card stat-card">
         <div class="value">{{ data.total_matches }}</div>
         <div class="label">{{ t.total_matches }}</div>
@@ -30,12 +20,12 @@
         <div class="label">{{ t.mode_snd }}</div>
     </div>
     <div class="card stat-card">
-        <div class="value" style="color: var(--accent-2);">{{ data.total_players }}</div>
+        <div class="value text-accent">{{ data.total_players }}</div>
         <div class="label">{{ t.stat_players }}</div>
     </div>
     {% if data.team_zcs is not none %}
-    <div class="card stat-card" style="border-left: 4px solid var(--accent);">
-        <div class="value" style="color: var(--accent);">{{ data.team_zcs }}</div>
+    <div class="card stat-card card--accent">
+        <div class="value text-accent">{{ data.team_zcs }}</div>
         <div class="label">{{ t.zcs_label }} ({{ t.zcs_full }})</div>
     </div>
     {% endif %}
@@ -59,13 +49,13 @@
                     <td><a href="/matches/{{ m.id }}?lang={{ lang }}" class="player-link">{{ m.id }}</a></td>
                     <td><span class="badge {{ m.mode|lower }}">{{ t['mode_' + m.mode.lower()] }}</span></td>
                     <td>
-                        {% if m.result == 'WIN' %}<span style="color:#04c09e;">🟢</span>
-                        {% elif m.result == 'LOSS' %}<span style="color:#f04452;">🔴</span>
+                        {% if m.result == 'WIN' %}<span class="delta-up">🟢</span>
+                        {% elif m.result == 'LOSS' %}<span class="delta-down">🔴</span>
                         {% elif m.result == 'DRAW' %}<span class="muted">⚪</span>
                         {% else %}<span class="muted">—</span>{% endif %}
                     </td>
                     <td>{{ m.map_name or '-' }}</td>
-                    <td class="num">{% if m.mode == 'HP' and m.avg_zcs is not none %}<strong style="color: var(--accent);">{{ m.avg_zcs }}</strong>{% else %}-{% endif %}</td>
+                    <td class="num">{% if m.mode == 'HP' and m.avg_zcs is not none %}<strong class="zcs-strong">{{ m.avg_zcs }}</strong>{% else %}-{% endif %}</td>
                     <td data-mobile-hide>{{ m.match_date or '-' }}</td>
                     <td class="num" data-mobile-hide>{{ m.players }}</td>
                 </tr>
@@ -77,36 +67,40 @@
 </div>
 
 {% if data.win_loss.total > 0 %}
-<div class="grid grid-3" style="margin: 1.5rem 0;">
-    <div class="card stat-card">
-        <div class="value" style="color:#04c09e;">{{ data.win_loss.win_rate if data.win_loss.win_rate is not none else '-' }}%</div>
+<div class="grid grid-3 section">
+    <div class="card stat-card card--success">
+        <div class="value text-success">{{ data.win_loss.win_rate if data.win_loss.win_rate is not none else '-' }}%</div>
         <div class="label">{{ t.win_rate }} ({{ data.win_loss.wins }}{{ t.win }} {{ data.win_loss.losses }}{{ t.loss }})</div>
     </div>
-    <div class="card stat-card hp">
-        <div class="value" style="color:#04c09e;">{{ data.win_loss.by_mode.HP.win_rate if data.win_loss.by_mode.HP.win_rate is not none else '-' }}%</div>
+    <div class="card stat-card hp card--success">
+        <div class="value text-success">{{ data.win_loss.by_mode.HP.win_rate if data.win_loss.by_mode.HP.win_rate is not none else '-' }}%</div>
         <div class="label">{{ t.win_rate_hp }} ({{ data.win_loss.by_mode.HP.wins }}{{ t.win }} {{ data.win_loss.by_mode.HP.losses }}{{ t.loss }})</div>
     </div>
-    <div class="card stat-card snd">
-        <div class="value" style="color:#04c09e;">{{ data.win_loss.by_mode.SND.win_rate if data.win_loss.by_mode.SND.win_rate is not none else '-' }}%</div>
+    <div class="card stat-card snd card--success">
+        <div class="value text-success">{{ data.win_loss.by_mode.SND.win_rate if data.win_loss.by_mode.SND.win_rate is not none else '-' }}%</div>
         <div class="label">{{ t.win_rate_snd }} ({{ data.win_loss.by_mode.SND.wins }}{{ t.win }} {{ data.win_loss.by_mode.SND.losses }}{{ t.loss }})</div>
     </div>
 </div>
 {% elif data.win_loss.none > 0 %}
-<div class="card" style="margin: 1.5rem 0; border-left: 4px solid var(--accent);">
+<div class="card section card--accent">
     <p class="muted">{{ t.no_result_data }}</p>
 </div>
 {% endif %}
 
 {% if data.recent_results %}
-<div class="card" style="margin: 1.5rem 0;">
+<div class="card section">
     <h2>{{ t.recent_form }}</h2>
     <div class="chart-wrap"><canvas id="formChart"></canvas></div>
 </div>
 {% endif %}
 
+<style>
+.zcs-strong { color: var(--accent); }
+</style>
+
 <script>
 const mapData = {{ data.maps | tojson }};
-new Chart(document.getElementById('mapChart'), {
+const mapChart = new Chart(document.getElementById('mapChart'), {
     type: 'bar',
     data: {
         labels: mapData.map(m => m.name),
@@ -126,19 +120,21 @@ new Chart(document.getElementById('mapChart'), {
         },
     })
 });
+_chartRegistry.set('mapChart', mapChart);
 </script>
 
 {% if data.recent_results %}
 <script>
 const formData = {{ data.recent_results | tojson }};
-new Chart(document.getElementById('formChart'), {
+const formChart = new Chart(document.getElementById('formChart'), {
     type: 'bar',
     data: {
         labels: formData.map(r => '#' + r.id),
         datasets: [{
             label: '{{ t.recent_form }}',
             data: formData.map(r => r.result === 'WIN' ? 1 : (r.result === 'LOSS' ? -1 : 0)),
-            backgroundColor: formData.map(r => r.result === 'WIN' ? '#04c09e' : (r.result === 'LOSS' ? '#f04452' : '#cbd2dc')),
+            // 토큰 기반 색 — 다크모드에서도 success/danger/muted 자동 전환
+            backgroundColor: formData.map(r => r.result === 'WIN' ? TDS.success : (r.result === 'LOSS' ? TDS.danger : TDS.muted)),
             borderRadius: 4,
         }]
     },
@@ -160,15 +156,29 @@ new Chart(document.getElementById('formChart'), {
         }
     })
 });
+// 테마 토글 시 막대 색 갱신
+formChart._onThemeChange = function(chart, tds) {
+    if (chart.data.datasets[0]) {
+        chart.data.datasets[0].backgroundColor = formData.map(r =>
+            r.result === 'WIN' ? tds.success : (r.result === 'LOSS' ? tds.danger : tds.muted)
+        );
+    }
+};
+_chartRegistry.set('formChart', formChart);
 </script>
 {% endif %}
 
 <!-- 맵 통계 링크 -->
-<div class="card" style="margin-top: 1.5rem; border-left: 4px solid var(--accent);">
+<div class="card section card--accent">
     <h2>🗺️ {{ t.maps_title }}</h2>
     <p class="muted">{{ t.hub_link_insights }}</p>
-    <p style="margin-top:1rem;">
-        <a href="/maps?lang={{ lang }}" class="player-link" style="font-size:1.05rem;">{{ t.nav_maps }} →</a>
+    <p class="map-link-wrap">
+        <a href="/maps?lang={{ lang }}" class="player-link map-link">{{ t.nav_maps }} →</a>
     </p>
 </div>
+
+<style>
+.map-link-wrap { margin-top: var(--space-4); }
+.map-link { font-size: var(--fs-lg); }
+</style>
 {% endblock %}

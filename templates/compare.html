@@ -6,30 +6,30 @@
 <h1>⚔️ {{ t.compare_title }}</h1>
 <p class="muted">{{ t.compare_help }}</p>
 
-<form method="get" style="margin: 1.5rem 0;">
+<form method="get" class="compare-form section">
     <input type="hidden" name="lang" value="{{ lang }}">
-    <div style="display:flex; gap:0.8rem; flex-wrap:wrap; align-items:flex-end;">
-        <div>
-            <label class="muted" style="font-size:.85rem;">{{ t.compare_player_a }}</label><br>
-            <select name="a" onchange="this.form.submit()">
+    <div class="compare-form__row">
+        <div class="compare-form__field">
+            <label class="muted compare-form__label">{{ t.compare_player_a }}</label>
+            <select name="a" class="select" onchange="this.form.submit()">
                 <option value="">—</option>
                 {% for p in players %}
                 <option value="{{ p }}" {{ 'selected' if a == p }}>{{ p }}</option>
                 {% endfor %}
             </select>
         </div>
-        <div>
-            <label class="muted" style="font-size:.85rem;">{{ t.compare_player_b }}</label><br>
-            <select name="b" onchange="this.form.submit()">
+        <div class="compare-form__field">
+            <label class="muted compare-form__label">{{ t.compare_player_b }}</label>
+            <select name="b" class="select" onchange="this.form.submit()">
                 <option value="">—</option>
                 {% for p in players %}
                 <option value="{{ p }}" {{ 'selected' if b == p }}>{{ p }}</option>
                 {% endfor %}
             </select>
         </div>
-        <div>
-            <label class="muted" style="font-size:.85rem;">{{ t.mode_col }}</label><br>
-            <select name="mode" onchange="this.form.submit()">
+        <div class="compare-form__field">
+            <label class="muted compare-form__label">{{ t.mode_col }}</label>
+            <select name="mode" class="select" onchange="this.form.submit()">
                 <option value="HP" {{ 'selected' if mode == 'HP' }}>🎯 {{ t.mode_hp }}</option>
                 <option value="SND" {{ 'selected' if mode == 'SND' }}>🔍 {{ t.mode_snd }}</option>
             </select>
@@ -38,28 +38,28 @@
 </form>
 
 {% if not a or not b %}
-<div class="card"><p class="muted" style="text-align:center; padding:2rem;">{{ t.compare_select_two }}</p></div>
+<div class="card"><p class="muted empty-state">{{ t.compare_select_two }}</p></div>
 {% elif a == b %}
-<div class="card"><p class="muted" style="text-align:center; padding:2rem;">{{ t.compare_same }}</p></div>
+<div class="card"><p class="muted empty-state">{{ t.compare_same }}</p></div>
 {% elif not data %}
-<div class="card"><p class="muted" style="text-align:center; padding:2rem;">{{ t.compare_not_found }}</p></div>
+<div class="card"><p class="muted empty-state">{{ t.compare_not_found }}</p></div>
 {% else %}
 
-<div class="card" style="margin-bottom: 1.5rem;">
-    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:1rem;">
-        <div style="text-align:center; flex:1;">
-            <div style="font-size:1.4rem; font-weight:700;"><a href="/players/{{ data.a.name }}?lang={{ lang }}" class="player-link">{{ data.a.name }}</a></div>
-            <div class="muted" style="font-size:.85rem;">{{ data.matches_a }} {{ t.games }}</div>
+<div class="card section">
+    <div class="vs-banner">
+        <div class="vs-banner__side">
+            <div class="vs-banner__name"><a href="/players/{{ data.a.name }}?lang={{ lang }}" class="player-link">{{ data.a.name }}</a></div>
+            <div class="muted vs-banner__meta">{{ data.matches_a }} {{ t.games }}</div>
         </div>
-        <div style="font-size:1.5rem; color: var(--muted);">VS</div>
-        <div style="text-align:center; flex:1;">
-            <div style="font-size:1.4rem; font-weight:700;"><a href="/players/{{ data.b.name }}?lang={{ lang }}" class="player-link">{{ data.b.name }}</a></div>
-            <div class="muted" style="font-size:.85rem;">{{ data.matches_b }} {{ t.games }}</div>
+        <div class="vs-banner__vs">VS</div>
+        <div class="vs-banner__side">
+            <div class="vs-banner__name"><a href="/players/{{ data.b.name }}?lang={{ lang }}" class="player-link">{{ data.b.name }}</a></div>
+            <div class="muted vs-banner__meta">{{ data.matches_b }} {{ t.games }}</div>
         </div>
     </div>
 </div>
 
-<div class="grid grid-2" style="margin-bottom: 1.5rem;">
+<div class="grid grid-2 section">
     <div class="card">
         <h2>{{ t.compare_radar_title }}</h2>
         <div class="chart-wrap"><canvas id="radarChart"></canvas></div>
@@ -80,46 +80,54 @@
                 {% for row in data.rows %}
                 <tr>
                     <td>{{ t[row.label_key] if t[row.label_key] else row.label_key }}</td>
-                    <td class="num" style="{{ 'color:var(--accent-2);font-weight:600;' if row.winner == 'a' else '' }}">
+                    <td class="num {{ 'winner-cell' if row.winner == 'a' else '' }}">
                         {{ row.a if row.a is not none else '-' }}
                     </td>
-                    <td class="num" style="{{ 'color:var(--accent-2);font-weight:600;' if row.winner == 'b' else '' }}">
+                    <td class="num {{ 'winner-cell' if row.winner == 'b' else '' }}">
                         {{ row.b if row.b is not none else '-' }}
                     </td>
                     <td class="num muted">
                         {% if row.a is not none and row.b is not none %}
                             {% set d = (row.a - row.b) | round(1) %}
-                            <span style="color: {{ 'var(--accent-2)' if d > 0 else ('#f04452' if d < 0 else 'var(--muted)') }};">
+                            <span class="delta-{{ 'up' if d > 0 else ('down' if d < 0 else 'flat') }}">
                                 {{ '+' if d > 0 }}{{ d }}
                             </span>
                         {% else %}-{% endif %}
                     </td>
                 </tr>
-            {% endfor %}
+                {% endfor %}
         </tbody>
         </table>
         </div>
     </div>
 </div>
 
+<style>
+.compare-form__row { display: flex; gap: var(--space-3); flex-wrap: wrap; align-items: flex-end; }
+.compare-form__label { font-size: var(--fs-xs); display: block; margin-bottom: var(--space-1); }
+.compare-form__field select { min-width: 140px; }
+.empty-state { text-align: center; padding: var(--space-8); }
+.vs-banner { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: var(--space-4); }
+.vs-banner__side { text-align: center; flex: 1; }
+.vs-banner__name { font-size: var(--fs-xl); font-weight: var(--fw-bold); }
+.vs-banner__meta { font-size: var(--fs-xs); }
+.vs-banner__vs { font-size: var(--fs-2xl); color: var(--muted); font-weight: var(--fw-bold); }
+.winner-cell { color: var(--success); font-weight: var(--fw-semibold); }
+@media (max-width: 600px) {
+    .vs-banner { flex-direction: column; gap: var(--space-2); }
+}
+</style>
+
 <script>
 const chartData = {{ data.chart | tojson }};
 const labels = chartData.map(d => d.metric);
-// 각 지표별로 두 값 정규화 (최대값 기준) — 레이더 가시성
-const allVals = chartData.flatMap(d => [d.a, d.b]).filter(v => v != null && v > 0);
-const norm = v => {
-    if (v == null) return 0;
-    // 지표별 최대치로 정규화 (0~100)
-    return v;
-};
-// 단순히 raw 값 사용 — 차트 스케일이 다르면 각자 정규화
 const maxByMetric = {};
 labels.forEach((m, i) => {
     const a = chartData[i].a, b = chartData[i].b;
     const vals = [a, b].filter(v => v != null && v > 0);
     maxByMetric[m] = vals.length ? Math.max(...vals) : 1;
 });
-new Chart(document.getElementById('radarChart'), {
+const radarChart = new Chart(document.getElementById('radarChart'), {
     type: 'radar',
     data: {
         labels: labels,
@@ -128,13 +136,13 @@ new Chart(document.getElementById('radarChart'), {
                 label: '{{ data.a.name }}',
                 data: chartData.map(d => d.a == null ? 0 : (d.a / maxByMetric[d.metric] * 100)),
                 borderColor: TDS.accent,
-                backgroundColor: 'rgba(49,130,246,0.15)',
+                backgroundColor: 'rgba(38,38,38,0.12)',  /* neutral 액센트 기반 */
             },
             {
                 label: '{{ data.b.name }}',
                 data: chartData.map(d => d.b == null ? 0 : (d.b / maxByMetric[d.metric] * 100)),
-                borderColor: '#f04452',
-                backgroundColor: 'rgba(240,68,82,0.15)',
+                borderColor: TDS.danger,
+                backgroundColor: 'rgba(165,12,37,0.12)',  /* danger 토큰 기반 */
             }
         ]
     },
@@ -145,6 +153,12 @@ new Chart(document.getElementById('radarChart'), {
         plugins: { legend: { position: 'bottom' } },
     })
 });
+// 테마 토글 시 색 갱신
+radarChart._onThemeChange = function(chart, tds) {
+    if (chart.data.datasets[0]) chart.data.datasets[0].borderColor = tds.accent;
+    if (chart.data.datasets[1]) chart.data.datasets[1].borderColor = tds.danger;
+};
+_chartRegistry.set('radarChart', radarChart);
 </script>
 {% endif %}
 {% endblock %}

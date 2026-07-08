@@ -2,25 +2,33 @@
 {% block title %}{{ t.admin_login_title }} — CODM Stats{% endblock %}
 
 {% block content %}
-<div style="max-width:340px; margin:3rem auto;">
-    <div class="card" style="padding:2rem;">
-        <h1 style="font-size:1.4rem;">🔒 {{ t.admin_login_title }}</h1>
-        <p class="muted" style="font-size:0.9rem; margin-bottom:1.5rem;">{{ t.admin_login_help }}</p>
+<div class="login-wrap">
+    <div class="card login-card">
+        <h1 class="login-title">🔒 {{ t.admin_login_title }}</h1>
+        <p class="muted login-help">{{ t.admin_login_help }}</p>
 
         <form id="loginForm" onsubmit="return submitLogin(event)">
-            <div style="margin-bottom:1rem;">
-                <label class="muted" style="font-size:0.8rem;">{{ t.admin_password }}</label>
-                <input type="password" name="password" id="pw" autocomplete="current-password"
-                    style="width:100%; padding:0.7rem; border-radius:10px;" autofocus required>
+            <div class="login-field">
+                <label class="muted login-label" for="pw">{{ t.admin_password }}</label>
+                <input type="password" name="password" id="pw" class="input login-input" autocomplete="current-password" autofocus required>
             </div>
-            <button type="submit"
-                style="width:100%; padding:0.7rem; background:var(--accent); color:white; border:none; border-radius:10px; cursor:pointer; font-weight:600;">
-                {{ t.admin_login_btn }}
-            </button>
+            <button type="submit" class="btn btn--primary login-btn">{{ t.admin_login_btn }}</button>
         </form>
-        <div id="err" style="color:#e74c3c; margin-top:0.8rem; font-size:0.9rem; min-height:1.2em;"></div>
+        <div id="err" class="login-error"></div>
     </div>
 </div>
+
+<style>
+.login-wrap { max-width: 340px; margin: 3rem auto; }
+.login-card { padding: var(--space-8); }
+.login-title { font-size: var(--fs-xl); }
+.login-help { font-size: var(--fs-sm); margin-bottom: var(--space-6); }
+.login-field { margin-bottom: var(--space-4); }
+.login-label { font-size: var(--fs-xs); display: block; margin-bottom: var(--space-1); }
+.login-input { width: 100%; }
+.login-btn { width: 100%; }
+.login-error { color: var(--danger); margin-top: var(--space-3); font-size: var(--fs-sm); min-height: 1.2em; }
+</style>
 
 <script>
 function submitLogin(e) {
