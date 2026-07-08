@@ -243,6 +243,7 @@ STRINGS = {
         "hub_banpick_help": "Per map: period vs season — rising maps to pick, falling to ban",
         "hub_pick": "PICK",
         "hub_ban": "BAN",
+        "hub_low_sample": "low sample",
         # 역할 스펙트럼
         "hub_role_spectrum": "Role Spectrum",
         "hub_spectrum_help": "Position on slay ↔ obj axis. Clustering to one side = role skew.",

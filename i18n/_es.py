@@ -243,6 +243,7 @@ STRINGS = {
         "hub_banpick_help": "Por mapa: periodo vs temporada — mapas al alza para pick, a la baja para ban",
         "hub_pick": "PICK",
         "hub_ban": "BAN",
+        "hub_low_sample": "muestra baja",
         # 역할 스펙트럼
         "hub_role_spectrum": "Espectro de Roles",
         "hub_spectrum_help": "Posición en eje slay ↔ obj. Concentración a un lado = desequilibrio.",

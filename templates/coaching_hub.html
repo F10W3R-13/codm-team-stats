@@ -153,43 +153,57 @@
 </div>
 {% endif %}
 
-{# ── ④ 밴픽보드 (맵별 기간 vs 시즌 델타 + 추천) ── #}
-{% if data.map_board %}
+{# ── ④ 밴픽 우선순위 리스트 (픽 1순위 → 밴 1순위 정렬) ── #}
+{% if data.banpick %}
 <div class="card section">
     <h2>🗺️ {{ t.hub_banpick }}</h2>
     <p class="muted stat-label">{{ t.hub_banpick_help }}</p>
-    <div class="grid grid-3">
-        {% for m in data.map_board %}
-        <a href="/maps/{{ m.map_name }}?mode={{ data.mode }}&lang={{ lang }}"
-           class="card card-link card--{{ 'success' if m.rec == 'pick' else ('danger' if m.rec == 'ban' else 'accent') }}">
-            <div class="map-card__head">
-                <span class="map-name">{{ m.map_name }}</span>
-                {% if m.rec == 'pick' %}<span class="badge win">{{ t.hub_pick }}</span>
-                {% elif m.rec == 'ban' %}<span class="badge loss">{{ t.hub_ban }}</span>
-                {% endif %}
-            </div>
-            <div class="map-card__body">
-                <div class="map-card__metric">
-                    <span class="stat-label">{{ t.hub_kd }}</span>
-                    <span class="map-card__val">{{ m.recent.kd if m.recent.kd is not none else '—' }}</span>
-                    {% if m.delta_pct.kd is not none and not data.season_mode %}
-                    <span class="delta-{{ 'up' if m.delta_pct.kd >= 0 else 'down' }} delta-sm">{{ '+' if m.delta_pct.kd >= 0 }}{{ m.delta_pct.kd }}%</span>
-                    {% endif %}
-                </div>
-                <div class="map-card__metric">
-                    <span class="stat-label">{{ t.zcs_label }}</span>
-                    <span class="map-card__val">{{ m.recent.zcs if m.recent.zcs is not none else '—' }}</span>
-                    {% if m.delta_pct.zcs is not none and not data.season_mode %}
-                    <span class="delta-{{ 'up' if m.delta_pct.zcs >= 0 else 'down' }} delta-sm">{{ '+' if m.delta_pct.zcs >= 0 }}{{ m.delta_pct.zcs }}%</span>
-                    {% endif %}
-                </div>
-            </div>
-            <p class="muted map-card__foot">
-                {% if data.season_mode %}{{ m.recent.matches }}{{ t.matches }} · {{ t.hub_season }}{% else %}{{ m.recent.matches }}{{ t.matches }}{% endif %}
-            </p>
+
+    {# HP 섹션 #}
+    {% if data.banpick.HP.ranked %}
+    <h3 class="banpick-mode"><span class="badge hp">{{ t.mode_hp }}</span></h3>
+    <div class="banpick-list">
+        {% for m in data.banpick.HP.ranked %}
+        <a href="/maps/{{ m.map_name }}?mode=HP&lang={{ lang }}"
+           class="banpick-row banpick-row--{{ m.badge }}">
+            <span class="banpick-rank">{{ loop.index }}</span>
+            {% if m.badge == 'pick' %}<span class="badge win">{{ t.hub_pick }}</span>
+            {% elif m.badge == 'ban' %}<span class="badge loss">{{ t.hub_ban }}</span>
+            {% endif %}
+            <span class="banpick-name">{{ m.map_name }}</span>
+            <span class="banpick-score">{{ m.score if m.score is not none else '—' }}%</span>
+            {% if not data.season_mode and m.delta_pct is not none %}
+            <span class="delta-{{ 'up' if m.delta_pct >= 0 else 'down' }}">{{ '↑' if m.delta_pct >= 0 else '↓' }}{{ m.delta_pct }}%</span>
+            {% endif %}
+            <span class="muted banpick-n">{{ m.recent_matches }}{{ t.matches }}</span>
+            {% if m.low_sample %}<span class="badge banpick-low">{{ t.hub_low_sample }}</span>{% endif %}
         </a>
         {% endfor %}
     </div>
+    {% endif %}
+
+    {# SND 섹션 #}
+    {% if data.banpick.SND and data.banpick.SND.ranked %}
+    <h3 class="banpick-mode banpick-mode--snd"><span class="badge snd">{{ t.mode_snd }}</span></h3>
+    <div class="banpick-list">
+        {% for m in data.banpick.SND.ranked %}
+        <a href="/maps/{{ m.map_name }}?mode=SND&lang={{ lang }}"
+           class="banpick-row banpick-row--{{ m.badge }}">
+            <span class="banpick-rank">{{ loop.index }}</span>
+            {% if m.badge == 'pick' %}<span class="badge win">{{ t.hub_pick }}</span>
+            {% elif m.badge == 'ban' %}<span class="badge loss">{{ t.hub_ban }}</span>
+            {% endif %}
+            <span class="banpick-name">{{ m.map_name }}</span>
+            <span class="banpick-score">{{ m.score if m.score is not none else '—' }}%</span>
+            {% if not data.season_mode and m.delta_pct is not none %}
+            <span class="delta-{{ 'up' if m.delta_pct >= 0 else 'down' }}">{{ '↑' if m.delta_pct >= 0 else '↓' }}{{ m.delta_pct }}%</span>
+            {% endif %}
+            <span class="muted banpick-n">{{ m.recent_matches }}{{ t.matches }}</span>
+            {% if m.low_sample %}<span class="badge banpick-low">{{ t.hub_low_sample }}</span>{% endif %}
+        </a>
+        {% endfor %}
+    </div>
+    {% endif %}
 </div>
 {% endif %}
 
@@ -278,13 +292,20 @@
 .delta-sm { font-size: var(--fs-sm); margin-left: var(--space-1); }
 .card-link { text-decoration: none; color: inherit; display: block; transition: transform 0.15s, box-shadow 0.15s; }
 .card-link:hover { transform: translateY(-2px); box-shadow: var(--shadow-lg); }
-.map-name { font-size: var(--fs-lg); font-weight: var(--fw-bold); }
-.map-card__head { display: flex; justify-content: space-between; align-items: center; gap: var(--space-2); margin-bottom: var(--space-3); }
-.map-card__body { display: flex; gap: var(--space-6); margin-bottom: var(--space-2); }
-.map-card__metric { display: flex; flex-direction: column; gap: var(--space-1); }
-.map-card__val { font-size: var(--fs-xl); font-weight: var(--fw-semibold); }
-.map-card__foot { font-size: var(--fs-xs); }
 .win-rate-value { font-size: var(--fs-2xl); font-weight: var(--fw-bold); color: var(--success); }
+/* 밴픽 우선순위 리스트 */
+.banpick-mode { margin: var(--space-4) 0 var(--space-2); font-size: var(--fs-sm); }
+.banpick-mode--snd { margin-top: var(--space-6); }
+.banpick-list { display: flex; flex-direction: column; gap: var(--space-1); }
+.banpick-row { display: flex; align-items: center; gap: var(--space-3); padding: var(--space-2) var(--space-3); border-radius: var(--radius); text-decoration: none; color: inherit; border-left: 4px solid transparent; transition: background 0.12s; flex-wrap: wrap; }
+.banpick-row:hover { background: var(--card-2); }
+.banpick-row--pick { border-left-color: var(--success); }
+.banpick-row--ban { border-left-color: var(--danger); }
+.banpick-rank { font-weight: var(--fw-bold); font-size: var(--fs-lg); min-width: 1.5em; text-align: center; color: var(--muted); }
+.banpick-name { font-weight: var(--fw-semibold); flex: 1; min-width: 80px; }
+.banpick-score { font-weight: var(--fw-bold); font-size: var(--fs-lg); }
+.banpick-n { font-size: var(--fs-xs); white-space: nowrap; }
+.banpick-low { font-size: var(--fs-xs); opacity: 0.7; }
 /* 역할 스펙트럼 */
 .spectrum { display: flex; flex-direction: column; gap: var(--space-4); margin-top: var(--space-3); }
 .spectrum__axis-labels { display: flex; justify-content: space-between; font-size: var(--fs-xs); font-weight: var(--fw-medium); padding: 0 var(--space-2); }
@@ -303,7 +324,8 @@
 @media (max-width: 600px) {
     .zcs-banner__spark { min-width: 100%; }
     .spectrum__row { grid-template-columns: 80px 1fr; }
-    .map-card__body { gap: var(--space-4); }
+    .banpick-row { gap: var(--space-2); }
+    .banpick-name { min-width: 60px; }
 }
 </style>
 

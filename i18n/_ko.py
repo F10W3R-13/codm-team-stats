@@ -255,6 +255,7 @@ STRINGS = {
         "hub_banpick_help": "맵별 기간 vs 시즌 — 오르는 맵은 픽, 내리는 맵은 밴",
         "hub_pick": "PICK",
         "hub_ban": "BAN",
+        "hub_low_sample": "표본 부족",
         # 역할 스펙트럼
         "hub_role_spectrum": "역할 스펙트럼",
         "hub_spectrum_help": "slay ↔ obj 축 위 선수 위치. 한쪽으로 몰리면 역할 편중.",

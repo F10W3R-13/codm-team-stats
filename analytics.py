@@ -391,6 +391,117 @@ def map_detail(map_name: str, mode: str = "HP", days: int = 30) -> dict:
 
 # ── 코칭 허브 데이터 조립 ──────────────────────────────────────────────────
 
+def banpick_board(recent_matches=None) -> dict:
+    """밴픽 우선순위 리스트 — 픽 1순위 → 밴 1순위 정렬.
+
+    수축(shrinkage) 블렌딩으로 표본 부족 왜곡 방지:
+        blended = (n × recent + k × season) / (n + k),  k = 3
+    팀 시즌 평균 대비 %로 정규화해 맵 간 비교.
+    HP는 ZCS 제1 + K/D 타이브레이크, SND는 K/D만.
+    상위 2 = PICK, 하위 2 = BAN, 중간 = neutral.
+
+    recent_matches: None이면 시즌 전체 모드.
+    반환: {"HP": {ranked, no_data}, "SND": {...}}
+    """
+    import queries
+
+    SHRINK_K = 3  # 시즌 가중치 (낮을수록 최근 민감, 높을수록 안정)
+
+    def _shrink(recent_val, season_val, n):
+        if recent_val is None or season_val is None or n is None:
+            return season_val if season_val is not None else recent_val
+        return (n * recent_val + SHRINK_K * season_val) / (n + SHRINK_K)
+
+    def _mode_board(mode, recent_n):
+        season_maps = queries.map_team_stats(mode, min_matches=2)
+        if not season_maps:
+            return {"ranked": [], "no_data": []}
+
+        # 팀 시즌 평균 (정규화 기준)
+        team_season_zcs = None
+        team_season_kd = None
+        if mode == "HP":
+            zcs_vals = [m["avg_zcs"] for m in season_maps if m.get("avg_zcs") is not None]
+            team_season_zcs = sum(zcs_vals) / len(zcs_vals) if zcs_vals else None
+        kd_vals = [m["avg_kd"] for m in season_maps if m.get("avg_kd") is not None]
+        team_season_kd = sum(kd_vals) / len(kd_vals) if kd_vals else None
+
+        season_by_name = {m["map_name"]: m for m in season_maps}
+
+        # 기간 데이터 (시즌 모드면 None → 시즌값 그대로)
+        if recent_n is None:
+            recent_by_name = {}  # 시즌 모드: 블렌딩 불필요
+        else:
+            recent_maps = queries.map_team_stats_recent(mode, recent_n, min_matches=1)
+            recent_by_name = {m["map_name"]: m for m in recent_maps}
+
+        ranked = []
+        for sm in season_maps:
+            name = sm["map_name"]
+            sv_kd = sm.get("avg_kd")
+            sv_zcs = sm.get("avg_zcs") if mode == "HP" else None
+            rm = recent_by_name.get(name)
+            rv_kd = rm.get("avg_kd") if rm else None
+            rv_zcs = rm.get("avg_zcs") if (rm and mode == "HP") else None
+            n_matches = rm.get("matches") if rm else 0
+            low_sample = (recent_n is not None and n_matches < 3)
+
+            # 블렌딩
+            blended_kd = _shrink(rv_kd, sv_kd, n_matches) if recent_n is not None else sv_kd
+            blended_zcs = _shrink(rv_zcs, sv_zcs, n_matches) if (recent_n is not None and mode == "HP") else sv_zcs
+
+            # 정규화 (팀 시즌 평균 대비 %)
+            score = None
+            score_kd = None
+            if mode == "HP" and blended_zcs is not None and team_season_zcs and team_season_zcs != 0:
+                score = round((blended_zcs / team_season_zcs - 1) * 100, 1)
+            if blended_kd is not None and team_season_kd and team_season_kd != 0:
+                score_kd = round((blended_kd / team_season_kd - 1) * 100, 1)
+            if score is None:  # SND 또는 ZCS 없음 → K/D로
+                score = score_kd if score_kd is not None else 0
+
+            # 델타 (블렌딩값 − 시즌값, 화살표용)
+            delta_pct = None
+            if recent_n is not None and mode == "HP" and sv_zcs and sv_zcs != 0:
+                delta_pct = round((blended_zcs / sv_zcs - 1) * 100, 1) if blended_zcs else None
+            elif recent_n is not None and sv_kd and sv_kd != 0:
+                delta_pct = round((blended_kd / sv_kd - 1) * 100, 1) if blended_kd else None
+
+            ranked.append({
+                "map_name": name,
+                "score": score,
+                "score_kd": score_kd,  # 타이브레이크용
+                "delta_pct": delta_pct,
+                "recent_kd": rv_kd if recent_n is not None else sv_kd,
+                "recent_zcs": rv_zcs if (recent_n is not None and mode == "HP") else sv_zcs,
+                "recent_matches": n_matches if recent_n is not None else sm.get("matches", 0),
+                "season_kd": sv_kd,
+                "season_zcs": sv_zcs,
+                "low_sample": low_sample,
+            })
+
+        # 정렬: score 내림차순, 동점 시 score_kd 내림차순
+        ranked.sort(key=lambda x: (x["score"] if x["score"] is not None else -999,
+                                   x["score_kd"] if x["score_kd"] is not None else -999), reverse=True)
+
+        # 배지 부여 (상위 2 PICK, 하위 2 BAN)
+        total = len(ranked)
+        for i, m in enumerate(ranked):
+            if i < 2:
+                m["badge"] = "pick"
+            elif i >= total - 2:
+                m["badge"] = "ban"
+            else:
+                m["badge"] = "neutral"
+
+        return {"ranked": ranked, "no_data": []}
+
+    return {
+        "HP": _mode_board("HP", recent_matches),
+        "SND": _mode_board("SND", recent_matches),
+    }
+
+
 def coaching_hub(mode: str = "HP", recent_matches: int = 10) -> dict:
     """코칭 허브(/ 홈)용 종합 데이터 — 액션/진단 중심.
 
@@ -462,47 +573,8 @@ def coaching_hub(mode: str = "HP", recent_matches: int = 10) -> dict:
                     })
         form_alerts.sort(key=lambda x: x["delta_pct"])
 
-    # 밴픽보드 — 맵별 기간 vs 시즌 델타 + 픽/밴 추천
-    season_maps = queries.map_team_stats(mode, min_matches=2)
-    season_by_name = {m["map_name"]: m for m in season_maps}
-    if season_mode:
-        # 시즌 모드: 시즌 순위만, 델타/추천 없음
-        map_board = [{
-            "map_name": m["map_name"],
-            "recent": {"kd": None, "zcs": None, "matches": m.get("matches")},
-            "season": {"kd": m.get("avg_kd"), "zcs": m.get("avg_zcs")},
-            "delta_pct": {"kd": None, "zcs": None},
-            "rec": "neutral",
-        } for m in season_maps]
-    else:
-        recent_maps = queries.map_team_stats_recent(mode, n, min_matches=2)
-        map_board = []
-        for rm in recent_maps:
-            sm = season_by_name.get(rm["map_name"], {})
-            kd_delta = None
-            zcs_delta = None
-            sv_kd = sm.get("avg_kd")
-            rv_kd = rm.get("avg_kd")
-            if rv_kd is not None and sv_kd and sv_kd != 0:
-                kd_delta = round((rv_kd - sv_kd) / sv_kd * 100, 1)
-            sv_zcs = sm.get("avg_zcs")
-            rv_zcs = rm.get("avg_zcs")
-            if rv_zcs is not None and sv_zcs and sv_zcs != 0:
-                zcs_delta = round((rv_zcs - sv_zcs) / sv_zcs * 100, 1)
-            # 추천 로직: 양호(델타≥0)→pick, 하락(둘 다 음수)→ban, 그 외 neutral
-            good = (kd_delta is not None and kd_delta >= 0) and \
-                   (zcs_delta is None or zcs_delta >= -3)
-            bad = (kd_delta is not None and kd_delta < 0) and \
-                  (zcs_delta is None or zcs_delta < 0)
-            rec = "pick" if good else ("ban" if bad else "neutral")
-            map_board.append({
-                "map_name": rm["map_name"],
-                "recent": {"kd": rv_kd, "zcs": rv_zcs, "matches": rm.get("matches")},
-                "season": {"kd": sv_kd, "zcs": sv_zcs},
-                "delta_pct": {"kd": kd_delta, "zcs": zcs_delta},
-                "rec": rec,
-            })
-        map_board.sort(key=lambda x: (x["delta_pct"].get("kd") if x["delta_pct"].get("kd") is not None else -999), reverse=True)
+    # 밴픽 우선순위 리스트 (수축 블렌딩 + 정규화 + PICK/BAN 배지)
+    banpick = banpick_board(recent_matches)
 
     # 역할 스펙트럼 (HP 전용, 시즌 누적 기준)
     roles = queries.team_role_distribution() if mode == "HP" else []
@@ -512,6 +584,6 @@ def coaching_hub(mode: str = "HP", recent_matches: int = 10) -> dict:
         "season_mode": season_mode,
         "summary": summary, "zcs_trend": zcs_trend,
         "form_alerts": form_alerts,
-        "map_board": map_board, "roles": roles,
+        "banpick": banpick, "roles": roles,
         "win_loss": win_loss,
     }
