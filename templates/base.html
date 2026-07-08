@@ -205,7 +205,8 @@
             -webkit-font-smoothing: antialiased;
         }
         .nav {
-            background: rgba(255,255,255,0.8);
+            background: var(--surface);  /* 구형 브라우저 폴백 */
+            background: color-mix(in srgb, var(--surface) 88%, transparent);
             backdrop-filter: saturate(180%) blur(12px);
             padding: 0.9rem 2rem;
             display: flex;
@@ -224,7 +225,7 @@
             letter-spacing: -0.02em;
         }
         .nav a {
-            color: var(--text-2);
+            color: var(--text);
             text-decoration: none;
             font-weight: 600;
             font-size: 0.95rem;
