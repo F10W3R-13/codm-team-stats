@@ -291,32 +291,56 @@ class _ConnAdapter:
 
     def upsert(self, table: str, columns: list, values: tuple,
                conflict_col: str, update_cols: list = None):
-        """UPSERT (있으면 업데이트, 없으면 삽입). 새 id 반환.
+        """UPSERT (있으면 업데이트, 없으면 삽입). 새 id 반환 (없으면 None).
 
         SQLite: INSERT OR REPLACE
         Postgres: INSERT ... ON CONFLICT(conflict_col) DO UPDATE SET ...
+
+        ★ RETURNING id 를 무조건 붙이지 않음 — id 컬럼이 없는 테이블
+          (예: match_day_notes, PK=match_date)에선 Postgres에서
+          "column id does not exist" 에러. id 컬럼이 있는 테이블만 반환.
         """
         placeholders = ", ".join(["?"] * len(columns))
         col_list = ", ".join(columns)
         if USE_POSTGRES:
             placeholders = ", ".join(["%s"] * len(columns))
+            # id 컬럼 존재 여부 판단 — 정보 스키마에서 조회
+            has_id = self._has_column(table, "id")
+            returning = " RETURNING id" if has_id else ""
             if update_cols:
                 set_clause = ", ".join(f"{c}=EXCLUDED.{c}" for c in update_cols)
                 sql = (f"INSERT INTO {table} ({col_list}) VALUES ({placeholders}) "
-                       f"ON CONFLICT ({conflict_col}) DO UPDATE SET {set_clause} RETURNING id")
+                       f"ON CONFLICT ({conflict_col}) DO UPDATE SET {set_clause}{returning}")
             else:
                 sql = (f"INSERT INTO {table} ({col_list}) VALUES ({placeholders}) "
-                       f"ON CONFLICT ({conflict_col}) DO NOTHING RETURNING id")
+                       f"ON CONFLICT ({conflict_col}) DO NOTHING{returning}")
             import psycopg2.extras
             cur = self._conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
             cur.execute(sql, values)
-            row = cur.fetchone()
-            return row["id"] if row else None
+            if returning:
+                row = cur.fetchone()
+                return row["id"] if row else None
+            return None
         else:
             sql = f"INSERT OR REPLACE INTO {table} ({col_list}) VALUES ({placeholders})"
             self._conn.row_factory = sqlite3.Row
             cur = self._conn.execute(sql, values)
             return cur.lastrowid
+
+    def _has_column(self, table: str, column: str) -> bool:
+        """Postgres 전용 — 테이블에 특정 컬럼이 있는지 조회. SQLite는 미사용."""
+        if not USE_POSTGRES:
+            return False
+        try:
+            cur = self._conn.cursor()
+            cur.execute(
+                "SELECT 1 FROM information_schema.columns "
+                "WHERE table_name=%s AND column_name=%s",
+                (table, column),
+            )
+            return cur.fetchone() is not None
+        except Exception:
+            return False
 
     def executescript(self, script):
         script = _adapt_sql(script)
