@@ -3,7 +3,6 @@
 
 STRINGS = {
 "nav_brand": "🎯 CODM Stats",
-        "nav_dashboard": "Panel",
         "nav_hub": "Centro",
         "nav_players": "Jugadores",
         "nav_leaderboard": "Ranking",
@@ -26,11 +25,9 @@ STRINGS = {
         "date_unknown": "Fecha desconocida",
         "map_unknown": "Mapa desconocido",
 
-        "dashboard_title": "📊 Panel del Equipo",
         "period": "Periodo",
         "total_matches": "Partidas Totales",
         "stat_players": "Jugadores",
-        "map_distribution": "🗺️ Partidas por Mapa",
         "recent_matches": "🎮 Partidas Recientes",
         "mode_col": "Modo",
 
@@ -215,10 +212,7 @@ STRINGS = {
         "result_col": "Resultado",
         "score_col": "Marcador",
         "win_rate": "Tasa de Victorias",
-        "win_rate_hp": "TV Hardpoint",
-        "win_rate_snd": "TV Search",
         "no_result_data": "Sin resultados registrados. Regístralos en /admin.",
-        "recent_form": "Forma Reciente",
         "match_insight_title": "🧠 Análisis IA",
         "insight_loading": "Análisis no disponible (revisa la API key)",
         "insight_fetching": "Generando análisis IA",
@@ -269,8 +263,6 @@ STRINGS = {
         "matches_suffix": "partidos",
         "hub_link_insights": "Análisis IA · stats por mapa",
         "hub_link_players": "Stats de jugadores · métricas",
-        "hub_link_overview": "Panel",
-        "hub_link_overview_help": "Stats generales · distribución · historial",
         "zcs_label": "ZCS",
         "zcs_full": "Puntaje Control de Zona",
         "zcs_team": "ZCS Promedio del Equipo",

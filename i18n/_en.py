@@ -3,7 +3,6 @@
 
 STRINGS = {
 "nav_brand": "🎯 CODM Stats",
-        "nav_dashboard": "Dashboard",
         "nav_hub": "Hub",
         "nav_players": "Players",
         "nav_leaderboard": "Leaderboard",
@@ -26,11 +25,9 @@ STRINGS = {
         "date_unknown": "Unknown date",
         "map_unknown": "Unknown map",
 
-        "dashboard_title": "📊 Team Dashboard",
         "period": "Period",
         "total_matches": "Total Matches",
         "stat_players": "Players",
-        "map_distribution": "🗺️ Matches by Map",
         "recent_matches": "🎮 Recent Matches",
         "mode_col": "Mode",
 
@@ -215,10 +212,7 @@ STRINGS = {
         "result_col": "Result",
         "score_col": "Score",
         "win_rate": "Win Rate",
-        "win_rate_hp": "HP Win Rate",
-        "win_rate_snd": "SND Win Rate",
         "no_result_data": "No results entered yet. Register outcomes in /admin.",
-        "recent_form": "Recent Form",
         "match_insight_title": "🧠 AI Match Analysis",
         "insight_loading": "Analysis unavailable (check API key)",
         "insight_fetching": "Generating AI analysis",
@@ -269,8 +263,6 @@ STRINGS = {
         "matches_suffix": "matches",
         "hub_link_insights": "AI team analysis · per-map stats",
         "hub_link_players": "Player stats · custom metrics",
-        "hub_link_overview": "Dashboard",
-        "hub_link_overview_help": "Overall stats · map distribution · match history",
         "zcs_label": "ZCS",
         "zcs_full": "Zone Control Score",
         "zcs_team": "Team Avg ZCS",

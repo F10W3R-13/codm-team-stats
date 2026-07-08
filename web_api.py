@@ -96,13 +96,6 @@ async def coaching_hub_page(request: Request, lang: str = Query("ko"),
     return render("coaching_hub.html", lang=lang, data=data, is_admin=is_admin)
 
 
-@app.get("/overview", response_class=HTMLResponse)
-async def dashboard(request: Request, lang: str = Query("ko")):
-    data = queries.overview_stats()
-    data["trend"] = queries.team_trend(30)  # 트렌드 위젯(허브에서 이관, 날짜 기반)
-    return render("dashboard.html", lang=lang, data=data)
-
-
 @app.get("/players", response_class=HTMLResponse)
 async def players_page(
     request: Request,

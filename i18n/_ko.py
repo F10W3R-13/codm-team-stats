@@ -4,7 +4,6 @@
 STRINGS = {
 # 네비게이션
         "nav_brand": "🎯 CODM Stats",
-        "nav_dashboard": "대시보드",
         "nav_hub": "허브",
         "nav_players": "선수",
         "nav_leaderboard": "순위",
@@ -29,11 +28,9 @@ STRINGS = {
         "map_unknown": "맵 미상",
 
         # 대시보드
-        "dashboard_title": "📊 팀 대시보드",
         "period": "기간",
         "total_matches": "총 매치",
         "stat_players": "선수",
-        "map_distribution": "🗺️ 맵별 매치 분포",
         "recent_matches": "🎮 최근 매치",
         "mode_col": "모드",
 
@@ -226,10 +223,7 @@ STRINGS = {
         "result_col": "결과",
         "score_col": "스코어",
         "win_rate": "승률",
-        "win_rate_hp": "HP 승률",
-        "win_rate_snd": "SND 승률",
         "no_result_data": "아직 입력된 승패가 없습니다. /admin에서 결과를 등록하세요.",
-        "recent_form": "최근 승패 흐름",
         "match_insight_title": "🧠 AI 매치 분석",
         "insight_loading": "분석 불가 (API 키를 확인하세요)",
         "insight_fetching": "AI 분석 생성 중",
@@ -281,8 +275,6 @@ STRINGS = {
         "matches_suffix": "매치",
         "hub_link_insights": "AI 팀 분석 · 맵별 성적",
         "hub_link_players": "선수별 스탯 · 커스텀 지표",
-        "hub_link_overview": "대시보드",
-        "hub_link_overview_help": "전체 통계 · 맵 분포 · 매치 히스토리",
         # ZCS (핵심 지표)
         "zcs_label": "ZCS",
         "zcs_full": "존 컨트롤 점수",
