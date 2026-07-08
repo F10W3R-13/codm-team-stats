@@ -31,6 +31,34 @@
     {% endif %}
 </div>
 
+{# ── 팀 트렌드 요약 (최근 30일 vs 시즌) — 허브에서 이관 ── #}
+{% if data.trend and data.trend.recent.matches %}
+<div class="card section">
+    <h2>{{ t.hub_team_trend }}</h2>
+    <div class="grid grid-3">
+        {% set trend_metrics = [
+            ('avg_kd', t.hub_kd), ('avg_k', t.hub_kills), ('avg_dmg', t.hub_dmg)
+        ] %}
+        {% for key, label in trend_metrics %}
+        <div class="trend-stat">
+            <div class="stat-label">{{ label }}</div>
+            <div class="trend-stat__value">
+                {{ data.trend.recent[key] }}
+                {% if data.trend.delta_pct[key] is not none %}
+                {% set delta = data.trend.delta_pct[key]|float %}
+                <span class="delta-{{ 'up' if delta >= 0 else 'down' }} delta-sm">
+                    {{ '+' if delta >= 0 }}{{ delta }}%
+                </span>
+                {% endif %}
+            </div>
+            <div class="muted trend-stat__season">{{ t.hub_season }} {{ data.trend.season[key] }}</div>
+        </div>
+        {% endfor %}
+    </div>
+    <p class="muted trend-note">{{ t.hub_recent }} {{ data.trend.period_days }}{{ t.days_suffix }} · {{ data.trend.recent.matches }}{{ t.matches }}</p>
+</div>
+{% endif %}
+
 <div class="grid grid-2">
     <div class="card">
         <h2>{{ t.map_distribution }}</h2>
@@ -96,6 +124,11 @@
 
 <style>
 .zcs-strong { color: var(--accent); }
+/* 트렌드 위젯 (허브에서 이관) */
+.trend-stat__value { font-size: var(--fs-2xl); font-weight: var(--fw-bold); }
+.delta-sm { font-size: var(--fs-sm); margin-left: var(--space-1); }
+.trend-stat__season { font-size: var(--fs-xs); margin-top: var(--space-1); }
+.trend-note { margin-top: var(--space-3); font-size: var(--fs-xs); }
 </style>
 
 <script>

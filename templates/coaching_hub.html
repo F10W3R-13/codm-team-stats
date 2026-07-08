@@ -6,11 +6,120 @@
 <h1>🎯 {{ t.hub_title }}</h1>
 <p class="muted">{{ t.hub_subtitle }}</p>
 
-{% if data.team_zcs is not none %}
+{# ── ⓪ 코칭 노트 (액션 아이템, 관리자 전용) ── #}
+{% if is_admin %}
+<div class="card section card--accent notes-widget">
+    <h2>📋 {{ t.notes_title }}</h2>
+    <form method="post" action="/admin/notes" class="note-add">
+        <input class="input note-add__input" name="content"
+               placeholder="{{ t.notes_add_placeholder }}" required maxlength="200">
+        <select class="select note-add__player" name="player_id">
+            <option value="">{{ t.notes_player_none }}</option>
+            {% for p in data.players_list %}
+            <option value="{{ p.id }}">{{ p.name }}</option>
+            {% endfor %}
+        </select>
+        <button class="btn btn--primary" type="submit">{{ t.notes_add }}</button>
+    </form>
+    {% if data.open_notes %}
+    <div class="note-list">
+        {% for n in data.open_notes %}
+        <div class="note-item{% if n.elapsed_matches >= 3 %} note-item--stale{% endif %}">
+            <form method="post" action="/admin/notes/{{ n.id }}/toggle" class="note-check">
+                <button class="note-check__btn" type="submit" title="{{ t.notes_resolve }}">✓</button>
+            </form>
+            <span class="note-item__content">{{ n.content }}</span>
+            {% if n.match_id %}<a href="/matches/{{ n.match_id }}?lang={{ lang }}" class="badge">#{{ n.match_id }}</a>{% endif %}
+            {% if n.player_name %}<a href="/players/{{ n.player_name }}?lang={{ lang }}" class="badge">{{ n.player_name }}</a>{% endif %}
+            <span class="muted note-item__elapsed">{{ t.notes_elapsed }} {{ n.elapsed_matches }}{{ t.matches_suffix }}</span>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <p class="muted note-empty">{{ t.notes_empty }}</p>
+    {% endif %}
+</div>
+{% endif %}
+
+{# ── ⓪-2 AI 프리매치 브리핑 (관리자 전용, 버튼 클릭 시 생성) ── #}
+{% if is_admin %}
+<div class="card section card--accent briefing-widget">
+    <h2>🤖 {{ t.briefing_title }}</h2>
+    <div id="briefingContent" class="briefing-content">
+        <button id="briefingBtn" type="button" class="btn btn--primary"
+                onclick="generateBriefing()">{{ t.briefing_generate }}</button>
+        <span id="briefingLoading" class="muted" hidden>⏳ {{ t.briefing_loading }}</span>
+        <div id="briefingResult" class="briefing-result" hidden></div>
+    </div>
+</div>
+<script>
+(function () {
+    // 현재 선택 기간을 data 속성에서 읽음 (토글 클릭 시 페이지 이동이므로 정적)
+    var curRecent = '{{ "season" if data.season_mode else (data.recent_matches | string) }}';
+    window.generateBriefing = function () {
+        var btn = document.getElementById('briefingBtn');
+        var loading = document.getElementById('briefingLoading');
+        var result = document.getElementById('briefingResult');
+        var widget = document.querySelector('.briefing-widget');
+        btn.hidden = true;
+        loading.hidden = false;
+        result.hidden = true;
+        fetch('/api/insight/briefing?recent=' + encodeURIComponent(curRecent))
+            .then(function (r) { return r.json(); })
+            .then(function (d) {
+                loading.hidden = true;
+                if (d.insight) {
+                    result.textContent = d.insight;
+                    result.hidden = false;
+                } else {
+                    // 빈 결과/실패 → 위젯 자체 숨김 (에러 문구로 허브 오염 방지)
+                    widget.style.display = 'none';
+                }
+            })
+            .catch(function () {
+                widget.style.display = 'none';
+            });
+    };
+})();
+</script>
+{% endif %}
+
+{# ── ① 기간 토글 (전역 1개) ── #}
+<div class="period-toggle section">
+    {% set cur_recent = 'season' if data.season_mode else (data.recent_matches|string) %}
+    {% for opt in ['5', '10', 'season'] %}
+    {% set label = t['hub_period_' + opt] if ('hub_period_' + opt) is defined else opt %}
+    <a href="?recent={{ opt }}&lang={{ lang }}"
+       class="btn btn--toggle{% if opt == cur_recent %} active{% endif %}">{{ label }}</a>
+    {% endfor %}
+</div>
+
+{# ── ② ZCS·K/D 요약 한 줄 + ZCS 추이 spark ── #}
+{% if data.summary %}
 <div class="card section card--accent zcs-banner">
-    <div>
-        <div class="stat-label">{{ t.zcs_team }}</div>
-        <div class="stat-value text-accent">{{ data.team_zcs }}</div>
+    <div class="zcs-banner__summary">
+        {# ZCS ── 높을수록 좋음 #}
+        {% set zcs_delta = data.summary.zcs_delta %}
+        <div class="summary-stat">
+            <span class="stat-label">{{ t.zcs_label }}</span>
+            <span class="summary-stat__value text-accent">{{ data.summary.period_zcs if data.summary.period_zcs is not none else '—' }}</span>
+            {% if zcs_delta is not none and not data.season_mode %}
+            <span class="delta-{{ 'up' if zcs_delta >= 0 else 'down' }} delta-sm">{{ '+' if zcs_delta >= 0 }}{{ zcs_delta }}%</span>
+            {% endif %}
+        </div>
+        {# K/D ── 높을수록 좋음 #}
+        {% set kd_delta = data.summary.kd_delta %}
+        <div class="summary-stat">
+            <span class="stat-label">{{ t.hub_kd }}</span>
+            <span class="summary-stat__value">{{ data.summary.period_kd if data.summary.period_kd is not none else '—' }}</span>
+            {% if kd_delta is not none and not data.season_mode %}
+            <span class="delta-{{ 'up' if kd_delta >= 0 else 'down' }} delta-sm">{{ '+' if kd_delta >= 0 }}{{ kd_delta }}%</span>
+            {% endif %}
+        </div>
+        <div class="summary-stat summary-stat--season">
+            <span class="stat-label">{{ t.hub_season }}</span>
+            <span class="muted summary-stat__season-val">ZCS {{ data.summary.season_zcs if data.summary.season_zcs is not none else '—' }} · K/D {{ data.summary.season_kd if data.summary.season_kd is not none else '—' }}</span>
+        </div>
     </div>
     {% if data.zcs_trend %}
     <div class="zcs-banner__spark"><canvas id="zcsChart"></canvas></div>
@@ -18,37 +127,7 @@
 </div>
 {% endif %}
 
-{# ── 팀 트렌드 요약 (최근 vs 시즌) ── #}
-<div class="card section">
-    <h2>{{ t.hub_team_trend }}</h2>
-    {% if data.trend.recent.matches %}
-    <div class="grid grid-3">
-        {% set trend_metrics = [
-            ('avg_kd', t.hub_kd), ('avg_k', t.hub_kills), ('avg_dmg', t.hub_dmg)
-        ] %}
-        {% for key, label in trend_metrics %}
-        <div class="trend-stat">
-            <div class="stat-label">{{ label }}</div>
-            <div class="trend-stat__value">
-                {{ data.trend.recent[key] }}
-                {% if data.trend.delta_pct[key] is not none %}
-                {% set delta = data.trend.delta_pct[key]|float %}
-                <span class="delta-{{ 'up' if delta >= 0 else 'down' }} delta-sm">
-                    {{ '+' if delta >= 0 }}{{ delta }}%
-                </span>
-                {% endif %}
-            </div>
-            <div class="muted trend-stat__season">{{ t.hub_season }} {{ data.trend.season[key] }}</div>
-        </div>
-        {% endfor %}
-    </div>
-    <p class="muted trend-note">{{ t.hub_recent }} {{ data.days }}{{ t.days_suffix }} · {{ data.trend.recent.matches }}{{ t.matches }}</p>
-    {% else %}
-    <p class="muted">{{ t.no_data }}</p>
-    {% endif %}
-</div>
-
-{# ── 폼 경고 (하락 선수) ── #}
+{# ── ③ 폼 경고 (하락 선수) ── #}
 {% if data.form_alerts %}
 <div class="card section card--danger">
     <h2>⚠️ {{ t.hub_form_alerts }}</h2>
@@ -74,51 +153,70 @@
 </div>
 {% endif %}
 
-{# ── 맵 하이라이트 + 밴픽 힌트 ── #}
-{% if data.strong_map or data.weak_map %}
-<div class="grid grid-2 section">
-    {% if data.strong_map %}
-    <a href="/maps/{{ data.strong_map.map_name }}?mode={{ data.mode }}&lang={{ lang }}" class="card card-link card--success">
-        <h2>🟢 {{ t.hub_strong_map }}</h2>
-        <p class="map-name">{{ data.strong_map.map_name }}</p>
-        <p class="muted">{{ t.hub_kd }} {{ data.strong_map.avg_kd }} · {{ data.strong_map.matches }}{{ t.matches }}</p>
-        <p class="map-hint">📌 {{ t.hub_pick_hint }}</p>
-    </a>
-    {% endif %}
-    {% if data.weak_map %}
-    <a href="/maps/{{ data.weak_map.map_name }}?mode={{ data.mode }}&lang={{ lang }}" class="card card-link card--danger">
-        <h2>🔴 {{ t.hub_weak_map }}</h2>
-        <p class="map-name">{{ data.weak_map.map_name }}</p>
-        <p class="muted">{{ t.hub_kd }} {{ data.weak_map.avg_kd }} · {{ data.weak_map.matches }}{{ t.matches }}</p>
-        <p class="map-hint">🚫 {{ t.hub_ban_hint }}</p>
-    </a>
-    {% endif %}
+{# ── ④ 밴픽보드 (맵별 기간 vs 시즌 델타 + 추천) ── #}
+{% if data.map_board %}
+<div class="card section">
+    <h2>🗺️ {{ t.hub_banpick }}</h2>
+    <p class="muted stat-label">{{ t.hub_banpick_help }}</p>
+    <div class="grid grid-3">
+        {% for m in data.map_board %}
+        <a href="/maps/{{ m.map_name }}?mode={{ data.mode }}&lang={{ lang }}"
+           class="card card-link card--{{ 'success' if m.rec == 'pick' else ('danger' if m.rec == 'ban' else 'accent') }}">
+            <div class="map-card__head">
+                <span class="map-name">{{ m.map_name }}</span>
+                {% if m.rec == 'pick' %}<span class="badge win">{{ t.hub_pick }}</span>
+                {% elif m.rec == 'ban' %}<span class="badge loss">{{ t.hub_ban }}</span>
+                {% endif %}
+            </div>
+            <div class="map-card__body">
+                <div class="map-card__metric">
+                    <span class="stat-label">{{ t.hub_kd }}</span>
+                    <span class="map-card__val">{{ m.recent.kd if m.recent.kd is not none else '—' }}</span>
+                    {% if m.delta_pct.kd is not none and not data.season_mode %}
+                    <span class="delta-{{ 'up' if m.delta_pct.kd >= 0 else 'down' }} delta-sm">{{ '+' if m.delta_pct.kd >= 0 }}{{ m.delta_pct.kd }}%</span>
+                    {% endif %}
+                </div>
+                <div class="map-card__metric">
+                    <span class="stat-label">{{ t.zcs_label }}</span>
+                    <span class="map-card__val">{{ m.recent.zcs if m.recent.zcs is not none else '—' }}</span>
+                    {% if m.delta_pct.zcs is not none and not data.season_mode %}
+                    <span class="delta-{{ 'up' if m.delta_pct.zcs >= 0 else 'down' }} delta-sm">{{ '+' if m.delta_pct.zcs >= 0 }}{{ m.delta_pct.zcs }}%</span>
+                    {% endif %}
+                </div>
+            </div>
+            <p class="muted map-card__foot">
+                {% if data.season_mode %}{{ m.recent.matches }}{{ t.matches }} · {{ t.hub_season }}{% else %}{{ m.recent.matches }}{{ t.matches }}{% endif %}
+            </p>
+        </a>
+        {% endfor %}
+    </div>
 </div>
 {% endif %}
 
-{# ── 역할 분포 ── #}
+{# ── ⑤ 역할 스펙트럼 (slay↔obj 축 위 위치) ── #}
 {% if data.roles %}
 <div class="card section">
-    <h2>👥 {{ t.role_title }}</h2>
-    <p class="muted stat-label">{{ t.role_help }}</p>
-    <div class="table-wrap">
-    <table>
-        <thead>
-            <tr><th>{{ t.player }}</th><th>{{ t.role_badge }}</th><th class="num" data-mobile-hide>{{ t.m_kills }}</th><th class="num" data-mobile-hide>{{ t.m_obj }}</th><th class="num" data-mobile-hide>{{ t.m_dmg }}</th><th class="num" data-mobile-hide>Cap</th></tr>
-        </thead>
-        <tbody>
-            {% for p in data.roles %}
-            <tr>
-                <td><a href="/players/{{ p.name }}?lang={{ lang }}" class="player-link">{{ p.name }}</a></td>
-                <td><span class="role-badge role-badge--{{ p.role }}">{{ t['role_' + p.role] }}</span></td>
-                <td class="num" data-mobile-hide>{{ p.avg_k }}</td>
-                <td class="num" data-mobile-hide>{{ p.avg_obj }}</td>
-                <td class="num" data-mobile-hide>{{ p.avg_dmg }}</td>
-                <td class="num" data-mobile-hide>{{ p.avg_capture }}</td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+    <h2>👥 {{ t.hub_role_spectrum }}</h2>
+    <p class="muted stat-label">{{ t.hub_spectrum_help }}</p>
+    <div class="spectrum">
+        <div class="spectrum__axis-labels">
+            <span class="text-hp">{{ t.hub_spectrum_obj }}</span>
+            <span class="muted">{{ t.hub_spectrum_balanced }}</span>
+            <span class="text-danger">{{ t.hub_spectrum_slay }}</span>
+        </div>
+        {% for p in data.roles %}
+        {% set ss = p.slay_score if p.slay_score else 1.0 %}
+        {% set os = p.obj_score if p.obj_score else 1.0 %}
+        {% set norm = ((ss - os) / (ss + os)) %} {# -1(순obj) ~ +1(순slay) #}
+        {% set pos = 50 + (norm * 50)|round(1) %} {# 0% ~ 100% #}
+        <div class="spectrum__row">
+            <a href="/players/{{ p.name }}?lang={{ lang }}" class="player-link spectrum__name">{{ p.name }}</a>
+            <div class="spectrum-track">
+                <span class="spectrum__mid"></span>
+                <span class="spectrum-marker spectrum-marker--{{ p.role }}" style="left: {{ pos }}%"></span>
+            </div>
+        </div>
+        {% endfor %}
     </div>
 </div>
 {% endif %}
@@ -154,19 +252,58 @@
 
 <style>
 /* coaching_hub 페이지 로컬 — 인라인 스타일 대체 클래스 */
+.period-toggle { display: flex; gap: var(--space-2); }
+/* 코칭 노트 */
+.notes-widget .note-add { display: flex; gap: var(--space-2); flex-wrap: wrap; margin-bottom: var(--space-3); }
+.note-add__input { flex: 1; min-width: 200px; }
+.note-add__player { width: auto; min-width: 120px; }
+.note-list { display: flex; flex-direction: column; gap: var(--space-2); }
+.note-item { display: flex; align-items: center; gap: var(--space-2); padding: var(--space-2) var(--space-3); background: var(--card-2); border-radius: var(--radius); }
+.note-item--stale { border-left: 4px solid var(--warning); }
+.note-check { flex-shrink: 0; }
+.note-check__btn { width: 26px; height: 26px; border-radius: var(--radius-full); border: 2px solid var(--border-strong); background: var(--card); cursor: pointer; color: var(--muted); font-size: var(--fs-sm); line-height: 1; display: flex; align-items: center; justify-content: center; transition: border-color 0.15s, color 0.15s; }
+.note-check__btn:hover { border-color: var(--success); color: var(--success); }
+.note-item__content { flex: 1; }
+.note-item__elapsed { font-size: var(--fs-xs); white-space: nowrap; }
+.note-empty { margin-top: var(--space-2); }
+/* AI 프리매치 브리핑 */
+.briefing-content { display: flex; flex-direction: column; gap: var(--space-2); }
+.briefing-result { white-space: pre-wrap; line-height: 1.6; padding: var(--space-2) var(--space-3); background: var(--card-2); border-radius: var(--radius); }
 .zcs-banner { display: flex; align-items: center; gap: var(--space-8); flex-wrap: wrap; }
+.zcs-banner__summary { display: flex; gap: var(--space-8); flex-wrap: wrap; align-items: baseline; }
+.summary-stat { display: flex; flex-direction: column; gap: var(--space-1); }
+.summary-stat__value { font-size: var(--fs-2xl); font-weight: var(--fw-bold); }
+.summary-stat__season-val { font-size: var(--fs-sm); }
 .zcs-banner__spark { flex: 1; min-width: 300px; height: 80px; }
-.trend-stat__value { font-size: var(--fs-2xl); font-weight: var(--fw-bold); }
 .delta-sm { font-size: var(--fs-sm); margin-left: var(--space-1); }
-.trend-stat__season { font-size: var(--fs-xs); margin-top: var(--space-1); }
-.trend-note { margin-top: var(--space-3); font-size: var(--fs-xs); }
 .card-link { text-decoration: none; color: inherit; display: block; transition: transform 0.15s, box-shadow 0.15s; }
 .card-link:hover { transform: translateY(-2px); box-shadow: var(--shadow-lg); }
-.map-name { font-size: var(--fs-xl); font-weight: var(--fw-bold); }
-.map-hint { margin-top: var(--space-2); font-size: var(--fs-sm); }
+.map-name { font-size: var(--fs-lg); font-weight: var(--fw-bold); }
+.map-card__head { display: flex; justify-content: space-between; align-items: center; gap: var(--space-2); margin-bottom: var(--space-3); }
+.map-card__body { display: flex; gap: var(--space-6); margin-bottom: var(--space-2); }
+.map-card__metric { display: flex; flex-direction: column; gap: var(--space-1); }
+.map-card__val { font-size: var(--fs-xl); font-weight: var(--fw-semibold); }
+.map-card__foot { font-size: var(--fs-xs); }
 .win-rate-value { font-size: var(--fs-2xl); font-weight: var(--fw-bold); color: var(--success); }
+/* 역할 스펙트럼 */
+.spectrum { display: flex; flex-direction: column; gap: var(--space-4); margin-top: var(--space-3); }
+.spectrum__axis-labels { display: flex; justify-content: space-between; font-size: var(--fs-xs); font-weight: var(--fw-medium); padding: 0 var(--space-2); }
+.spectrum__row { display: grid; grid-template-columns: 110px 1fr; align-items: center; gap: var(--space-3); }
+.spectrum__name { font-weight: var(--fw-medium); }
+.spectrum-track { position: relative; height: 28px; border-radius: var(--radius-full); background: var(--card-2); }
+.spectrum-track::before {
+    content: ""; position: absolute; inset: 0; border-radius: var(--radius-full);
+    background: linear-gradient(90deg, var(--hp-weak) 0%, transparent 45%, transparent 55%, var(--danger-weak) 100%);
+}
+.spectrum__mid { position: absolute; left: 50%; top: 2px; bottom: 2px; width: 2px; background: var(--border-strong); transform: translateX(-50%); }
+.spectrum-marker { position: absolute; top: 50%; width: 20px; height: 20px; border-radius: var(--radius-full); border: 2px solid var(--card); transform: translate(-50%, -50%); box-shadow: var(--shadow-sm); }
+.spectrum-marker--slayer { background: var(--danger); }
+.spectrum-marker--objective { background: var(--hp); }
+.spectrum-marker--balanced { background: var(--muted); }
 @media (max-width: 600px) {
     .zcs-banner__spark { min-width: 100%; }
+    .spectrum__row { grid-template-columns: 80px 1fr; }
+    .map-card__body { gap: var(--space-4); }
 }
 </style>
 
@@ -180,7 +317,7 @@ const zcsChart = new Chart(document.getElementById('zcsChart'), {
         datasets: [{
             data: zcsData.map(r => r.avg_zcs),
             borderColor: TDS.accent,
-            backgroundColor: 'rgba(38,38,38,0.08)',  /* neutral 액센트 기반 옅은 채움 */
+            backgroundColor: 'rgba(38,38,38,0.08)',
             fill: true, tension: 0.3, pointRadius: 2,
         }]
     },

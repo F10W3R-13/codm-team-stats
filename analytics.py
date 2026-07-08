@@ -391,79 +391,127 @@ def map_detail(map_name: str, mode: str = "HP", days: int = 30) -> dict:
 
 # ── 코칭 허브 데이터 조립 ──────────────────────────────────────────────────
 
-def coaching_hub(mode: str = "HP", days: int = 30) -> dict:
-    """코칭 허브(/ 홈)용 종합 데이터.
+def coaching_hub(mode: str = "HP", recent_matches: int = 10) -> dict:
+    """코칭 허브(/ 홈)용 종합 데이터 — 액션/진단 중심.
 
-    "이번에 봐야 할 것"을 한눈에 보여주기 위한 요약:
-    - 팀 트렌드(최근 vs 시즌)
-    - 팀 승률 요약
-    - 폼 경고: 시즌 평균 대비 최근 K/D 하락 선수
-    - 맵 하이라이트: 가장 강한/약한 맵 (top 1)
-    - 밴픽 힌트: 강한 맵은 픽, 약한 맵은 밴
+    "다음 매치 전에 뭘 해야 하나"를 한눈에:
+    - 기간 토글 전역 단일 (최근 5/10매치/시즌)
+    - ZCS·K/D 요약 한 줄 + ZCS 추이 spark
+    - 폼 경고: 시즌 평균 대비 최근 K/D 하락 선수 (시즌 모드엔 비활성)
+    - 밴픽보드: 맵별 기간 vs 시즌 델타 + 픽/밴 추천
+    - 역할 스펙트럼: slay↔obj 축 위 선수 위치
 
+    recent_matches: None이면 "시즌 전체" 모드.
     반환: {
-        trend, win_loss, mode, days,
-        form_alerts: [{name, season_kd, recent_kd, delta_pct}],
-        strong_map, weak_map,
+        mode, recent_matches,
+        summary: {period_zcs, zcs_delta, period_kd, kd_delta, season_zcs, season_kd},
+        zcs_trend: [...],
+        form_alerts: [...],
+        map_board: [{map_name, recent, season, delta_pct, rec}],
+        roles: [{name, role, slay_score, obj_score, ...}],
+        win_loss,
     }
     """
     import queries
 
-    trend = queries.team_trend(days)
+    season_mode = (recent_matches is None)
+    n = recent_matches if not season_mode else 10
     win_loss = queries.win_loss_summary()
-    maps = queries.map_team_stats(mode, min_matches=3)
 
-    # 폼 경고 — 시즌 평균 vs 최근 5매치 K/D
-    players = queries.all_players_overview(mode)
+    # 트렌드(매치 수 기반) — 요약 + ZCS 추이에 사용
+    trend = queries.team_trend_by_matches(n)
+    summary = {
+        "period_zcs": trend["recent"].get("avg_zcs"),
+        "season_zcs": trend["season"].get("avg_zcs"),
+        "zcs_delta": trend["delta_pct"].get("avg_zcs"),
+        "period_kd": trend["recent"].get("avg_kd"),
+        "season_kd": trend["season"].get("avg_kd"),
+        "kd_delta": trend["delta_pct"].get("avg_kd"),
+        "period_matches": trend["recent"].get("matches"),
+    }
+
+    # ZCS 추이 spark (시즌 모드면 큰 수로 전체)
+    zcs_trend = queries.recent_zcs_trend(n if not season_mode else 100)
+    for r in zcs_trend:
+        if r.get("avg_zcs") is not None:
+            r["avg_zcs"] = float(r["avg_zcs"])
+
+    # 폼 경고 — 시즌 평균 vs 최근 N매치 K/D (시즌 모드엔 무의미 → 비활성)
     form_alerts = []
-    for p in players:
-        pid = queries.get_player_id(p["name"])
-        if not pid:
-            continue
-        recent = queries.player_kd_trend(pid, mode, 5)
-        if len(recent) < 3:
-            continue
-        recent_vals = [r["kd"] for r in recent if r["kd"] is not None]
-        if len(recent_vals) < 3:
-            continue
-        recent_kd = round(sum(recent_vals) / len(recent_vals), 2)
-        season_kd = p["avg_kd"]
-        if season_kd and season_kd > 0:
-            delta_pct = round((recent_kd - season_kd) / season_kd * 100, 1)
-            # 하락(-10% 이하)만 경고
-            if delta_pct <= -10:
-                form_alerts.append({
-                    "name": p["name"], "season_kd": season_kd,
-                    "recent_kd": recent_kd, "delta_pct": delta_pct,
-                    "season_zcs": p.get("zcs"),
-                })
-    # 하락폭 큰 순
-    form_alerts.sort(key=lambda x: x["delta_pct"])
+    if not season_mode and n >= 3:
+        players = queries.all_players_overview(mode)
+        for p in players:
+            pid = queries.get_player_id(p["name"])
+            if not pid:
+                continue
+            recent = queries.player_kd_trend(pid, mode, n)
+            if len(recent) < 3:
+                continue
+            recent_vals = [r["kd"] for r in recent if r["kd"] is not None]
+            if len(recent_vals) < 3:
+                continue
+            recent_kd = round(sum(recent_vals) / len(recent_vals), 2)
+            season_kd = p["avg_kd"]
+            if season_kd and season_kd > 0:
+                delta_pct = round((recent_kd - season_kd) / season_kd * 100, 1)
+                if delta_pct <= -10:
+                    form_alerts.append({
+                        "name": p["name"], "season_kd": season_kd,
+                        "recent_kd": recent_kd, "delta_pct": delta_pct,
+                        "season_zcs": p.get("zcs"),
+                    })
+        form_alerts.sort(key=lambda x: x["delta_pct"])
 
-    # 강한/약한 맵 (avg_kd 기준)
-    strong_map = maps[0] if maps else None
-    weak_map = maps[-1] if maps else None
+    # 밴픽보드 — 맵별 기간 vs 시즌 델타 + 픽/밴 추천
+    season_maps = queries.map_team_stats(mode, min_matches=2)
+    season_by_name = {m["map_name"]: m for m in season_maps}
+    if season_mode:
+        # 시즌 모드: 시즌 순위만, 델타/추천 없음
+        map_board = [{
+            "map_name": m["map_name"],
+            "recent": {"kd": None, "zcs": None, "matches": m.get("matches")},
+            "season": {"kd": m.get("avg_kd"), "zcs": m.get("avg_zcs")},
+            "delta_pct": {"kd": None, "zcs": None},
+            "rec": "neutral",
+        } for m in season_maps]
+    else:
+        recent_maps = queries.map_team_stats_recent(mode, n, min_matches=2)
+        map_board = []
+        for rm in recent_maps:
+            sm = season_by_name.get(rm["map_name"], {})
+            kd_delta = None
+            zcs_delta = None
+            sv_kd = sm.get("avg_kd")
+            rv_kd = rm.get("avg_kd")
+            if rv_kd is not None and sv_kd and sv_kd != 0:
+                kd_delta = round((rv_kd - sv_kd) / sv_kd * 100, 1)
+            sv_zcs = sm.get("avg_zcs")
+            rv_zcs = rm.get("avg_zcs")
+            if rv_zcs is not None and sv_zcs and sv_zcs != 0:
+                zcs_delta = round((rv_zcs - sv_zcs) / sv_zcs * 100, 1)
+            # 추천 로직: 양호(델타≥0)→pick, 하락(둘 다 음수)→ban, 그 외 neutral
+            good = (kd_delta is not None and kd_delta >= 0) and \
+                   (zcs_delta is None or zcs_delta >= -3)
+            bad = (kd_delta is not None and kd_delta < 0) and \
+                  (zcs_delta is None or zcs_delta < 0)
+            rec = "pick" if good else ("ban" if bad else "neutral")
+            map_board.append({
+                "map_name": rm["map_name"],
+                "recent": {"kd": rv_kd, "zcs": rv_zcs, "matches": rm.get("matches")},
+                "season": {"kd": sv_kd, "zcs": sv_zcs},
+                "delta_pct": {"kd": kd_delta, "zcs": zcs_delta},
+                "rec": rec,
+            })
+        map_board.sort(key=lambda x: (x["delta_pct"].get("kd") if x["delta_pct"].get("kd") is not None else -999), reverse=True)
 
-    # ZCS 데이터 (HP 전용)
-    team_zcs = None
-    zcs_trend = []
-    roles = []
-    if mode == "HP":
-        team_zcs = queries.overview_stats().get("team_zcs")
-        if team_zcs is not None:
-            team_zcs = float(team_zcs)
-        zcs_trend = queries.recent_zcs_trend(10)
-        for r in zcs_trend:
-            if r.get("avg_zcs") is not None:
-                r["avg_zcs"] = float(r["avg_zcs"])
-        # 팀 역할 분포
-        roles = queries.team_role_distribution()
+    # 역할 스펙트럼 (HP 전용, 시즌 누적 기준)
+    roles = queries.team_role_distribution() if mode == "HP" else []
 
     return {
-        "trend": trend, "win_loss": win_loss,
-        "mode": mode, "days": days,
+        "mode": mode, "recent_matches": recent_matches,
+        "season_mode": season_mode,
+        "summary": summary, "zcs_trend": zcs_trend,
         "form_alerts": form_alerts,
-        "strong_map": strong_map, "weak_map": weak_map,
-        "team_zcs": team_zcs, "zcs_trend": zcs_trend,
-        "roles": roles,
+        "map_board": map_board, "roles": roles,
+        "win_loss": win_loss,
     }

@@ -304,3 +304,54 @@ def matches_by_date(match_date: str) -> list:
             (match_date,),
         ).fetchall()
         return [dict(r) for r in rows]
+
+
+# ── 코칭 노트 (액션 아이템) ──────────────────────────────────────────────────
+
+def add_note(content: str, match_id: int = None, player_id: int = None) -> int:
+    """코칭 노트 추가 (open 상태). 새 노트 id 반환."""
+    content = (content or "").strip()
+    if not content:
+        return None
+    with db.get_conn() as conn:
+        cur = conn.execute(db._adapt_sql(
+            "INSERT INTO coaching_notes (content, match_id, player_id, status) "
+            "VALUES (?, ?, ?, 'open')"
+        ), (content, match_id, player_id))
+        # Postgres: RETURNING id를 통한 취득은 upsert 헬퍼가 담당하지만,
+        # 단순 INSERT는 lastrowid(SQLite) / cur.fetchone()(Postgres) 분기.
+        if db.USE_POSTGRES:
+            # Postgres psycopg3는 execute 후 RETURNING 없으면 lastrowid 없음.
+            # 안전하게 최신 id 조회.
+            row = conn.execute("SELECT MAX(id) AS id FROM coaching_notes").fetchone()
+            return dict(row)["id"] if row else None
+        return cur.lastrowid
+
+
+def resolve_note(note_id: int) -> bool:
+    """노트 닫기 (open → done, resolved_at 세팅). 성공 여부 반환."""
+    with db.get_conn() as conn:
+        cur = conn.execute(db._adapt_sql(
+            "UPDATE coaching_notes SET status='done', resolved_at=datetime('now') "
+            "WHERE id=? AND status='open'"
+        ), (note_id,))
+        return cur.rowcount > 0
+
+
+def reopen_note(note_id: int) -> bool:
+    """노트 되돌리기 (done → open, resolved_at NULL). 성공 여부 반환."""
+    with db.get_conn() as conn:
+        cur = conn.execute(db._adapt_sql(
+            "UPDATE coaching_notes SET status='open', resolved_at=NULL "
+            "WHERE id=? AND status='done'"
+        ), (note_id,))
+        return cur.rowcount > 0
+
+
+def get_note_status(note_id: int) -> str | None:
+    """노트 현재 상태 조회. 없으면 None."""
+    with db.get_conn() as conn:
+        r = conn.execute(db._adapt_sql(
+            "SELECT status FROM coaching_notes WHERE id=?"
+        ), (note_id,)).fetchone()
+        return dict(r)["status"] if r else None

@@ -345,3 +345,66 @@ def summarize_transcript(report: dict, transcript: str, lang: str = "ko") -> str
         return completion.choices[0].message.content.strip()
     except Exception:
         return ""
+
+
+def briefing_insight(hub_data: dict, lang: str = "ko") -> str:
+    """코칭 허브 데이터 → 프리매치 브리핑 (코치 전용).
+
+    폼 경고·맵 델타·역할 스펙트럼·ZCS 추이·미해결 노트를 종합해
+    "다음 매치 전 봐야 할 3가지"를 생성. 직접 제안 허용 (코치 전용).
+    실패/데이터 부족 시 빈 문자열 반환.
+    """
+    if not hub_data:
+        return ""
+    # 데이터 최소 임계 — 매치 수 3 미만이면 브리핑 무의미
+    period_matches = (hub_data.get("summary") or {}).get("period_matches") or 0
+    if period_matches < 3:
+        return ""
+    try:
+        data = {
+            "period_matches": period_matches,
+            "summary": hub_data.get("summary"),
+            "form_alerts": [
+                {"name": p["name"], "delta_pct": p["delta_pct"],
+                 "season_kd": p["season_kd"], "recent_kd": p["recent_kd"]}
+                for p in (hub_data.get("form_alerts") or [])
+            ],
+            "map_board": [
+                {"map": m["map_name"], "kd_delta": m["delta_pct"]["kd"],
+                 "zcs_delta": m["delta_pct"]["zcs"], "rec": m["rec"]}
+                for m in (hub_data.get("map_board") or [])
+                if m.get("delta_pct", {}).get("kd") is not None
+            ],
+            "roles": [
+                {"name": r["name"], "role": r["role"],
+                 "slay": r.get("slay_score"), "obj": r.get("obj_score")}
+                for r in (hub_data.get("roles") or [])
+            ],
+            "open_notes_count": len(hub_data.get("open_notes") or []),
+        }
+        completion = _client().chat.completions.create(
+            model=config.OPENAI_MODEL,
+            temperature=0.4,
+            max_tokens=600,
+            messages=[
+                {
+                    "role": "system",
+                    "content": prompt_context.build_system_prompt(
+                        "You are the coach's pre-match briefing. Produce EXACTLY 3 items, "
+                        "each item = one action line + one supporting number. "
+                        "Sources: form_alerts (slumping players), map_board deltas (rising/falling maps), "
+                        "role spectrum (composition skew), open_notes (unresolved action items from past reviews). "
+                        "Be DIRECT and prescriptive (the coach acts on this) — unlike player-facing map advice, "
+                        "you MAY give concrete directives ('Focus X', 'Ban Y'). "
+                        "Format strictly: 3 lines, each '1. <conclusion> — <number>'. "
+                        "Keep total under 250 characters. No preamble, no closing remarks. "
+                        "Grounded only in the provided data; no fabrication.",
+                        lang,
+                    ),
+                },
+                {"role": "user", "content": json.dumps(data, ensure_ascii=False)},
+            ],
+        )
+        return completion.choices[0].message.content.strip()
+    except Exception:
+        return ""

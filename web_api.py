@@ -18,7 +18,7 @@ import asyncio
 from pathlib import Path
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, Query, HTTPException, Request, Body, UploadFile, File
+from fastapi import FastAPI, Query, HTTPException, Request, Body, UploadFile, File, Form
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
@@ -78,14 +78,28 @@ async def admin_auth_middleware(request: Request, call_next):
 
 # ── 페이지 ────────────────────────────────────────────────────────────────
 @app.get("/", response_class=HTMLResponse)
-async def coaching_hub_page(request: Request, lang: str = Query("ko")):
-    data = analytics.coaching_hub()
-    return render("coaching_hub.html", lang=lang, data=data)
+async def coaching_hub_page(request: Request, lang: str = Query("ko"),
+                            recent: str = Query("10")):
+    # recent: "5" | "10" | "season" — 이외값은 10으로 폴백
+    if recent == "season":
+        n = None
+    elif recent in ("5", "10"):
+        n = int(recent)
+    else:
+        n = 10
+    data = analytics.coaching_hub(recent_matches=n)
+    # 코칭 노트 (관리자 전용 위젯)
+    cookie_val = request.cookies.get(auth.COOKIE_NAME)
+    is_admin = bool(cookie_val and auth.check_cookie(cookie_val))
+    data["open_notes"] = queries.open_notes() if is_admin else []
+    data["players_list"] = [{"id": p["id"], "name": p["name"]} for p in queries.all_players_overview("HP")] if is_admin else []
+    return render("coaching_hub.html", lang=lang, data=data, is_admin=is_admin)
 
 
 @app.get("/overview", response_class=HTMLResponse)
 async def dashboard(request: Request, lang: str = Query("ko")):
     data = queries.overview_stats()
+    data["trend"] = queries.team_trend(30)  # 트렌드 위젯(허브에서 이관, 날짜 기반)
     return render("dashboard.html", lang=lang, data=data)
 
 
@@ -203,10 +217,20 @@ async def match_detail(request: Request, match_id: int, lang: str = Query("ko"))
     is_admin = bool(cookie_val and auth.check_cookie(cookie_val))
     # 날짜 단위 복기 데이터 (VOD/메모/전사는 날짜 단위)
     day_notes = admin_write.get_day_notes(report.get("match_date")) or {}
+    # 코칭 노트 (관리자: 해당 매치 관련 이력)
+    match_notes = queries.notes_for_match(match_id) if is_admin else []
+    # 노트 선수 태그용 — 이 매치 선수들의 (id, name)
+    match_players = []
+    if is_admin:
+        for p in report.get("players", []):
+            pid = queries.get_player_id(p["name"])
+            if pid:
+                match_players.append({"id": pid, "name": p["name"]})
     # GPT 매치 인사이트 — 캐시 hit 시에만 즉시 렌더. miss면 None (프런트 fetch).
     insight = insight_cache.get("match", str(match_id), lang)
     return render("match_detail.html", lang=lang, report=report, insight=insight,
-                  is_admin=is_admin, day_notes=day_notes)
+                  is_admin=is_admin, day_notes=day_notes, match_notes=match_notes,
+                  match_players=match_players)
 
 
 # ── JSON API (차트용) ────────────────────────────────────────────────────
@@ -278,6 +302,28 @@ async def api_map_insight(map_name: str, mode: str = "HP", lang: str = "ko"):
     if advice:
         insight_cache.set("map", cache_key, lang, advice)
     return {"insight": advice, "cached": False}
+
+
+@app.get("/api/insight/briefing")
+async def api_briefing(recent: str = Query("10")):
+    """코칭 허브 프리매치 브리핑 (코치 전용, ko 고정).
+
+    버튼 클릭 시 호출. 캐시 키: ("briefing", recent, "ko").
+    """
+    if recent not in ("5", "10", "season"):
+        recent = "10"
+    cached = insight_cache.get("briefing", recent, "ko")
+    if cached is not None:
+        return {"insight": cached, "cached": True}
+    n = None if recent == "season" else int(recent)
+    hub_data = analytics.coaching_hub(recent_matches=n)
+    hub_data["open_notes"] = queries.open_notes()
+    loop = asyncio.get_event_loop()
+    insight = await loop.run_in_executor(
+        None, lambda: analytics_insights.briefing_insight(hub_data, lang="ko"))
+    if insight:
+        insight_cache.set("briefing", recent, "ko", insight)
+    return {"insight": insight, "cached": False}
 
 
 # ── 맵 페이지 ─────────────────────────────────────────────────────────────
@@ -525,6 +571,32 @@ async def admin_merge_player(payload: dict = Body(...)):
         return {"ok": False, "message": "src_id 와 dst_player 가 필요합니다"}
     result = db.merge_player(int(src_id), dst_player)
     return result
+
+
+# ── 코칭 노트 (액션 아이템) ──────────────────────────────────────────────────
+@app.post("/admin/notes")
+async def admin_add_note(request: Request,
+                         content: str = Form(...),
+                         match_id: str = Form(""),
+                         player_id: str = Form("")):
+    """노트 추가 (폼 제출). 매치 상세/허브에서 POST → referer로 되돌아감."""
+    mid = int(match_id) if match_id else None
+    pid = int(player_id) if player_id else None
+    admin_write.add_note(content, match_id=mid, player_id=pid)
+    insight_cache.invalidate("briefing")  # 노트가 브리핑 컨텍스트 → 무효화
+    return RedirectResponse(url=request.headers.get("referer", "/"), status_code=303)
+
+
+@app.post("/admin/notes/{note_id}/toggle")
+async def admin_toggle_note(note_id: int, request: Request):
+    """노트 상태 토글 — open→done, done→open."""
+    status = admin_write.get_note_status(note_id)
+    if status == "open":
+        admin_write.resolve_note(note_id)
+    elif status == "done":
+        admin_write.reopen_note(note_id)
+    insight_cache.invalidate("briefing")  # 노트가 브리핑 컨텍스트 → 무효화
+    return RedirectResponse(url=request.headers.get("referer", "/"), status_code=303)
 
 
 if __name__ == "__main__":

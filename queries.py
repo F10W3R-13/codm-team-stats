@@ -752,6 +752,97 @@ def map_team_stats(mode: str = "HP", min_matches: int = 2) -> list:
     return rows
 
 
+def map_team_stats_recent(mode: str = "HP", recent_matches: int = 10,
+                          min_matches: int = 2) -> list:
+    """맵별 팀 성적 — 최근 N매치 기준 (코칭 허브 밴픽보드용).
+
+    전체 매치 풀에서 최근 N매치(match id DESC)만 추려 그 안에서 맵별 집계.
+    시즌 전체용은 map_team_stats() 사용.
+    반환: map_team_stats()와 동일 키 [{map_name, matches, avg_kd, avg_k, avg_dmg, avg_zcs}]
+    """
+    if recent_matches is None:
+        return map_team_stats(mode, min_matches)
+    if recent_matches <= 0:
+        recent_matches = 10
+    # 최근 N매치 id 서브쿼리 (mode 고정) — SQLite/Postgres 공통
+    recent_ids = f"SELECT id FROM matches WHERE mode='{mode}' ORDER BY id DESC LIMIT {int(recent_matches)}"
+    if mode == "HP":
+        sql = f"""SELECT LOWER(m.map_name) map_name,
+                        COUNT(*) n_matches,
+                        ROUND(AVG(s.kd_ratio),2) avg_kd,
+                        ROUND(AVG(s.kills),1) avg_k,
+                        ROUND(AVG(s.total_damage),0) avg_dmg,
+                        ROUND(AVG(MAX(0, 1.1*s.obj_time + 8*s.capture_kill + 4.1*s.kills - 5*s.deaths)),1) avg_zcs
+                 FROM player_stats_hp s JOIN matches m ON m.id=s.match_id
+                 WHERE m.map_name IS NOT NULL AND m.map_name != '' AND m.mode='HP'
+                   AND m.id IN ({recent_ids})
+                 GROUP BY LOWER(m.map_name)
+                 HAVING COUNT(*) >= ?
+                 ORDER BY avg_kd DESC"""
+    else:
+        sql = f"""SELECT LOWER(m.map_name) map_name,
+                        COUNT(*) n_matches,
+                        ROUND(AVG(s.kd_ratio),2) avg_kd,
+                        ROUND(AVG(s.kills),1) avg_k,
+                        ROUND(AVG(s.adr),0) avg_adr
+                 FROM player_stats_snd s JOIN matches m ON m.id=s.match_id
+                 WHERE m.map_name IS NOT NULL AND m.map_name != '' AND m.mode='SND'
+                   AND m.id IN ({recent_ids})
+                 GROUP BY LOWER(m.map_name)
+                 HAVING COUNT(*) >= ?
+                 ORDER BY avg_kd DESC"""
+    with db.get_conn() as conn:
+        rows = [dict(r) for r in conn.execute(db._adapt_sql(sql), (min_matches,)).fetchall()]
+    for r in rows:
+        r["matches"] = r.pop("n_matches")
+        r["map_name"] = r["map_name"].strip().title()
+    return rows
+
+
+def team_trend_by_matches(recent_matches: int = 10) -> dict:
+    """팀 전체 추세 — 최근 N매치 vs 시즌 전체 (HP 기준, 매치 수 기반).
+
+    coaching_hub용. 기존 team_trend(days)와 달리 날짜가 아닌 매치 수 기준.
+    반환: {
+        recent: {matches, avg_kd, avg_k, avg_dmg, avg_zcs},
+        season: {matches, avg_kd, avg_k, avg_dmg, avg_zcs},
+        delta_pct: {avg_kd, avg_k, avg_dmg, avg_zcs},
+    }
+    """
+    if recent_matches is None:
+        recent_matches = 10
+    if recent_matches <= 0:
+        recent_matches = 10
+    recent_ids = f"SELECT id FROM matches WHERE mode='HP' ORDER BY id DESC LIMIT {int(recent_matches)}"
+    zcs_expr = "MAX(0, 1.1*s.obj_time + 8*s.capture_kill + 4.1*s.kills - 5*s.deaths)"
+    with db.get_conn() as conn:
+        r = conn.execute(db._adapt_sql(f"""SELECT COUNT(*) matches,
+                       ROUND(AVG(s.kd_ratio),2) avg_kd,
+                       ROUND(AVG(s.kills),1) avg_k,
+                       ROUND(AVG(s.total_damage),0) avg_dmg,
+                       ROUND(AVG({zcs_expr}),1) avg_zcs
+                FROM player_stats_hp s JOIN matches m ON m.id=s.match_id
+                WHERE m.id IN ({recent_ids})""")).fetchone()
+        recent = dict(r) if r else {}
+        s = conn.execute(db._adapt_sql(f"""SELECT COUNT(*) matches,
+                      ROUND(AVG(s.kd_ratio),2) avg_kd,
+                      ROUND(AVG(s.kills),1) avg_k,
+                      ROUND(AVG(s.total_damage),0) avg_dmg,
+                      ROUND(AVG({zcs_expr}),1) avg_zcs
+               FROM player_stats_hp s JOIN matches m ON m.id=s.match_id""")).fetchone()
+        season = dict(s) if s else {}
+    delta = {}
+    for k in ("avg_kd", "avg_k", "avg_dmg", "avg_zcs"):
+        rv = recent.get(k)
+        sv = season.get(k)
+        if rv is not None and sv and sv != 0:
+            delta[k] = round((rv - sv) / sv * 100, 1)
+        else:
+            delta[k] = None
+    return {"recent": recent, "season": season, "delta_pct": delta,
+            "recent_matches": recent_matches}
+
+
 def map_player_stats(map_name: str, mode: str = "HP", min_matches: int = 2) -> list:
     """특정 맵에서의 선수별 성적.
 
@@ -1111,8 +1202,11 @@ def compare_players(name_a: str, name_b: str, mode: str = "HP") -> dict:
 def team_role_distribution() -> list:
     """HP 기준 팀 전체 선수의 역할 분포.
 
-    반환: [{name, role, avg_k, avg_obj, avg_dmg, avg_capture}, ...]
+    반환: [{name, role, slay_score, obj_score, avg_k, avg_obj, avg_dmg, avg_capture}, ...]
     role: "slayer" | "objective" | "balanced"
+    slay_score / obj_score: classify_role 내부 비율 로직을 표시 계층에서 재현한 연속값.
+      (팀평균 대비 개인평균 비율의 평균 — metrics.py 공식과 동일, 출처 고정 원칙 준수)
+      (slay_score - obj_score)/(slay_score + obj_score) → -1(순obj)~+1(순slay).
     """
     import metrics
     players = all_players_overview("HP")
@@ -1123,6 +1217,11 @@ def team_role_distribution() -> list:
             vals = [p.get(k_src) for p in players if p.get(k_src) is not None]
             team_avg[k_dst] = round(sum(vals) / len(vals), 2) if vals else 0
 
+    def _ratio(indiv, team):
+        if not indiv or not team:
+            return 1.0
+        return indiv / team
+
     out = []
     for p in players:
         # all_players_overview는 캡처킬을 avg_ck로 리턴 → classify_role에 맞게 복사
@@ -1130,9 +1229,77 @@ def team_role_distribution() -> list:
         if "avg_ck" in p_norm and "avg_capture" not in p_norm:
             p_norm["avg_capture"] = p_norm["avg_ck"]
         role = metrics.classify_role(p_norm, team_avg)
+        # classify_role 내부 점수 로직 동일 재현 (metrics.py 미수정)
+        slay = round((_ratio(p_norm.get("avg_k"), team_avg.get("avg_k")) +
+                      _ratio(p_norm.get("avg_dmg"), team_avg.get("avg_dmg"))) / 2, 3)
+        obj = round((_ratio(p_norm.get("avg_obj"), team_avg.get("avg_obj")) +
+                     _ratio(p_norm.get("avg_capture"), team_avg.get("avg_capture"))) / 2, 3)
         out.append({
             "name": p["name"], "role": role,
+            "slay_score": slay, "obj_score": obj,
             "avg_k": p.get("avg_k"), "avg_obj": p.get("avg_obj"),
             "avg_dmg": p.get("avg_dmg"), "avg_capture": p_norm.get("avg_capture"),
         })
     return out
+
+
+# ── 코칭 노트 (액션 아이템) ──────────────────────────────────────────────────
+
+def _elapsed_matches(conn, match_id, created_at):
+    """노트 이후 경과한 HP 매치 수. match_id 있으면 id 비교, 없으면 created_at 기준."""
+    if match_id:
+        r = conn.execute(
+            "SELECT COUNT(*) AS n FROM matches WHERE id > ? AND mode='HP'", (match_id,)
+        ).fetchone()
+    else:
+        # created_at 이후 매치 — created_at은 'YYYY-MM-DD HH:MM:SS' (datetime),
+        # match_date는 'YYYY-MM-DD'라 날짜 추출 비교.
+        created_day = (created_at or "")[:10]
+        if created_day:
+            r = conn.execute(
+                "SELECT COUNT(*) AS n FROM matches "
+                "WHERE match_date >= ? AND mode='HP'", (created_day,)
+            ).fetchone()
+        else:
+            r = {"n": 0}
+    return dict(r)["n"] if r else 0
+
+
+def open_notes(limit: int = 20) -> list:
+    """open 노트 — 오래된 순. 허브용.
+
+    반환: [{id, content, match_id, player_id, player_name, created_at, elapsed_matches}]
+    elapsed_matches = 노트 이후 경과한 HP 매치 수 (방치 압박 지표).
+    """
+    with db.get_conn() as conn:
+        rows = [dict(r) for r in conn.execute(db._adapt_sql(
+            "SELECT n.id, n.content, n.match_id, n.player_id, n.created_at, "
+            "       p.name AS player_name "
+            "FROM coaching_notes n "
+            "LEFT JOIN players p ON p.id = n.player_id "
+            "WHERE n.status='open' "
+            "ORDER BY n.created_at ASC, n.id ASC "
+            "LIMIT ?"
+        ), (limit,)).fetchall()]
+        for r in rows:
+            r["elapsed_matches"] = _elapsed_matches(
+                conn, r.get("match_id"), r.get("created_at")
+            )
+    return rows
+
+
+def notes_for_match(match_id: int) -> list:
+    """특정 매치 관련 노트(open+done) 이력. 매치 상세용. 최신 순.
+
+    반환: [{id, content, status, player_id, player_name, created_at, resolved_at}]
+    """
+    with db.get_conn() as conn:
+        rows = [dict(r) for r in conn.execute(db._adapt_sql(
+            "SELECT n.id, n.content, n.status, n.player_id, n.created_at, n.resolved_at, "
+            "       p.name AS player_name "
+            "FROM coaching_notes n "
+            "LEFT JOIN players p ON p.id = n.player_id "
+            "WHERE n.match_id=? "
+            "ORDER BY n.created_at DESC, n.id DESC"
+        ), (match_id,)).fetchall()]
+    return rows

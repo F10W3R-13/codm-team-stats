@@ -22,6 +22,22 @@
 .insight-text { line-height: 1.7; }
 .zcs-strong { color: var(--accent); }
 .meta-note { font-size: var(--fs-xs); }
+/* 코칭 노트 */
+.match-notes .note-add { display: flex; gap: var(--space-2); flex-wrap: wrap; margin-bottom: var(--space-3); }
+.note-add__input { flex: 1; min-width: 200px; }
+.note-add__player { width: auto; min-width: 120px; }
+.note-list { display: flex; flex-direction: column; gap: var(--space-2); }
+.note-item { display: flex; align-items: center; gap: var(--space-2); padding: var(--space-2) var(--space-3); background: var(--card-2); border-radius: var(--radius); }
+.note-item--done { opacity: 0.6; }
+.note-item--done .note-item__content { text-decoration: line-through; }
+.note-check { flex-shrink: 0; }
+.note-check__btn { width: 26px; height: 26px; border-radius: var(--radius-full); border: 2px solid var(--border-strong); background: var(--card); cursor: pointer; color: var(--muted); font-size: var(--fs-sm); line-height: 1; display: flex; align-items: center; justify-content: center; transition: border-color 0.15s, color 0.15s; }
+.note-check__btn:hover { border-color: var(--success); color: var(--success); }
+.note-check__btn--done { border-color: var(--success); color: var(--success); }
+.note-check__btn--done:hover { border-color: var(--accent); color: var(--accent); }
+.note-item__content { flex: 1; }
+.note-item__resolved { font-size: var(--fs-xs); }
+.note-empty { margin-top: var(--space-2); }
 </style>
 {% endblock %}
 
@@ -32,6 +48,47 @@
 {% endif %}
 <h1>🎮 {{ t.match }} #{{ report.match_id }} <span class="badge {{ report.mode|lower }}">{{ t['mode_' + report.mode.lower()] }}</span></h1>
 <p class="muted">📅 {{ report.match_date or t.date_unknown }} · 🗺️ {{ report.map_name or t.map_unknown }}</p>
+
+{% if is_admin %}
+{# ── 코칭 노트 (이 매치 복기 액션 아이템) ── #}
+<div class="card section card--accent match-notes">
+    <h2>📋 {{ t.notes_title }}</h2>
+    <form method="post" action="/admin/notes" class="note-add">
+        <input type="hidden" name="match_id" value="{{ report.match_id }}">
+        <input class="input note-add__input" name="content"
+               placeholder="{{ t.notes_match_placeholder }}" required maxlength="200">
+        <select class="select note-add__player" name="player_id">
+            <option value="">{{ t.notes_player_none }}</option>
+            {% for p in match_players %}
+            <option value="{{ p.id }}">{{ p.name }}</option>
+            {% endfor %}
+        </select>
+        <button class="btn btn--primary btn--sm" type="submit">{{ t.notes_add }}</button>
+    </form>
+    {% if match_notes %}
+    <div class="note-list">
+        {% for n in match_notes %}
+        <div class="note-item note-item--{{ n.status }}">
+            {% if n.status == 'open' %}
+            <form method="post" action="/admin/notes/{{ n.id }}/toggle" class="note-check">
+                <button class="note-check__btn" type="submit" title="{{ t.notes_resolve }}">✓</button>
+            </form>
+            {% else %}
+            <form method="post" action="/admin/notes/{{ n.id }}/toggle" class="note-check">
+                <button class="note-check__btn note-check__btn--done" type="submit" title="{{ t.notes_reopen }}">↩</button>
+            </form>
+            {% endif %}
+            <span class="note-item__content">{{ n.content }}</span>
+            {% if n.player_name %}<a href="/players/{{ n.player_name }}?lang={{ lang }}" class="badge">{{ n.player_name }}</a>{% endif %}
+            {% if n.status == 'done' and n.resolved_at %}<span class="muted note-item__resolved">{{ n.resolved_at[:10] }}</span>{% endif %}
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <p class="muted note-empty">{{ t.notes_match_empty }}</p>
+    {% endif %}
+</div>
+{% endif %}
 
 {% if report.result %}
 <div class="card section result-banner">

@@ -102,6 +102,21 @@ CREATE TABLE IF NOT EXISTS match_day_notes (
     transcript_summary  TEXT,
     created_at          TEXT NOT NULL DEFAULT (datetime('now'))
 );
+
+-- 코칭 노트 (액션 아이템) — "다음 매치 전에 고칠 것". 복기→준비 루프.
+-- open: 허브 최상단 표시. done: 허브 숨김, 매치 상세에서만 이력 확인.
+CREATE TABLE IF NOT EXISTS coaching_notes (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    content     TEXT NOT NULL,
+    match_id    INTEGER,                 -- 어느 매치 복기에서 나왔는지 (nullable)
+    player_id   INTEGER,                 -- 특정 선수 태그 (nullable)
+    status      TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open','done')),
+    created_at  TEXT NOT NULL DEFAULT (datetime('now')),
+    resolved_at TEXT,
+    FOREIGN KEY (match_id) REFERENCES matches(id),
+    FOREIGN KEY (player_id) REFERENCES players(id)
+);
+CREATE INDEX IF NOT EXISTS idx_coaching_notes_status ON coaching_notes(status);
 """
 
 
