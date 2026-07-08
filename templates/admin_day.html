@@ -45,14 +45,16 @@
     <form id="dayForm" class="meta-form">
         <div class="meta-field">
             <label class="muted meta-label" for="vod_url">🎬 {{ t.vod_link }}</label>
-            <input type="text" name="vod_url" id="vod_url" class="input" value="{{ day_notes.vod_url or '' }}" placeholder="https://youtube.com/watch?v=...">
+            <input type="text" name="vod_url" id="vod_url" class="input" value="{{ day_notes.vod_url or '' }}" placeholder="https://youtube.com/watch?v=..." oninput="updateVodPreview()">
+            <div id="vodPreview" class="vod-preview"></div>
         </div>
         <div class="meta-field">
             <label class="muted meta-label" for="coach_note">📝 {{ t.coach_note }}</label>
             <textarea name="coach_note" id="coach_note" class="input meta-textarea" rows="5" placeholder="{{ t.coach_note_placeholder }}">{{ day_notes.coach_note or '' }}</textarea>
         </div>
-        <div>
-            <button type="button" class="btn btn--primary" onclick="saveDayMeta()">{{ t.save }}</button>
+        <div class="meta-actions">
+            <button type="button" id="saveMetaBtn" class="btn btn--primary" onclick="saveDayMeta()">{{ t.save }}</button>
+            <span id="metaStatus" class="meta-status"></span>
         </div>
     </form>
 </div>
@@ -85,34 +87,84 @@
 .transcript-text { line-height: 1.6; white-space: pre-wrap; margin-top: var(--space-1); }
 .transcript-actions { display: flex; gap: var(--space-3); flex-wrap: wrap; align-items: center; }
 .transcript-file { font-size: var(--fs-xs); }
+/* VOD 미리보기 + 저장 상태 */
+.vod-preview { margin-top: var(--space-3); }
+.vod-preview:empty { display: none; }
+.vod-preview-frame { position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; border-radius: var(--radius-sm); border: 1px solid var(--border); }
+.vod-preview-frame iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: 0; }
+.vod-preview-hint { font-size: var(--fs-xs); color: var(--muted); }
+.vod-preview-error { font-size: var(--fs-xs); color: var(--danger); }
+.meta-actions { display: flex; align-items: center; gap: var(--space-3); }
+.meta-status { font-size: var(--fs-sm); min-height: 1.4em; }
+.meta-status--ok  { color: var(--success); }
+.meta-status--err { color: var(--danger); }
+.meta-status--saving { color: var(--muted); }
 </style>
 
 <script>
 const matchDate = {{ match_date | tojson }};
 const lang = "{{ lang }}";
 
-// flash() — 토스트 알림 (토큰 기반 색)
-function flash(msg, ok=true) {
-    const d = document.createElement('div');
-    d.textContent = msg;
-    d.className = 'toast toast--' + (ok ? 'ok' : 'err');
-    document.body.appendChild(d);
-    setTimeout(() => d.remove(), 2000);
+// ── VOD 미리보기 — YouTube URL에서 video ID 추출해 임베딩 ──
+function extractYouTubeId(url) {
+    if (!url) return null;
+    const m = url.match(/(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([A-Za-z0-9_-]{11})/);
+    return m ? m[1] : null;
+}
+function updateVodPreview() {
+    const url = document.getElementById('vod_url').value.trim();
+    const box = document.getElementById('vodPreview');
+    const vid = extractYouTubeId(url);
+    if (vid) {
+        box.innerHTML = `<div class="vod-preview-frame"><iframe src="https://www.youtube.com/embed/${vid}" allowfullscreen loading="lazy"></iframe></div>`;
+    } else if (url) {
+        box.innerHTML = `<p class="vod-preview-error">⚠️ YouTube 링크를 인식 못함 (watch?v=, youtu.be/, embed/ 형식만)</p>`;
+    } else {
+        box.innerHTML = '';
+    }
 }
 
 function saveDayMeta() {
     const form = document.getElementById('dayForm');
+    const btn = document.getElementById('saveMetaBtn');
+    const status = document.getElementById('metaStatus');
     const payload = {};
     new FormData(form).forEach((v, k) => { payload[k] = v === '' ? null : v; });
+    // 저장 중 상태
+    btn.disabled = true;
+    const orig = btn.textContent;
+    btn.textContent = '⏳';
+    status.className = 'meta-status meta-status--saving';
+    status.textContent = "{{ t.saving if t.saving is defined else '저장 중...' }}";
     fetch(`/admin/day/${encodeURIComponent(matchDate)}/meta`, {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify(payload),
     }).then(r => r.json()).then(d => {
-        if (d.ok) flash("{{ t.saved_ok }}");
-        else flash("Error", false);
+        btn.disabled = false;
+        btn.textContent = orig;
+        if (d.ok) {
+            status.className = 'meta-status meta-status--ok';
+            status.textContent = "✓ {{ t.saved_ok }}";
+            flash("{{ t.saved_ok }}");
+        } else {
+            status.className = 'meta-status meta-status--err';
+            status.textContent = "✗ 저장 실패";
+            flash("저장 실패", false);
+        }
+        // 3초 후 상태 텍스트 숨김
+        setTimeout(() => { status.textContent = ''; status.className = 'meta-status'; }, 3000);
+    }).catch(() => {
+        btn.disabled = false;
+        btn.textContent = orig;
+        status.className = 'meta-status meta-status--err';
+        status.textContent = "✗ 네트워크 오류";
+        flash("네트워크 오류", false);
     });
 }
+
+// 페이지 로드 시 VOD 있으면 미리보기 표시
+updateVodPreview();
 
 function uploadTranscript() {
     const inp = document.getElementById('transcriptFile');

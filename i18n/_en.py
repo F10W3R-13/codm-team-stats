@@ -167,6 +167,7 @@ STRINGS = {
         "date_unknown": "Unknown date",
         "confirm_delete": "Delete this match? This cannot be undone.",
         "saved_ok": "Saved",
+        "saving": "Saving...",
         "deleted_ok": "Deleted",
         "add_player": "Add Player",
         "added_ok": "Player added",

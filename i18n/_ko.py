@@ -177,6 +177,7 @@ STRINGS = {
         "date_unknown": "날짜 미상",
         "confirm_delete": "정말 이 매치를 삭제할까요? 이 작업은 되돌릴 수 없습니다.",
         "saved_ok": "저장됨",
+        "saving": "저장 중...",
         "deleted_ok": "삭제됨",
         "add_player": "선수 추가",
         "added_ok": "선수 추가됨",

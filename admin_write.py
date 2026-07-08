@@ -257,20 +257,34 @@ def get_day_notes(match_date: str) -> dict:
 def update_day_meta(match_date: str, **fields) -> bool:
     """날짜 단위 복기(coach_note/vod_url/transcript_summary) 갱신 (UPSERT).
 
-    빈값(None)도 저장=클리어 허용.
+    ★ 부분 갱신 지원: 전달된 필드만 업데이트.
+    빈 문자열("")은 None으로 정규화(클리어), 아예 전달되지 않은 필드는 기존값 유지.
+    (이전 구현은 세 필드를 통째로 UPSERT해 빈 필드가 다른 필드를 None으로 덮어쓰는
+     데이터 손실 버그가 있었음.)
     """
     if not match_date:
         return False
     allowed = {"coach_note", "vod_url", "transcript_summary"}
-    vals = {k: v for k, v in fields.items() if k in allowed}
+    # 전달된 필드만, 빈문자열→None 정규화
+    vals = {k: (v if v != "" else None) for k, v in fields.items() if k in allowed}
     if not vals:
         return False
     with db.get_conn() as conn:
+        # 기존값 조회 후 병합 — 전달되지 않은 필드는 기존값 유지
+        existing = conn.execute(
+            "SELECT coach_note, vod_url, transcript_summary FROM match_day_notes WHERE match_date=?",
+            (match_date,),
+        ).fetchone()
+        merged = {
+            "coach_note": vals.get("coach_note", existing["coach_note"] if existing else None),
+            "vod_url": vals.get("vod_url", existing["vod_url"] if existing else None),
+            "transcript_summary": vals.get("transcript_summary",
+                                           existing["transcript_summary"] if existing else None),
+        }
         conn.upsert(
             "match_day_notes",
             ["match_date", "coach_note", "vod_url", "transcript_summary"],
-            (match_date,
-             vals.get("coach_note"), vals.get("vod_url"), vals.get("transcript_summary")),
+            (match_date, merged["coach_note"], merged["vod_url"], merged["transcript_summary"]),
             conflict_col="match_date",
             update_cols=["coach_note", "vod_url", "transcript_summary"],
         )

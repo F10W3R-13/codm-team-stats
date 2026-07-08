@@ -167,6 +167,7 @@ STRINGS = {
         "date_unknown": "Fecha desconocida",
         "confirm_delete": "¿Eliminar esta partida? No se puede deshacer.",
         "saved_ok": "Guardado",
+        "saving": "Guardando...",
         "deleted_ok": "Eliminado",
         "add_player": "Añadir Jugador",
         "added_ok": "Jugador añadido",
