@@ -92,7 +92,13 @@ async def coaching_hub_page(request: Request, lang: str = Query("ko"),
     cookie_val = request.cookies.get(auth.COOKIE_NAME)
     is_admin = bool(cookie_val and auth.check_cookie(cookie_val))
     data["open_notes"] = queries.open_notes() if is_admin else []
-    data["players_list"] = [{"id": p["id"], "name": p["name"]} for p in queries.all_players_overview("HP")] if is_admin else []
+    # 선수 태그용 — 실제 DB id (all_players_overview의 id는 metrics ID 지표라 사용 불가)
+    data["players_list"] = [
+        {"id": pid, "name": p["name"]}
+        for p in queries.all_players_overview("HP")
+        for pid in [queries.get_player_id(p["name"])]
+        if pid
+    ] if is_admin else []
     return render("coaching_hub.html", lang=lang, data=data, is_admin=is_admin)
 
 
