@@ -169,7 +169,7 @@ def main():
 
     # 2) 맵
     new_maps = find_new_maps(text)
-    print("─── 미등록 맵 이름 후보 (prompt_context._MAP_META 검토) ───")
+    print("─── 미등록 맵 이름 후보 (coaching brain/knowledge/maps/ 신규 파일 검토) ───")
     if new_maps:
         for w, c in new_maps:
             print(f"  {w} ({c}회)")
@@ -185,8 +185,9 @@ def main():
     print()
 
     print("─── 다음 단계 ───")
-    print("1. 위 제안을 검토해 prompt_context.py의 _PLAYER_IGN_MAP / _MAP_META 편집.")
-    print("2. 새 게임 메타·코칭 패턴이 보이면 _STATIC_DOMAIN_CONTEXT도 갱신.")
+    print("1. 선수 발음 변형 후보 → prompt_context.py의 _PLAYER_IGN_MAP 편집.")
+    print("2. 새 맵·모드·역학·코칭 패턴 → coaching brain/knowledge/ 해당 md 파일 편집.")
+    print("   (mtime 캐싱이라 다음 AI 호출에 자동 반영 — 재시작 불필요)")
     print("3. 팀 로스터는 자동(DB 조회)이므로 수동 갱신 불필요.")
     print("4. 커밋.")
 

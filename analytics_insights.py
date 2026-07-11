@@ -13,6 +13,34 @@ import config
 import prompt_context
 from openai import OpenAI
 
+
+def _domains_for_match(mode: str, map_name: str = None, extra: list = None) -> list:
+    """매치/맵 계열 인사이트 공용: 모드+맵 도메인 조합.
+
+    mode: 'HP'/'SND'/'Control'. map_name: DB map_name (대소문자 무관, loader가 매칭).
+    extra: 추가 영역 (예: ['team','mechanics-terms']).
+    """
+    d = ["principles", "mechanics-core"]
+    mode_key = {"HP": "mode-hp", "SND": "mode-snd", "Control": "mode-control"}.get(mode)
+    if mode_key:
+        d.append(mode_key)
+    if map_name:
+        d.append(f"maps:{map_name}")  # 코칭 브레인에 없으면 loader가 스킵
+    if extra:
+        d.extend(extra)
+    return d
+
+
+def _domains_for_player(stats: dict) -> list:
+    """선수 프로필용 도메인: hp/snd 존재 여부로 모드 영역 선택."""
+    d = ["principles", "mechanics-core", "mechanics-meta"]
+    if stats.get("hp"):
+        d.append("mode-hp")
+    if stats.get("snd"):
+        d.append("mode-snd")
+    return d
+
+
 _openai = None
 
 # 언어별 시스템 프롬프트 지시문
@@ -65,6 +93,7 @@ def match_insight(report: dict, lang: str = "ko") -> str:
                         "what stands out tactically — e.g. anchor play, slayer dominance, "
                         "ZCS outliers), not just a list of numbers. Concise, for Discord.",
                         lang,
+                        domains=_domains_for_match(report["mode"], report.get("map_name")),
                     ),
                 },
                 {"role": "user", "content": json.dumps(data, ensure_ascii=False, default=str)},
@@ -100,6 +129,7 @@ def weekly_insight(report: dict, lang: str = "ko") -> str:
                         "is finding form'), notable changes, and coaching suggestions. "
                         "Concise and actionable, for Discord.",
                         lang,
+                        domains=["principles", "mechanics-core", "team"],
                     ),
                 },
                 {"role": "user", "content": json.dumps(data, ensure_ascii=False, default=str)},
@@ -134,10 +164,12 @@ def trend_insight(trend: dict, lang: str = "ko") -> str:
             messages=[
                 {
                     "role": "system",
-                    "content": (
-                        f"You are a CODM esports player form analyst. Diagnose the player's "
-                        f"recent form vs overall average in 1-2 sentences {li}. "
-                        f"Include whether rising/falling with specific numeric evidence. Concise."
+                    "content": prompt_context.build_system_prompt(
+                        f"Diagnose the player's recent form vs overall average in 1-2 "
+                        f"sentences {li}. Include whether rising/falling with specific "
+                        f"numeric evidence. Concise.",
+                        lang,
+                        domains=_domains_for_match(trend.get("mode")),
                     ),
                 },
                 {"role": "user", "content": json.dumps(data, ensure_ascii=False, default=str)},
@@ -182,6 +214,7 @@ def player_profile_insight(stats: dict, team_hp: dict = None, lang: str = "ko") 
                         f"IMPORTANT: ZCS/OBJ/CapKill are HP-only metrics — never reference them for SND-only data. "
                         f"Grounded in numbers, no over-interpretation. Concise and actionable, for web display.",
                         lang,
+                        domains=_domains_for_player(stats),
                     ),
                 },
                 {"role": "user", "content": json.dumps(data, ensure_ascii=False, default=str)},
@@ -246,6 +279,8 @@ def map_advice(map_data: dict, lang: str = "ko") -> str:
                         f"Stick to what the numbers show — let the coach interpret. "
                         f"Grounded strictly in the JSON. For web display.",
                         lang,
+                        domains=_domains_for_match(mode, map_data.get("map_name"),
+                                                   extra=["mechanics-terms"]),
                     ),
                 },
                 {"role": "user", "content": json.dumps(payload, ensure_ascii=False, default=str)},
@@ -304,6 +339,11 @@ def summarize_transcript(report: dict, transcript: str, lang: str = "ko") -> str
                         "tactical terms in your output. Grounded in transcript + match numbers. "
                         "No fabrication. For internal coach review display.",
                         lang,
+                        domains=_domains_for_match(
+                            report.get("mode"),
+                            report.get("map_name"),
+                            extra=["mechanics-terms", "team"],
+                        ),
                     ),
                 },
                 {"role": "user", "content": json.dumps(
@@ -373,6 +413,7 @@ def briefing_insight(hub_data: dict, lang: str = "ko") -> str:
                         "Keep total under 250 characters. No preamble, no closing remarks. "
                         "Grounded only in the provided data; no fabrication.",
                         lang,
+                        domains=["principles", "mechanics-core", "team", "mechanics-meta"],
                     ),
                 },
                 {"role": "user", "content": json.dumps(data, ensure_ascii=False, default=str)},

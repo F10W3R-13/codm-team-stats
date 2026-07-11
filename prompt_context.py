@@ -1,17 +1,20 @@
 # CODM 도메인 컨텍스트 (Domain Context for AI Prompts)
 #
-# 이 팀의 코칭 VOD 전사문 4샘플(~4,900줄) 분석 결과를 바탕으로,
-# GPT가 "CODM 팀 코치의 시각"으로 인사이트/요약을 생성하도록 도메인 지식을 주입한다.
+# 이 팀의 코칭 VOD 전사문 분석 결과 + 코칭 브레인(coaching brain/knowledge/)을 바탕으로,
+# GPT가 "CODM 팀 코치의 시각"으로 인사이트/요약을 생성하도록 지식을 주입한다.
 #
 # 갱신 3계층:
-#   - 정적 (수동): 게임 메타·전술 용어·코칭 톤·발음변형 맵·맵 메타
-#     → 새 전사문 누적·CODM 시즌 패치 시 이 파일 편집. scripts/refresh_domain_context.py가 제안.
+#   - 정적 (수동): 계산 지표 정의(metrics.py 동기화)·발음변형 맵.
+#   - 코칭 브레인 (런타임): coaching_brain_loader가 coaching brain/knowledge/에서
+#     영역별로 읽어 mtime 자동 캐싱. 코치가 Obsidian에서 수정하면 다음 호출에 반영.
 #   - 동적 (자동): 팀 로스터·역할·스탯 → 매 호출마다 DB에서 조회.
 #   - 시점 (자동): 현재 날짜 → 메타 시점 고정.
 #
 # analytics_insights.py의 모든 GPT 호출이 build_system_prompt()를 거친다.
 
 import datetime
+
+import coaching_brain_loader
 
 # 전사문 발음 오류 매핑 (OCR/Alias 스킬과 연계)
 # refresh_domain_context.py 실행으로 새 변형을 발견해 여기에 추가.
@@ -25,74 +28,37 @@ _PLAYER_IGN_MAP = {
     "unravel": ["Unravel", "언래블", "Jason", "제이슨"],  # Jason은 unravel의 실명
 }
 
-# 맵별 tendency (VOD에서 반복 논의된 핵심 플랜)
-_MAP_META = {
-    "Combine": "P3 스폰 통제가 핵심. 언덕 전환마다 스폰 사이드가 결과 좌우.",
-    "Summit": "P3/P4에서 스폰이 결정적. War Machine을 P2에 배치해 가치 극대화 권장.",
-    "Standoff": "S&D 공수 밸런스. 콜아웃 밀도가 승패를 가름.",
-    "Raid": "거점 회전 속도전. AR의 진입 타이밍이 중요.",
-    "Arsenal": "P2 확보 시 yellow spawn 필수.",
-}
-
-_STATIC_DOMAIN_CONTEXT = """# CODM Team Coaching Domain Guide
+# 계산 지표 정의 — metrics.py 공식과 정확히 동기화.
+# 코칭 통찰(역학·용어·코칭톤·맵)은 코칭 브레인에서 로드 (coaching_brain_loader).
+_METRIC_DEFINITIONS = """# CODM Metric Definitions (authoritative — matches metrics.py)
 
 You are advising a competitive Call of Duty Mobile (CODM) team. Use this domain knowledge to ground every insight in real game understanding.
 
 ## Game & Modes
 CODM competitive uses two modes:
-- HP (Hardpoint / 거점): capture rotating hills P1→P2→P3→P4, ~60s each. OBJ = hill time in seconds (higher = better). CapKill = bonus-score kills (multikills, trades, top-enemy kills, in-hill kills) — NOT pure objective time. "hill"/"언덕" = the current active point. "hill time" = 거점 시간.
+- HP (Hardpoint / 거점): capture rotating hills P1→P2→P3→P4, ~60s each. OBJ = hill time in seconds (higher = better). CapKill = bonus-score kills (multikills, trades, top-enemy kills, in-hill kills) — NOT pure objective time. "hill"/"언덕" = the current active point.
 - SND (Search & Destroy / 폭파): alternating attack/defense, round-based. FK = First Blood (first kill), LWW = Lone Wolf Win, ADR = avg damage per round.
 
-## Key Metric Benchmarks (interpret numbers, don't just list them)
-- K/D: ~1.0 average, 1.3+ strong, <0.8 weak.
+## Key Metric Definitions (don't recompute — interpret the numbers provided)
 - ZCS (HP only) = max(0, 1.1·OBJ + 8·CapKill + 4.1·K − 5·D). Team avg ~150–200; 250+ = ace-level zone control; <100 = low impact.
-  ZCS measures ZONE CONTROL CONTRIBUTION — the single scalar answer to "how much did this player help us OWN the hill?"
-  The weights encode what matters in Hardpoint:
-  - CapKill × 8 (highest weight): bonus-score kills (multikills, trades, top-enemy kills, in-hill kills). These are HIGH-QUALITY kills directly tied to objective control — a kill inside/near the hill or during a capture swing is worth far more than a random spawn kill. CapKill weight > K weight = "not all kills are equal."
-  - K × 4.1: standard kills. Half the value of a CapKill — finishing power matters but context (was it objective-relevant?) matters more.
-  - OBJ × 1.1: hill time in seconds. Pure presence contributes but alone is low-value (a passive anchor sitting on the hill without fighting adds little if teammates do the work).
-  - D × 5 (heavier than K's 4.1): deaths are penalized MORE than kills are rewarded. A death in HP = losing map presence, spawning teammates in bad positions, and often conceding the hill. Avoiding trades-lost is as valuable as winning them.
-  Interpretation: a player can have a modest K/D but high ZCS if their kills are objective-tied (high CapKill density, see AP%) and they die rarely on the hill. Conversely a slayer with high K/D but low OBJ/CapKill and frequent hill deaths will have lower ZCS. ZCS rewards OBJECTIVE-EFFICIENT fighting, not raw fragging.
-- DPK (dmg/kills): LOWER is better (less damage needed per kill = finishing ability). ~700–1100.
-- DPD (dmg/deaths): HIGHER is better (more value per life). ~800–1300.
-- Impact: composite contribution (0–200 cap). 150+ = excellent.
-- OBJ time (HP): seconds on hill — high = objective contribution.
-
-## Roles / Positions (CODM meta)
-- AR (assault rifle): primary slayer role, high kills/damage share. ≈ slayer.
-- OBJ / anchor (옵 / 앵커): hill defense & capture, high OBJ/CapKill share.
-- sniper: long-range control, info + picks.
-- balanced / flex: even contribution.
-- IGL (In-Game Leader): in-game shotcaller, usually a veteran (e.g. Cartels).
-- entry: takes first contact on push (SND first-kill adjacent).
-
-## Tactical Terms (as actually used in VOD/transcripts)
-- spawn (스폰): respawn location. "flip spawn", "secure spawn", "spawn trap".
-- push (푸시): drive into enemy territory.
-- rotation (로테): move to the next hill.
-- retake (리테): recapture a lost hill.
-- trade (교환): teammate dies → ally avenges. "2 for 2" = even trade. High trade ratio = team focus.
-- flank (플랭크): side attack.
-- pinch (핀치): squeeze from two sides.
-- hold (홀드): lock down a position.
-- peek / peak (피크): aim around cover. "wide peek", "jiggle".
-- head glitch: cover showing only head (advantageous angle).
-- hill / point: current hardpoint. "money hill" = highest-value scoring point.
-- momentum: kill-streak flow.
-
-## CODM Mechanics
-- scorestreak / operator: score-triggered abilities. Tempest (lightning pistol), War Machine (grenade launcher), Equalizer (minigun), Death Machine, Sparrow (bow), UAV.
-- trophy (트로피): equipment that neutralizes scorestreaks.
-- Meta awareness: Tempest was 6 rounds + strong aim-assist (overpowered) → now 4 rounds + countered by 2 trophies. Judge meta by the current date provided.
-- halftime (하프타임): HP first/second half transition.
-
-## Coaching Tone
-- Coach phrasing: reason-attached directives ("we have to ~ because ~"), suggestions ("let's try"), hypotheses ("maybe ~").
-- Philosophy: "there's no right answer in Hardpoint, only tendencies." Seek middle ground, not absolutes.
-- Constructive feedback, psychological safety ("safe place").
-- BRIDGE quantitative stats with qualitative VOD observation — explain WHY a number matters tactically.
-- Refine slang/profanity (bro, man, fuck) into a clean coaching register — convey the point without vulgarity.
+  ZCS measures ZONE CONTROL CONTRIBUTION — how much a player helped OWN the hill.
+  CapKill ×8 (highest weight): bonus-score kills are HIGH-QUALITY objective-tied kills.
+  K ×4.1: standard kills — half the value of a CapKill (context matters).
+  OBJ ×1.1: hill time — pure presence, alone low-value.
+  D ×5 (heavier than K's 4.1): deaths penalized MORE than kills rewarded.
+  → Modest K/D + high CapKill density + rare hill deaths = high ZCS. Raw fragging with low OBJ/CapKill = lower ZCS.
+- RDS (SND only) = max(0, 4.1·K + 3.5·A + 14·FK + 20·LWW + 0.12·ADR − 5·D). SND 제1 지표 (ZCS의 SND 대응).
+  FK ×14, LWW ×20: opening duels and clutches weigh heavily — round-swinging events.
+- K/D: ~1.0 avg, 1.3+ strong, <0.8 weak.
+- DPK (dmg/kills): LOWER is better (finishing ability). ~700–1100.
+- DPD (dmg/deaths): HIGHER is better (value per life). ~800–1300.
+- Impact = min(200, 73 + 2.6K − 3.1D + 0.92·OBJ + 0.009·dmg). 150+ = excellent.
+- AP% = (CapKill / K) × 100 — kill quality density. HIGH = kills are objective-relevant.
+- Direction: HIGHER better = ZCS, RDS, DPD, Impact, OBJ, K/D. LOWER better = DPK, deaths.
 """
+
+# domains=None일 때 기본 코칭 브레인 영역 (항상 깔리는 최소 통찰)
+_DEFAULT_DOMAINS = ["principles", "mechanics-core"]
 
 
 def _format_ign_map() -> str:
@@ -104,16 +70,6 @@ def _format_ign_map() -> str:
         if variants:
             lines.append(f"- {ign}: {', '.join(variants)}")
     lines.append("When you see a variant in a transcript, treat it as the formal IGN and use the formal name in output.")
-    return "\n".join(lines)
-
-
-def _format_map_meta() -> str:
-    """맵별 tendency를 텍스트로 포맷."""
-    if not _MAP_META:
-        return ""
-    lines = ["", "## Map Tendencies (team's observed plans)"]
-    for map_name, tip in _MAP_META.items():
-        lines.append(f"- {map_name}: {tip}")
     return "\n".join(lines)
 
 
@@ -149,21 +105,34 @@ def team_roster_context() -> str:
         return ""
 
 
-def build_system_prompt(task: str, lang: str = "ko") -> str:
+def build_system_prompt(task: str, lang: str = "ko", domains: list = None) -> str:
     """모든 AI 호출용 system 프롬프트 조합.
 
-    정적 도메인 컨텍스트 + IGN 변형 맵 + 맵 메타 + 현재 날짜 + 동적 로스터 + 작업별 지시문.
+    계산 지표 정의 + IGN 변형 맵 + 코칭 브레인 통찰(선택적) + 날짜 + 동적 로스터 + 작업 지시문.
     task: 각 함수의 개별 지시문 (길이·포커스). lang: ko/en/es.
+    domains: 주입할 코칭 브레인 영역 키 리스트 (예: ["principles","maps:Combine"]).
+             None이면 _DEFAULT_DOMAINS(principles + mechanics-core) 사용.
+             코칭 브레인 로드 실패 시 통찰 없이 지표+로스터만으로 동작 (실패 안전).
     """
     today = datetime.date.today().isoformat()
     lang_note = {"ko": "Korean (한국어)", "en": "English", "es": "Spanish (español)"}.get(lang, "Korean (한국어)")
+
+    # 코칭 브레인 영역 로드 (실패 시 "" — 정상 동작 유지)
+    try:
+        insight_context = coaching_brain_loader.get_domains(
+            domains if domains is not None else _DEFAULT_DOMAINS, lang
+        )
+    except Exception as e:
+        print(f"[prompt_context] coaching_brain_loader fail (fallback to metrics-only): {e}", flush=True)
+        insight_context = ""
+
     parts = [
-        _STATIC_DOMAIN_CONTEXT,
+        _METRIC_DEFINITIONS,
         _format_ign_map(),
-        _format_map_meta(),
+        insight_context,
         f"\n## Current Date (meta snapshot): {today}",
         team_roster_context(),
         f"\n## Task\n{task}",
         f"\nRespond in {lang_note}.",
     ]
-    return "\n".join(parts)
+    return "\n".join(p for p in parts if p)
