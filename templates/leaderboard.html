@@ -55,17 +55,13 @@
             </tr>
         </thead>
         <tbody>
-            {% for r in rows %}
-            {# 팀 평균선 행 — 현재 선수 값이 평균을 넘어가는 지점에 삽입 #}
-            {% if avg_value and higher_better and r.value < avg_value and not loop.changed(avg_value) %}
-            {% set _ = loop.changed(avg_value) if false else none %}
-            {% endif %}
-            {% endfor %}
-            {# 재구조화: 평균선은 별도 처리 #}
+            {# 팀 평균선 — 정렬된 리스트에서 평균값 위치에 점선 행 삽입 #}
             {% set avg_inserted = [] %}
+            {% set avg_f_loop = avg_value | float if avg_value else 0 %}
             {% for r in rows %}
-            {% if avg_value and not avg_inserted %}
-                {% if (higher_better and r.value < avg_value) or (not higher_better and r.value > avg_value) %}
+            {% set val_f_loop = r.value | float %}
+            {% if avg_f_loop and not avg_inserted %}
+                {% if (higher_better and val_f_loop < avg_f_loop) or (not higher_better and val_f_loop > avg_f_loop) %}
                 <tr class="lb-avg-row">
                     <td class="num muted">—</td>
                     <td class="muted">{{ t.lb_team_avg }}</td>
@@ -88,13 +84,14 @@
                 <td class="num muted">{{ r.matches }}</td>
                 <td class="num">
                     <strong class="rank-value">{{ r.value }}</strong>
-                    {% if top_value and top_value != 0 %}
-                    <div class="lb-bar"><span class="lb-bar__fill" style="width: {{ (r.value / top_value * 100)|round(1) }}%"></span></div>
+                    {% set top_f = top_value | float if top_value else 0 %}
+                    {% if top_f != 0 %}
+                    <div class="lb-bar"><span class="lb-bar__fill" style="width: {{ (val_f_loop / top_f * 100)|round(1) }}%"></span></div>
                     {% endif %}
                 </td>
                 <td class="num">
-                    {% if avg_value and avg_value != 0 %}
-                        {% set pct = ((r.value - avg_value) / avg_value * 100)|round(0)|int %}
+                    {% if avg_f_loop != 0 %}
+                        {% set pct = ((val_f_loop - avg_f_loop) / avg_f_loop * 100)|round(0)|int %}
                         {% set is_good = (higher_better and pct > 0) or (not higher_better and pct < 0) %}
                         {% set is_flat = pct == 0 %}
                         <span class="delta-{{ 'up' if is_good else ('flat' if is_flat else 'down') }}">{{ '+' if pct > 0 }}{{ pct }}%</span>
