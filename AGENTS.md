@@ -105,6 +105,13 @@ HP: ZCS 최우선 + 보조 지표들. SND: RDS 단일.
 - **맵 상세 AI는 "간접적 수치 경향"만** — 직접 지시/전술 명령 금지 (예: "이 맵에서 팀 K/D 시즌 대비 -12%").
 - 캐싱: `insight_cache.py` (1시간 TTL, 매치 기록 시 무효화).
 
+### 코칭 브레인 → AI 인사이트 연동
+- `coaching brain/knowledge/` (Obsidian 볼트)가 AI 인사이트의 코칭 지식 진실 공급원.
+- `coaching_brain_loader.py`가 영역별(principles/mechanics/modes/maps/team)로 mtime 캐싱 읽기. 코치가 Obsidian에서 수정하면 다음 AI 호출 시 자동 반영 (재시작 불필요).
+- `prompt_context.build_system_prompt(task, lang, domains)`가 domains로 선택적 주입. 각 인사이트 함수가 맥락에 맞는 영역 명시.
+- 코칭 브레인 폴더/파일 없으면 빈 문자열 → 지표 정의만으로 AI 동작 (실패 안전).
+- 지표 공식(ZCS/RDS) 정의는 `prompt_context._METRIC_DEFINITIONS`에 고정 (metrics.py 동기화). 코칭 통찰과 분리.
+
 ### 데이터 현황 메모
 - 승패(`result`/`team_score`/`opponent_score`)는 대부분 NULL → `/admin`에서 수동 입력 필요. 입력 전까지 승률/폼 차트 비활성.
 - 역할 분류(`metrics.classify_role`): 팀 평균 대비 킬+딜 vs OBJ+캡처 비율 (threshold 1.08x). HP 전용.

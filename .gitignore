@@ -60,3 +60,7 @@ base.html.bak
 transcripts/
 transcript_samples/
 .obsidian/
+
+# 코칭 브레인 — Obsidian 개인 작업공간 상태 (지식은 커밋, 설정은 제외)
+coaching brain/.obsidian/workspace.json
+coaching brain/.obsidian/graph.json
