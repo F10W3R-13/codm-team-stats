@@ -6,7 +6,7 @@
 <h1>{{ t.leaderboard_title }}</h1>
 
 {% set metric_opts_hp = [('avg_kd', t.kd), ('avg_k', t.avg_k), ('avg_dmg', t.m_dmg), ('avg_score', t.avg_score), ('avg_obj', t.avg_obj), ('dpd', t.m_dpd), ('dpk', t.m_dpk), ('impact_delta', t.m_id), ('ap_pct', t.m_ap_pct), ('zcs', t.m_zcs)] %}
-{% set metric_opts_snd = [('avg_kd', t.kd), ('avg_k', t.avg_k), ('avg_score', t.avg_score), ('avg_adr', t.avg_impact), ('rds', t.m_rds)] %}
+{% set metric_opts_snd = [('avg_kd', t.kd), ('avg_k', t.avg_k), ('avg_d', t.avg_d), ('avg_a', t.avg_a), ('avg_score', t.avg_score), ('avg_adr', t.avg_adr), ('avg_impact', t.avg_impact), ('avg_fk', t.avg_fk), ('avg_lww', t.avg_lww), ('rds', t.m_rds)] %}
 {% set opts = metric_opts_hp if mode == 'HP' else metric_opts_snd %}
 {% set metric_label = opts | selectattr('0', 'equalto', metric) | map(attribute='1') | first %}
 

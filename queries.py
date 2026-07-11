@@ -169,7 +169,7 @@ def leaderboard(mode: str = "HP", metric: str = "avg_kd", limit: int = 10) -> li
     반환: [{name, matches, <metric 값>}, ...]
     """
     valid_hp = {"avg_kd", "avg_k", "avg_dmg", "avg_score", "avg_obj"}
-    valid_snd = {"avg_kd", "avg_k", "avg_score", "avg_adr", "rds"}
+    valid_snd = {"avg_kd", "avg_k", "avg_d", "avg_a", "avg_score", "avg_adr", "avg_impact", "avg_fk", "avg_lww", "rds"}
 
     if mode == "HP":
         if metric not in valid_hp:
@@ -192,8 +192,13 @@ def leaderboard(mode: str = "HP", metric: str = "avg_kd", limit: int = 10) -> li
         expr = {
             "avg_kd": "AVG(kd_ratio)",
             "avg_k": "AVG(kills)",
+            "avg_d": "AVG(deaths)",
+            "avg_a": "AVG(assists)",
             "avg_score": "AVG(score)",
             "avg_adr": "AVG(adr)",
+            "avg_impact": "AVG(impact)",
+            "avg_fk": "AVG(first_kill)",
+            "avg_lww": "AVG(lone_wolf_win)",
             "rds": "AVG(MAX(0, 4.1*kills + 3.5*assists + 14*first_kill + 20*lone_wolf_win + 0.12*adr - 5*deaths))",
         }[metric]
         sql = f"""SELECT p.name,
