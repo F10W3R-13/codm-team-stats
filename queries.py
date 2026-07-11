@@ -865,26 +865,44 @@ def map_player_stats(map_name: str, mode: str = "HP", min_matches: int = 2) -> l
     return rows
 
 
-def player_map_breakdown(player_id: int, min_matches: int = 5) -> list:
-    """특정 선수의 맵별 성적 — 본인 전체 평균 ZCS 대비 ±%.
+def player_map_breakdown(player_id: int, mode: str = "HP", min_matches: int = 5) -> list:
+    """특정 선수의 맵별 성적 — 본인 전체 평균 대비 ±%.
 
-    ZCS(Zone Control Score) = max(0, 1.1·OBJ + 8·캡처킬 + 4.1·K − 5·D) — HP 제1 지표.
-    반환: [{map_name, matches, zcs, zcs_pct}, ...]
-      zcs: 그 맵에서의 평균 ZCS
-      zcs_pct: 본인 평균 대비 % (양수=강함, 음수=약함)
-    HP 전용 (SND엔 ZCS 없음). min_matches 미만 맵은 신뢰도 낮아 제외.
-    히트맵 색은 템플릿에서 zcs_pct 크기에 비례해 계산 — 절대 임계값/라벨 없음.
+    mode="HP": ZCS(=max(0, 1.1·obj_time + 8·capture_kill + 4.1·kills - 5·deaths)) 기준.
+    mode="SND": RDS(=max(0, 4.1·kills + 3.5·assists + 14·first_kill + 20·lone_wolf_win
+                        + 0.12·adr - 5·deaths)) 기준.
+    반환: [{map_name, matches, metric, metric_pct}, ...]
+      metric: 그 맵에서의 평균 ZCS(HP) 또는 RDS(SND)
+      metric_pct: 본인 전체 평균 대비 % (양수=강함, 음수=약함)
+    min_matches 미만 맵은 신뢰도 낮아 제외.
+    히트맵 색은 web_api의 _heat_class()가 metric_pct 크기로 부여.
     """
-    sql = """SELECT LOWER(m.map_name) map_name,
-                    COUNT(*) matches,
-                    ROUND(AVG(MAX(0, 1.1*s.obj_time + 8*s.capture_kill + 4.1*s.kills - 5*s.deaths)),1) zcs
-             FROM player_stats_hp s
-             JOIN matches m ON m.id=s.match_id
-             WHERE s.player_id=? AND m.map_name IS NOT NULL AND m.map_name != ''
-               AND m.mode='HP'
-             GROUP BY LOWER(m.map_name)
-             HAVING COUNT(*) >= ?
-             ORDER BY zcs DESC"""
+    if mode == "SND":
+        sql = """SELECT LOWER(m.map_name) map_name,
+                        COUNT(*) matches,
+                        ROUND(AVG(MAX(0, 4.1*s.kills + 3.5*s.assists + 14*s.first_kill
+                                    + 20*s.lone_wolf_win + 0.12*s.adr - 5*s.deaths)),1) metric
+                 FROM player_stats_snd s
+                 JOIN matches m ON m.id=s.match_id
+                 WHERE s.player_id=? AND m.map_name IS NOT NULL AND m.map_name != ''
+                   AND m.mode='SND'
+                 GROUP BY LOWER(m.map_name)
+                 HAVING COUNT(*) >= ?
+                 ORDER BY metric DESC"""
+        overall = _player_overall_rds(player_id)
+    else:  # HP (기본)
+        sql = """SELECT LOWER(m.map_name) map_name,
+                        COUNT(*) matches,
+                        ROUND(AVG(MAX(0, 1.1*s.obj_time + 8*s.capture_kill + 4.1*s.kills - 5*s.deaths)),1) metric
+                 FROM player_stats_hp s
+                 JOIN matches m ON m.id=s.match_id
+                 WHERE s.player_id=? AND m.map_name IS NOT NULL AND m.map_name != ''
+                   AND m.mode='HP'
+                 GROUP BY LOWER(m.map_name)
+                 HAVING COUNT(*) >= ?
+                 ORDER BY metric DESC"""
+        overall = _player_overall_zcs(player_id)
+
     with db.get_conn() as conn:
         rows = [dict(r) for r in conn.execute(db._adapt_sql(sql), (player_id, min_matches)).fetchall()]
     # Postgres Decimal → float
@@ -894,20 +912,18 @@ def player_map_breakdown(player_id: int, min_matches: int = 5) -> list:
                 r[k] = float(v)
     if not rows:
         return []
-    # 본인 전체 평균 ZCS
-    overall = _player_overall_zcs(player_id)
     if not overall:
         return []
     out = []
     for r in rows:
-        pct = round((r["zcs"] - overall) / overall * 100, 1) if overall else 0
+        pct = round((r["metric"] - overall) / overall * 100, 1) if overall else 0
         out.append({
             "map_name": r["map_name"].strip().title(),
-            "matches": r["matches"], "zcs": r["zcs"],
-            "zcs_pct": pct,
+            "matches": r["matches"], "metric": r["metric"],
+            "metric_pct": pct,
         })
     # ±% 내림차순 (강한 맵이 위로)
-    out.sort(key=lambda x: x["zcs_pct"], reverse=True)
+    out.sort(key=lambda x: x["metric_pct"], reverse=True)
     return out
 
 
@@ -918,6 +934,23 @@ def _player_overall_zcs(player_id: int) -> float:
         r = conn.execute(db._adapt_sql(sql), (player_id,)).fetchone()
     if r and r["zcs"] is not None:
         v = r["zcs"]
+        return float(v) if hasattr(v, "as_tuple") else v
+    return None
+
+
+def _player_overall_rds(player_id: int) -> float:
+    """선수의 전체 평균 RDS (player_map_breakdown SND 내부용).
+
+    RDS = max(0, 4.1·kills + 3.5·assists + 14·first_kill + 20·lone_wolf_win
+              + 0.12·adr - 5·deaths)
+    """
+    sql = ("SELECT ROUND(AVG(MAX(0, 4.1*kills + 3.5*assists + 14*first_kill "
+           "+ 20*lone_wolf_win + 0.12*adr - 5*deaths)),1) rds "
+           "FROM player_stats_snd WHERE player_id=?")
+    with db.get_conn() as conn:
+        r = conn.execute(db._adapt_sql(sql), (player_id,)).fetchone()
+    if r and r["rds"] is not None:
+        v = r["rds"]
         return float(v) if hasattr(v, "as_tuple") else v
     return None
 
