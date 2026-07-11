@@ -73,10 +73,9 @@ STRINGS = {
         "lb_team_avg": "Promedio",
         "player_maps_title": "🗺️ Rendimiento por Mapa",
         "player_maps_help": "vs promedio personal",
-        "player_maps_strong": "Mapas Fuertes",
-        "player_maps_weak": "Mapas Débiles",
-        "player_maps_neutral": "Sin mapas significativamente fuertes o débiles.",
-        "player_maps_all": "Ver todos los mapas",
+        "player_maps_strong": "Fuerte",
+        "player_maps_weak": "Débil",
+        "player_maps_avg": "Promedio personal",
 
         "matches_title": "🎮 Historial de Partidas",
         "total_count": "Total",

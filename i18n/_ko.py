@@ -79,10 +79,9 @@ STRINGS = {
         "lb_team_avg": "팀 평균",
         "player_maps_title": "🗺️ 맵별 성적",
         "player_maps_help": "본인 평균 대비",
-        "player_maps_strong": "강한 맵",
-        "player_maps_weak": "약한 맵",
-        "player_maps_neutral": "뚜렷한 강점/약점 맵이 없습니다.",
-        "player_maps_all": "전체 맵 보기",
+        "player_maps_strong": "강함",
+        "player_maps_weak": "약함",
+        "player_maps_avg": "본인 평균",
 
         # 매치
         "matches_title": "🎮 매치 히스토리",

@@ -824,11 +824,11 @@ def player_map_breakdown(player_id: int, min_matches: int = 5) -> list:
     """특정 선수의 맵별 성적 — 본인 전체 평균 ZCS 대비 ±%.
 
     ZCS(Zone Control Score) = max(0, 1.1·OBJ + 8·캡처킬 + 4.1·K − 5·D) — HP 제1 지표.
-    반환: [{map_name, matches, zcs, zcs_pct, label}, ...]
+    반환: [{map_name, matches, zcs, zcs_pct}, ...]
       zcs: 그 맵에서의 평균 ZCS
       zcs_pct: 본인 평균 대비 % (양수=강함, 음수=약함)
-      label: "strong" (>=+10) | "weak" (<=-10) | "normal"
     HP 전용 (SND엔 ZCS 없음). min_matches 미만 맵은 신뢰도 낮아 제외.
+    히트맵 색은 템플릿에서 zcs_pct 크기에 비례해 계산 — 절대 임계값/라벨 없음.
     """
     sql = """SELECT LOWER(m.map_name) map_name,
                     COUNT(*) matches,
@@ -856,11 +856,10 @@ def player_map_breakdown(player_id: int, min_matches: int = 5) -> list:
     out = []
     for r in rows:
         pct = round((r["zcs"] - overall) / overall * 100, 1) if overall else 0
-        label = "strong" if pct >= 10 else ("weak" if pct <= -10 else "normal")
         out.append({
             "map_name": r["map_name"].strip().title(),
             "matches": r["matches"], "zcs": r["zcs"],
-            "zcs_pct": pct, "label": label,
+            "zcs_pct": pct,
         })
     # ±% 내림차순 (강한 맵이 위로)
     out.sort(key=lambda x: x["zcs_pct"], reverse=True)

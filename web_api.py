@@ -144,6 +144,11 @@ async def player_detail(request: Request, name: str, lang: str = Query("ko")):
             stats["hp"]["spectrum_pos"] = metrics.role_spectrum_pos(r["slay_score"], r["obj_score"])
     # 맵별 성적 (HP 전용) — 본인 평균 대비 강한/약한 맵
     player_maps = queries.player_map_breakdown(pid, min_matches=5) if stats["hp"] else []
+    # 히트맵 색 클래스 — zcs_pct 크기에 비롯한 5단계 (절대 임계값 아님, 맵 간 상대 차이 표현)
+    for m in player_maps:
+        p = m["zcs_pct"]
+        m["heat_class"] = ("heat-2" if p >= 15 else "heat-1" if p >= 5
+                           else "heat--2" if p <= -15 else "heat--1" if p <= -5 else "heat-0")
     # AI 인사이트 — 캐시 hit 시에만 즉시 렌더. miss면 None (프런트가 fetch로 비동기 로드).
     cache_key = stats["name"] if stats["name"] else ""
     insight = insight_cache.get("player", cache_key, lang)

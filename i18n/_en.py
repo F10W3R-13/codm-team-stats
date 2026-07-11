@@ -73,10 +73,9 @@ STRINGS = {
         "lb_team_avg": "Team Avg",
         "player_maps_title": "🗺️ Map Performance",
         "player_maps_help": "vs personal avg",
-        "player_maps_strong": "Strong Maps",
-        "player_maps_weak": "Weak Maps",
-        "player_maps_neutral": "No significantly strong or weak maps.",
-        "player_maps_all": "Show all maps",
+        "player_maps_strong": "Strong",
+        "player_maps_weak": "Weak",
+        "player_maps_avg": "Personal avg",
 
         "matches_title": "🎮 Match History",
         "total_count": "Total",
