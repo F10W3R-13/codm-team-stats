@@ -63,6 +63,20 @@ def compute_zcs(obj_time, capture_kill, kills, deaths) -> float:
     return round(max(0, val), 2)
 
 
+def compute_rds(kills, assists, first_kill, lone_wolf_win, adr, deaths) -> float:
+    """Round Domination Score = max(0, 4.1·K + 3.5·A + 14·FK + 20·LWW + 0.12·ADR − 5·D).
+
+    SND 전용 제1 지표 — ZCS와 대칭. 라운드 장악력(오프닝·듀얼·클러치 종합).
+    ⚠️ SND 전용 — HP 데이터로 호출 금지.
+    가중치는 경험적 매그니튜드 (승패 데이터 충분 시 로지스틱 회귀로 재튜닝 TODO).
+    """
+    if any(v is None for v in (kills, assists, first_kill, lone_wolf_win, adr, deaths)):
+        return None
+    val = (4.1 * kills + 3.5 * assists + 14 * first_kill
+           + 20 * lone_wolf_win + 0.12 * adr - 5 * deaths)
+    return round(max(0, val), 2)
+
+
 def all_hp_metrics(kills, deaths, obj_time, score, impact, total_damage, capture_kill) -> dict:
     """HP 매치 한 선수분의 모든 커스텀 지표를 한 번에 계산.
 
@@ -77,6 +91,17 @@ def all_hp_metrics(kills, deaths, obj_time, score, impact, total_damage, capture
         "ap_pct": compute_ap_pct(capture_kill, kills),
         "zcs": compute_zcs(obj_time, capture_kill, kills, deaths),
         "impact": imp,
+    }
+
+
+def all_snd_metrics(kills, assists, first_kill, lone_wolf_win, adr, deaths) -> dict:
+    """SND 매치 한 선수분의 커스텀 지표를 한 번에 계산.
+
+    ⚠️ SND 전용 — HP 스탯으로 호출하지 말 것.
+    현재는 RDS만 포함 (향후 SND 보조 지표 추가 시 여기에 확장).
+    """
+    return {
+        "rds": compute_rds(kills, assists, first_kill, lone_wolf_win, adr, deaths),
     }
 
 
