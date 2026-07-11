@@ -29,7 +29,7 @@
                 <th class="num">{{ t.score_col }}</th>
                 <th>{{ t.map }}</th>
                 <th class="num" data-mobile-hide>{{ t.players }}</th>
-                <th class="num">{{ t.zcs_label }}</th>
+                <th class="num">{% if mode == 'SND' %}{{ t.rds_label }}{% else %}{{ t.zcs_label }}{% endif %}</th>
                 <th class="num" data-mobile-hide>{{ t.avg_kd_col }}</th>
             </tr>
         </thead>
@@ -47,7 +47,7 @@
                 <td class="num">{{ m.team_score }}-{{ m.opponent_score }}</td>
                 <td>{{ m.map_name or '-' }}</td>
                 <td class="num" data-mobile-hide>{{ m.players }}</td>
-                <td class="num">{% if m.mode == 'HP' and m.avg_zcs is not none %}<strong class="zcs-strong">{{ m.avg_zcs }}</strong>{% else %}-{% endif %}</td>
+                <td class="num">{% if m.mode == 'HP' and m.avg_zcs is not none %}<strong class="zcs-strong">{{ m.avg_zcs }}</strong>{% elif m.mode == 'SND' and m.avg_rds is not none %}<strong class="rds-strong">{{ m.avg_rds }}</strong>{% else %}-{% endif %}</td>
                 <td class="num" data-mobile-hide>{{ m.avg_kd or '-' }}</td>
             </tr>
             {% endfor %}
@@ -77,6 +77,7 @@
 .match-group-icon { font-size: var(--fs-sm); text-decoration: none; }
 .match-group-edit { font-size: var(--fs-sm); text-decoration: none; margin-left: auto; }
 .zcs-strong { color: var(--accent); }
+.rds-strong { color: var(--snd); }
 .pagination-current { padding: var(--space-2) var(--space-3); }
 </style>
 {% endblock %}

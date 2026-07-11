@@ -21,6 +21,7 @@
 .edit-link { float: right; text-decoration: none; font-weight: var(--fw-semibold); }
 .insight-text { line-height: 1.7; }
 .zcs-strong { color: var(--accent); }
+.rds-strong { color: var(--snd); }
 .meta-note { font-size: var(--fs-xs); }
 /* 코칭 노트 */
 .match-notes .note-add { display: flex; gap: var(--space-2); flex-wrap: wrap; margin-bottom: var(--space-3); }
@@ -164,7 +165,15 @@
 
 <div class="card section">
     <h2>{{ t.team_avg }}</h2>
-    {% if report.mode == 'HP' %}
+    {% if report.mode == 'SND' %}
+    <div class="team-avg-list">
+        <span class="team-avg-item"><span class="team-avg-label">{{ t.rds_label }}</span> <strong class="rds-strong">{{ report.team_totals.rds }}</strong></span>
+        <span class="team-avg-item"><span class="team-avg-label">{{ t.kills }}</span> <span class="team-avg-value">{{ "%.1f"|format(report.team_totals.kills / (report.players|length)) }}</span></span>
+        <span class="team-avg-item"><span class="team-avg-label">{{ t.deaths }}</span> <span class="team-avg-value">{{ "%.1f"|format(report.team_totals.deaths / (report.players|length)) }}</span></span>
+        <span class="team-avg-item"><span class="team-avg-label">{{ t.assists }}</span> <span class="team-avg-value">{{ "%.1f"|format(report.team_totals.assists / (report.players|length)) }}</span></span>
+        <span class="team-avg-item"><span class="team-avg-label">{{ t.fk }}</span> <span class="team-avg-value">{{ "%.1f"|format(report.team_totals.fk / (report.players|length)) }}</span></span>
+    </div>
+    {% else %}
     <div class="team-avg-list">
         <span class="team-avg-item"><span class="team-avg-label">{{ t.zcs_label }}</span> <strong class="zcs-strong">{{ report.team_totals.zcs }}</strong></span>
         <span class="team-avg-item"><span class="team-avg-label">{{ t.kills }}</span> <span class="team-avg-value">{{ "%.1f"|format(report.team_totals.kills / (report.players|length)) }}</span></span>
@@ -172,13 +181,6 @@
         <span class="team-avg-item"><span class="team-avg-label">{{ t.dmg }}</span> <span class="team-avg-value">{{ "%.0f"|format(report.team_totals.dmg / (report.players|length)) }}</span></span>
         <span class="team-avg-item"><span class="team-avg-label">{{ t.obj }}</span> <span class="team-avg-value">{{ "%.0f"|format(report.team_totals.obj / (report.players|length)) }}</span></span>
         <span class="team-avg-item"><span class="team-avg-label">{{ t.score }}</span> <span class="team-avg-value">{{ "%.0f"|format(report.team_totals.score / (report.players|length)) }}</span></span>
-    </div>
-    {% else %}
-    <div class="team-avg-list">
-        <span class="team-avg-item"><span class="team-avg-label">{{ t.kills }}</span> <span class="team-avg-value">{{ "%.1f"|format(report.team_totals.kills / (report.players|length)) }}</span></span>
-        <span class="team-avg-item"><span class="team-avg-label">{{ t.deaths }}</span> <span class="team-avg-value">{{ "%.1f"|format(report.team_totals.deaths / (report.players|length)) }}</span></span>
-        <span class="team-avg-item"><span class="team-avg-label">{{ t.assists }}</span> <span class="team-avg-value">{{ "%.1f"|format(report.team_totals.assists / (report.players|length)) }}</span></span>
-        <span class="team-avg-item"><span class="team-avg-label">{{ t.fk }}</span> <span class="team-avg-value">{{ "%.1f"|format(report.team_totals.fk / (report.players|length)) }}</span></span>
     </div>
     {% endif %}
 </div>
@@ -192,7 +194,7 @@
             <tr>
                 <th>{{ t.player }}</th><th class="num">{{ t.kills }}</th><th class="num" data-mobile-hide>{{ t.deaths }}</th>
                 <th class="num">{{ t.kd }}</th><th class="num" data-mobile-hide>{{ t.obj }}</th>
-                <th class="num" data-mobile-hide>{{ t.score }}</th><th class="num" data-mobile-hide>{{ t.dmg }}</th><th class="num" data-mobile-hide>{{ t.cap }}</th><th class="num">{{ t.zcs_label }}</th>
+                <th class="num" data-mobile-hide>{{ t.score }}</th><th class="num" data-mobile-hide>{{ t.dmg }}</th><th class="num" data-mobile-hide>{{ t.cap }}</th><th class="num">{% if report.mode == 'SND' %}{{ t.rds_label }}{% else %}{{ t.zcs_label }}{% endif %}</th>
             </tr>
         </thead>
         <tbody>
@@ -206,7 +208,7 @@
                 <td class="num" data-mobile-hide>{{ p.score }}</td>
                 <td class="num" data-mobile-hide>{{ p.dmg }}</td>
                 <td class="num" data-mobile-hide>{{ p.cap }}</td>
-                <td class="num"><strong class="zcs-strong">{{ p.zcs }}</strong></td>
+                <td class="num">{% if report.mode == 'SND' %}<strong class="rds-strong">{{ p.rds }}</strong>{% else %}<strong class="zcs-strong">{{ p.zcs }}</strong>{% endif %}</td>
             </tr>
             {% endfor %}
         </tbody>
