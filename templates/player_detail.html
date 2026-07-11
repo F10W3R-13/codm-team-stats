@@ -88,6 +88,7 @@
     <h2>{{ t.snd_section }} <span class="muted">({{ stats.snd.matches }} {{ t.games }})</span></h2>
     <div class="table-wrap">
     <table>
+        <tr><td>{{ t.rds_label }}</td><td class="num"><strong class="rds-strong">{{ stats.snd.rds if stats.snd.rds is not none else '-' }}</strong></td></tr>
         <tr><td>{{ t.avg_kda }}</td><td class="num"><strong>{{ stats.snd.avg_k }} / {{ stats.snd.avg_d }} / {{ stats.snd.avg_a }}</strong></td></tr>
         <tr><td>{{ t.kd }}</td><td class="num delta-up"><strong>{{ stats.snd.avg_kd }}</strong></td></tr>
         <tr><td>{{ t.avg_adr }}</td><td class="num">{{ stats.snd.avg_adr }}</td></tr>
@@ -195,6 +196,7 @@
 /* player_detail 페이지 로컬 */
 .lower-better-hint { font-size: var(--fs-xs); }
 .zcs-strong { color: var(--accent); }
+.rds-strong { color: var(--snd); }
 .section-help { font-size: var(--fs-xs); margin-bottom: var(--space-4); }
 .insight-text { line-height: 1.7; white-space: pre-wrap; }
 .metric-controls { display: flex; gap: var(--space-4); flex-wrap: wrap; align-items: flex-end; margin-bottom: var(--space-4); }
@@ -237,15 +239,15 @@ let chartInstance = null;
 const metricLabels = {
     ko: { kd:"K/D", score:"Score", impact:"Impact", kills:"킬", deaths:"데스",
           obj:"OBJ", dmg:"딜", cap:"CapKill", dpd:"DPD", dpk:"DPK",
-          impact_delta:"ID", ap_pct:"AP%", zcs:"ZCS",
+          impact_delta:"ID", ap_pct:"AP%", zcs:"ZCS", rds:"RDS",
           assists:"어시", adr:"ADR", fk:"FK", lww:"LWW" },
     en: { kd:"K/D", score:"Score", impact:"Impact", kills:"Kills", deaths:"Deaths",
           obj:"OBJ", dmg:"DMG", cap:"CapKill", dpd:"DPD", dpk:"DPK",
-          impact_delta:"ID", ap_pct:"AP%", zcs:"ZCS",
+          impact_delta:"ID", ap_pct:"AP%", zcs:"ZCS", rds:"RDS",
           assists:"Assists", adr:"ADR", fk:"FK", lww:"LWW" },
     es: { kd:"K/D", score:"Score", impact:"Impact", kills:"Bajas", deaths:"Muertes",
           obj:"OBJ", dmg:"Daño", cap:"CapKill", dpd:"DPD", dpk:"DPK",
-          impact_delta:"ID", ap_pct:"AP%", zcs:"ZCS",
+          impact_delta:"ID", ap_pct:"AP%", zcs:"ZCS", rds:"RDS",
           assists:"Asist.", adr:"ADR", fk:"FK", lww:"LWW" },
 };
 const L = metricLabels[lang] || metricLabels.ko;
@@ -261,7 +263,7 @@ const metricOptions = {
         {v:'obj', g:'HP'}, {v:'dmg', g:'HP'}, {v:'cap', g:'HP'},
     ],
     SND: [
-        {v:'kd', g:'K/D · Score'}, {v:'score', g:'K/D · Score'}, {v:'impact', g:'K/D · Score'},
+        {v:'rds', g:'SND'}, {v:'kd', g:'K/D · Score'}, {v:'score', g:'K/D · Score'}, {v:'impact', g:'K/D · Score'},
         {v:'kills', g:'{{ t.kills }}/{{ t.deaths }}'}, {v:'deaths', g:'{{ t.kills }}/{{ t.deaths }}'},
         {v:'assists', g:'SND'}, {v:'adr', g:'SND'}, {v:'fk', g:'SND'}, {v:'lww', g:'SND'},
     ],
