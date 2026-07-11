@@ -980,7 +980,8 @@ def map_trend(map_name: str, mode: str = "HP", days: int = 30) -> dict:
                     "ROUND(AVG(s.kd_ratio),2) avg_kd, ROUND(AVG(s.kills),1) avg_k, "
                     "ROUND(AVG(s.deaths),1) avg_d, ROUND(AVG(s.assists),1) avg_a, "
                     "ROUND(AVG(s.adr),0) avg_adr, ROUND(AVG(s.score),0) avg_score, "
-                    "ROUND(AVG(s.impact),0) avg_impact "
+                    "ROUND(AVG(s.impact),0) avg_impact, "
+                    "ROUND(AVG(s.first_kill),2) avg_fk, ROUND(AVG(s.lone_wolf_win),2) avg_lww "
                     f"FROM player_stats_snd s JOIN matches m ON m.id=s.match_id {wh}")
 
     def _d(r):
@@ -1010,6 +1011,15 @@ def map_trend(map_name: str, mode: str = "HP", days: int = 30) -> dict:
                 block["dpk"] = m["dpk"]
                 block["impact_delta"] = m["impact_delta"]
                 block["ap_pct"] = m["ap_pct"]
+    else:  # SND: RDS 계산 추가
+        for block in (recent, season):
+            if block.get("matches"):
+                m = _metrics.all_snd_metrics(
+                    block.get("avg_k"), block.get("avg_a"),
+                    block.get("avg_fk", 0), block.get("avg_lww", 0),
+                    block.get("avg_adr"), block.get("avg_d"),
+                )
+                block["rds"] = m["rds"]
 
     # 비교할 지표 + 메타 (높을수록 좋은가, 라벨 키)
     if mode == "HP":
@@ -1183,6 +1193,7 @@ _COMPARE_HP = [
     ("ap_pct", "m_ap_pct", True),
 ]
 _COMPARE_SND = [
+    ("rds", "rds_label", True),
     ("avg_kd", "kd", True),
     ("avg_k", "avg_k", True),
     ("avg_d", "avg_d", False),
