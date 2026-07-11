@@ -500,7 +500,9 @@ def match_history(limit: int = 50, offset: int = 0, mode: str = None) -> dict:
                        (SELECT ROUND(AVG(kd_ratio),2) FROM player_stats_hp WHERE match_id=m.id) avg_kd_hp,
                        (SELECT ROUND(AVG(kd_ratio),2) FROM player_stats_snd WHERE match_id=m.id) avg_kd_snd,
                        (SELECT ROUND(AVG(MAX(0, 1.1*obj_time + 8*capture_kill + 4.1*kills - 5*deaths)),1)
-                        FROM player_stats_hp WHERE match_id=m.id) avg_zcs
+                        FROM player_stats_hp WHERE match_id=m.id) avg_zcs,
+                       (SELECT ROUND(AVG(MAX(0, 4.1*kills + 3.5*assists + 14*first_kill + 20*lone_wolf_win + 0.12*adr - 5*deaths)),1)
+                        FROM player_stats_snd WHERE match_id=m.id) avg_rds
                 FROM matches m {where}
                 ORDER BY m.id DESC LIMIT ? OFFSET ?""",
             params,
@@ -513,6 +515,7 @@ def match_history(limit: int = 50, offset: int = 0, mode: str = None) -> dict:
                     "match_date": r["match_date"], "players": r["players"],
                     "avg_kd": r["avg_kd_hp"] if r["mode"] == "HP" else r["avg_kd_snd"],
                     "avg_zcs": r["avg_zcs"],
+                    "avg_rds": r["avg_rds"],
                     "result": r["result"], "team_score": r["team_score"],
                     "opponent_score": r["opponent_score"],
                 }
@@ -571,6 +574,8 @@ def match_history_grouped(mode: str = None, date_page: int = 1,
                          (SELECT ROUND(AVG(kd_ratio),2) FROM player_stats_snd WHERE match_id=m.id) avg_kd_snd,
                          (SELECT ROUND(AVG(MAX(0, 1.1*obj_time + 8*capture_kill + 4.1*kills - 5*deaths)),1)
                           FROM player_stats_hp WHERE match_id=m.id) avg_zcs,
+                         (SELECT ROUND(AVG(MAX(0, 4.1*kills + 3.5*assists + 14*first_kill + 20*lone_wolf_win + 0.12*adr - 5*deaths)),1)
+                          FROM player_stats_snd WHERE match_id=m.id) avg_rds,
                          (m.match_date IS NULL) is_null
                   FROM matches m
                   WHERE ({('m.match_date IN (%s)' % placeholders) if placeholders else 'FALSE'}
@@ -599,6 +604,7 @@ def match_history_grouped(mode: str = None, date_page: int = 1,
             "match_date": r["match_date"], "players": r["players"],
             "avg_kd": r["avg_kd_hp"] if r["mode"] == "HP" else r["avg_kd_snd"],
             "avg_zcs": r["avg_zcs"],
+            "avg_rds": r["avg_rds"],
             "result": r["result"], "team_score": r["team_score"],
             "opponent_score": r["opponent_score"],
         }
