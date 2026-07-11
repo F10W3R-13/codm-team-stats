@@ -70,9 +70,17 @@
 - 새 선수 평가/표시 로직을 짤 때, HP라면 **K/D와 ZCS를 함께 노출**하는 것을 기본으로 한다. SND에는 ZCS를 억지로 넣지 않는다.
 - 진실 공식은 `metrics.py`의 `compute_zcs()`. SQL에서도 동일 공식(`MAX(0, 1.1*obj_time + 8*capture_kill + 4.1*kills - 5*deaths)`)을 쓰며, `_adapt_sql`이 Postgres용으로 `GREATEST(0, ...)`로 변환한다.
 
+### 핵심 지표: RDS (Round Domination Score)
+- **RDS는 SND 모드의 ZCS 대응 지표다.** HP에서 ZCS를 제1 강조 지표로 다루듯, SND 컨텍스트에서는 RDS를 제1 강조 지표로 다룬다.
+- 공식: `RDS = max(0, 4.1·K + 3.5·A + 14·FK + 20·LWW + 0.12·ADR − 5·D)` (SND 전용).
+- 가중치는 경험적 매그니튜드 (FK≈3.4×K, LWW≈4.9×K). 승패 데이터 충분 시 로지스틱 회귀로 재튜닝 TODO.
+- 진실 공식은 `metrics.py`의 `compute_rds()`. SQL에서도 동일 공식(`MAX(0, 4.1*kills + 3.5*assists + 14*first_kill + 20*lone_wolf_win + 0.12*adr - 5*deaths)`)을 쓰며, `_adapt_sql`이 Postgres용으로 `GREATEST(0, ...)`로 변환.
+- HP 컨텍스트에 ZCS가 나오는 모든 곳의 SND 대응점에 RDS를 깐다 (선수표/상세/리더보드/비교/맵/매치).
+
 ### 커스텀 지표 전체 (metrics.py) — 출처 고정, 함부로 수정 금지
-모두 HP 전용. ZCS가 최우선, 나머지 보조:
-- **ZCS** ⭐ — 존 컨트롤 종합 (제1 지표). 위 공식 참조.
+HP: ZCS 최우선 + 보조 지표들. SND: RDS 단일.
+- **ZCS** ⭐ — 존 컨트롤 종합 (HP 제1 지표). 위 공식 참조.
+- **RDS** ⭐ — 라운드 장악력 (SND 제1 지표). ZCS의 SND 대응. 위 공식 참조.
 - **Impact** = `min(200, 73 + 2.6K − 3.1D + 0.92·OBJ + 0.009·딜)` — 종합 기여도.
 - **DPD** = `딜 / 데스` — 라이프당 딜 (높을수록 좋음).
 - **DPK** = `딜 / 킬` — 킬당 필요 딜 (**낮을수록** 좋음, 피니시력).
@@ -83,9 +91,9 @@
 ### 웹 페이지 구조 (현재)
 - `/` — **코칭 허브** (홈): 트렌드, ZCS 카드+추이, 폼 경고, 강한/약한 맵(→`/maps/{name}` 링크), 역할 분포, 승률.
 - `/overview` — 종합 대시보드 (기존 홈에서 이동).
-- `/players`, `/players/{name}` — HP 표에 ZCS 컬럼, 상세에 역할 배지(slayer/objective/balanced).
-- `/leaderboard` — 순위 (기본 K/D).
-- `/compare` — 두 선수 비교 (레이더+표, HP는 ZCS 첫 행).
+- `/players`, `/players/{name}` — HP 표에 ZCS 컬럼, 상세에 역할 배지(slayer/objective/balanced). SND는 RDS 중심.
+- `/leaderboard` — 순위 (HP 기본 K/D, SND 기본 RDS).
+- `/compare` — 두 선수 비교 (레이더+표, HP는 ZCS 첫 행, SND는 RDS 첫 행).
 - `/matches`, `/matches/{id}` — 승패 배지 + ZCS + AI 매치 분석.
 - `/maps`, `/maps/{name}` — **맵 탭**: ZCS 중심 카드 그리드 → 맵 상세(승률/전지표 최근vs시즌/AI 수치경향/선수별).
 - `/admin` — 관리 (승패·스코어·선수·날짜 복기 입력). 서브탭: 매치/별명/미매칭/선수 관리.
