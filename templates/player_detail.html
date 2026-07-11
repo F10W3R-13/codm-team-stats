@@ -102,7 +102,7 @@
     </div>
 
     {# SND 패널 #}
-    <div class="map-panel" data-map-panel="snd" {% if not player_maps_snd %}style="display:none"{% endif %}>
+    <div class="map-panel" data-map-panel="snd" {% if not player_maps_snd or player_maps %}style="display:none"{% endif %}>
         {% if player_maps_snd %}
         <p class="muted stat-label">{{ t.player_maps_help_snd }} ({{ t.rds_label }} {{ stats.snd.rds if stats.snd else '-' }})</p>
         <div class="map-heatmap">
