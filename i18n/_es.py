@@ -126,6 +126,7 @@ STRINGS = {
         "m_id": "ID (Delta Impact)",
         "m_ap_pct": "AP% (Ratio Cap)",
         "m_zcs": "ZCS (Control de Zona)",
+        "m_rds": "RDS (Dominio de Ronda)",
 
         "analysis_done": "✅ **{mode}** análisis completo — {n} jugadores guardados (partida #{id})",
         "date_label": "Fecha",
@@ -273,6 +274,10 @@ STRINGS = {
         "zcs_team": "ZCS Promedio del Equipo",
         "zcs_trend_title": "Tendencia ZCS del Equipo",
         "avg_zcs_col": "ZCS Promedio",
+        "rds_label": "RDS",
+        "rds_full": "Puntuación de Dominio de Ronda",
+        "rds_team": "RDS Promedio del Equipo",
+        "avg_rds_col": "RDS Promedio",
         "compare_title": "Comparar Jugadores",
         "compare_help": "Selecciona dos jugadores para comparar stats",
         "compare_player_a": "Jugador A",

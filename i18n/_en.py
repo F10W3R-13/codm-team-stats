@@ -126,6 +126,7 @@ STRINGS = {
         "m_id": "ID (Impact Delta)",
         "m_ap_pct": "AP% (Cap Ratio)",
         "m_zcs": "ZCS (Zone Control)",
+        "m_rds": "RDS (Round Domination)",
 
         "analysis_done": "✅ **{mode}** analysis done — {n} players saved (match #{id})",
         "date_label": "Date",
@@ -273,6 +274,10 @@ STRINGS = {
         "zcs_team": "Team Avg ZCS",
         "zcs_trend_title": "Team ZCS Trend",
         "avg_zcs_col": "Avg ZCS",
+        "rds_label": "RDS",
+        "rds_full": "Round Domination Score",
+        "rds_team": "Team Avg RDS",
+        "avg_rds_col": "Avg RDS",
         "compare_title": "Player Compare",
         "compare_help": "Select two players to compare mode stats side by side",
         "compare_player_a": "Player A",

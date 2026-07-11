@@ -135,6 +135,7 @@ STRINGS = {
         "m_id": "ID (임팩트 델타)",
         "m_ap_pct": "AP% (캡처 비율)",
         "m_zcs": "ZCS (존 컨트롤)",
+        "m_rds": "RDS (라운드 장악력)",
 
         # 디스코드 자동 리포트
         "analysis_done": "✅ **{mode}** 모드 분석 완료 — DB에 {n}명 기록 (match #{id})",
@@ -286,6 +287,10 @@ STRINGS = {
         "zcs_team": "팀 평균 ZCS",
         "zcs_trend_title": "팀 ZCS 추이",
         "avg_zcs_col": "평균 ZCS",
+        "rds_label": "RDS",
+        "rds_full": "라운드 장악력 점수",
+        "rds_team": "팀 평균 RDS",
+        "avg_rds_col": "평균 RDS",
         # 비교 페이지
         "compare_title": "선수 비교",
         "compare_help": "두 선수를 선택해 모드별 스탯을 직관 비교",
