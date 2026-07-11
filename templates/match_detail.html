@@ -194,7 +194,7 @@
             <tr>
                 <th>{{ t.player }}</th><th class="num">{{ t.kills }}</th><th class="num" data-mobile-hide>{{ t.deaths }}</th>
                 <th class="num">{{ t.kd }}</th><th class="num" data-mobile-hide>{{ t.obj }}</th>
-                <th class="num" data-mobile-hide>{{ t.score }}</th><th class="num" data-mobile-hide>{{ t.dmg }}</th><th class="num" data-mobile-hide>{{ t.cap }}</th><th class="num">{% if report.mode == 'SND' %}{{ t.rds_label }}{% else %}{{ t.zcs_label }}{% endif %}</th>
+                <th class="num" data-mobile-hide>{{ t.score }}</th><th class="num" data-mobile-hide>{{ t.dmg }}</th><th class="num" data-mobile-hide>{{ t.cap }}</th><th class="num">{{ t.zcs_label }}</th>
             </tr>
         </thead>
         <tbody>
@@ -208,7 +208,7 @@
                 <td class="num" data-mobile-hide>{{ p.score }}</td>
                 <td class="num" data-mobile-hide>{{ p.dmg }}</td>
                 <td class="num" data-mobile-hide>{{ p.cap }}</td>
-                <td class="num">{% if report.mode == 'SND' %}<strong class="rds-strong">{{ p.rds }}</strong>{% else %}<strong class="zcs-strong">{{ p.zcs }}</strong>{% endif %}</td>
+                <td class="num"><strong class="zcs-strong">{{ p.zcs }}</strong></td>
             </tr>
             {% endfor %}
         </tbody>
@@ -221,7 +221,7 @@
             <tr>
                 <th>{{ t.player }}</th><th class="num">{{ t.kills }}</th><th class="num" data-mobile-hide>{{ t.deaths }}</th><th class="num" data-mobile-hide>{{ t.assists }}</th>
                 <th class="num">{{ t.kd }}</th><th class="num" data-mobile-hide>{{ t.score }}</th>
-                <th class="num" data-mobile-hide>ADR</th><th class="num" data-mobile-hide>{{ t.fk }}</th><th class="num" data-mobile-hide>{{ t.lww }}</th>
+                <th class="num" data-mobile-hide>ADR</th><th class="num" data-mobile-hide>{{ t.fk }}</th><th class="num" data-mobile-hide>{{ t.lww }}</th><th class="num">{{ t.rds_label }}</th>
             </tr>
         </thead>
         <tbody>
@@ -236,6 +236,7 @@
                 <td class="num" data-mobile-hide>{{ p.adr }}</td>
                 <td class="num" data-mobile-hide>{{ p.fk }}</td>
                 <td class="num" data-mobile-hide>{{ p.lww }}</td>
+                <td class="num"><strong class="rds-strong">{{ p.rds }}</strong></td>
             </tr>
             {% endfor %}
         </tbody>
