@@ -71,6 +71,12 @@ STRINGS = {
         "lb_ranking": "Clasificación",
         "lb_vs_avg": "vs Promedio",
         "lb_team_avg": "Promedio",
+        "player_maps_title": "🗺️ Rendimiento por Mapa",
+        "player_maps_help": "vs promedio personal",
+        "player_maps_strong": "Mapas Fuertes",
+        "player_maps_weak": "Mapas Débiles",
+        "player_maps_neutral": "Sin mapas significativamente fuertes o débiles.",
+        "player_maps_all": "Ver todos los mapas",
 
         "matches_title": "🎮 Historial de Partidas",
         "total_count": "Total",

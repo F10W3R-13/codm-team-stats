@@ -60,6 +60,71 @@
 </div>
 {% endif %}
 
+{# ── 맵별 성적 (HP 전용) ── #}
+{% if player_maps %}
+<div class="card section">
+    <h2>🗺️ {{ t.player_maps_title }}</h2>
+    <p class="muted stat-label">{{ t.player_maps_help }} ({{ t.kd }} {{ stats.hp.avg_kd }})</p>
+    {% set strong_maps = player_maps | selectattr('label', 'equalto', 'strong') | list %}
+    {% set weak_maps = player_maps | selectattr('label', 'equalto', 'weak') | list %}
+    {% if strong_maps or weak_maps %}
+    <div class="map-breakdown">
+        {% if strong_maps %}
+        <div class="map-group map-group--strong">
+            <div class="map-group__label text-success">🟢 {{ t.player_maps_strong }}</div>
+            {% for m in strong_maps[:3] %}
+            <a href="/maps/{{ m.map_name }}?lang={{ lang }}" class="map-row">
+                <span class="map-row__name">{{ m.map_name }}</span>
+                <span class="map-row__kd">{{ m.kd }}</span>
+                <span class="delta-up">{{ '+' if m.kd_pct > 0 }}{{ m.kd_pct }}%</span>
+                <span class="muted map-row__matches">{{ m.matches }} {{ t.matches }}</span>
+            </a>
+            {% endfor %}
+        </div>
+        {% endif %}
+        {% if weak_maps %}
+        <div class="map-group map-group--weak">
+            <div class="map-group__label text-danger">🔴 {{ t.player_maps_weak }}</div>
+            {% for m in weak_maps[-3:] | reverse %}
+            <a href="/maps/{{ m.map_name }}?lang={{ lang }}" class="map-row">
+                <span class="map-row__name">{{ m.map_name }}</span>
+                <span class="map-row__kd">{{ m.kd }}</span>
+                <span class="delta-down">{{ m.kd_pct }}%</span>
+                <span class="muted map-row__matches">{{ m.matches }} {{ t.matches }}</span>
+            </a>
+            {% endfor %}
+        </div>
+        {% endif %}
+    </div>
+    {% else %}
+    <p class="muted">{{ t.player_maps_neutral }}</p>
+    {% endif %}
+    {# 전체 맵 토글 #}
+    {% if player_maps | length > (strong_maps | length + weak_maps | length) %}
+    <details class="map-all-toggle">
+        <summary>{{ t.player_maps_all }}</summary>
+        <div class="table-wrap">
+        <table>
+            <thead><tr><th>{{ t.map }}</th><th class="num">{{ t.matches_col }}</th><th class="num">{{ t.kd }}</th><th class="num">{{ t.lb_vs_avg }}</th></tr></thead>
+            <tbody>
+            {% for m in player_maps %}
+            <tr>
+                <td><a href="/maps/{{ m.map_name }}?lang={{ lang }}" class="player-link">{{ m.map_name }}</a></td>
+                <td class="num muted">{{ m.matches }}</td>
+                <td class="num">{{ m.kd }}</td>
+                <td class="num">
+                    <span class="delta-{{ 'up' if m.label == 'strong' else ('down' if m.label == 'weak' else 'flat') }}">{{ '+' if m.kd_pct > 0 }}{{ m.kd_pct }}%</span>
+                </td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        </div>
+    </details>
+    {% endif %}
+</div>
+{% endif %}
+
 {% if stats.snd %}
 <div class="card section">
     <h2>{{ t.snd_section }} <span class="muted">({{ stats.snd.matches }} {{ t.games }})</span></h2>
@@ -176,6 +241,17 @@
 .insight-text { line-height: 1.7; white-space: pre-wrap; }
 .metric-controls { display: flex; gap: var(--space-4); flex-wrap: wrap; align-items: flex-end; margin-bottom: var(--space-4); }
 .mode-toggle-group { display: inline-flex; gap: var(--space-1); }
+/* 맵별 성적 패널 */
+.map-breakdown { display: flex; gap: var(--space-4); flex-wrap: wrap; margin-top: var(--space-3); }
+.map-group { flex: 1; min-width: 200px; display: flex; flex-direction: column; gap: var(--space-1); }
+.map-group__label { font-size: var(--fs-sm); font-weight: var(--fw-semibold); margin-bottom: var(--space-1); }
+.map-row { display: flex; align-items: center; gap: var(--space-2); text-decoration: none; color: inherit; padding: var(--space-1) var(--space-2); border-radius: var(--radius-sm); transition: background 0.15s; }
+.map-row:hover { background: var(--card-2); }
+.map-row__name { font-weight: var(--fw-medium); min-width: 90px; }
+.map-row__kd { margin-left: auto; font-weight: var(--fw-semibold); }
+.map-row__matches { font-size: var(--fs-xs); min-width: 70px; text-align: right; }
+.map-all-toggle { margin-top: var(--space-3); }
+.map-all-toggle summary { cursor: pointer; font-size: var(--fs-sm); color: var(--text-2); font-weight: var(--fw-medium); }
 .metric-label { font-size: var(--fs-xs); display: block; margin-bottom: var(--space-1); }
 .chart-wrap--trend { height: 380px; }
 @media (max-width: 600px) {
