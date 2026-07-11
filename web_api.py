@@ -183,9 +183,14 @@ async def leaderboard_page(
         rows = queries.advanced_leaderboard(metric, 20)
     else:
         rows = queries.leaderboard(mode, metric, 20)
+    # 팀 평균 (±% 계산용) + 지표 방향 (DPK만 낮을수록 좋음)
+    team_avg = queries.team_averages(mode) if mode == "HP" else queries.team_averages(mode)
+    avg_value = team_avg.get(metric) if team_avg else None
+    higher_better = metric != "dpk"
     return render(
         "leaderboard.html", lang=lang,
         rows=rows, mode=mode, metric=metric,
+        avg_value=avg_value, higher_better=higher_better,
     )
 
 

@@ -74,6 +74,9 @@ STRINGS = {
         "leaderboard_title": "🏆 리더보드",
         "basis": "기준",
         "rank": "#",
+        "lb_ranking": "순위",
+        "lb_vs_avg": "팀 평균 대비",
+        "lb_team_avg": "팀 평균",
 
         # 매치
         "matches_title": "🎮 매치 히스토리",

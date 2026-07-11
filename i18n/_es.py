@@ -68,6 +68,9 @@ STRINGS = {
         "leaderboard_title": "🏆 Ranking",
         "basis": "Métrica",
         "rank": "#",
+        "lb_ranking": "Clasificación",
+        "lb_vs_avg": "vs Promedio",
+        "lb_team_avg": "Promedio",
 
         "matches_title": "🎮 Historial de Partidas",
         "total_count": "Total",

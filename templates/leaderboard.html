@@ -8,12 +8,16 @@
 {% set metric_opts_hp = [('avg_kd', t.kd), ('avg_k', t.avg_k), ('avg_dmg', t.m_dmg), ('avg_score', t.avg_score), ('avg_obj', t.avg_obj), ('dpd', t.m_dpd), ('dpk', t.m_dpk), ('impact_delta', t.m_id), ('ap_pct', t.m_ap_pct), ('zcs', t.m_zcs)] %}
 {% set metric_opts_snd = [('avg_kd', t.kd), ('avg_k', t.avg_k), ('avg_score', t.avg_score), ('avg_adr', t.avg_impact)] %}
 {% set opts = metric_opts_hp if mode == 'HP' else metric_opts_snd %}
+{% set metric_label = opts | selectattr('0', 'equalto', metric) | map(attribute='1') | first %}
 
-{# 데스크탑: 필터 pills / 모바일: select 드롭다운 (10개 pill 벽 방지) #}
-<div class="filters lb-filters--desktop">
-    <a href="/leaderboard?mode=HP&metric={{ metric }}&lang={{ lang }}" class="{{ 'active' if mode == 'HP' else '' }}">🎯 {{ t.mode_hp }}</a>
-    <a href="/leaderboard?mode=SND&metric={{ metric }}&lang={{ lang }}" class="{{ 'active' if mode == 'SND' else '' }}">🔍 {{ t.mode_snd }}</a>
-    <span class="filter-divider"></span>
+{# ── 모드 세그먼트 토글 (큰 버튼, 상단) ── #}
+<div class="mode-segment">
+    <a href="/leaderboard?mode=HP&metric={{ metric }}&lang={{ lang }}" class="mode-segment__btn {{ 'active' if mode == 'HP' else '' }}">🎯 {{ t.mode_hp }}</a>
+    <a href="/leaderboard?mode=SND&metric={{ metric }}&lang={{ lang }}" class="mode-segment__btn {{ 'active' if mode == 'SND' else '' }}">🔍 {{ t.mode_snd }}</a>
+</div>
+
+{# ── 지표 pill (모드 아래 별도 행) ── #}
+<div class="filters lb-metrics">
     {% for key, label in opts %}
     <a href="/leaderboard?mode={{ mode }}&metric={{ key }}&lang={{ lang }}" class="{{ 'active' if metric == key else '' }}">{{ label }}</a>
     {% endfor %}
@@ -33,20 +37,45 @@
     </select>
 </form>
 
+{# 1위 값 (바 정규화 기준) #}
+{% set top_value = rows[0].value if rows else none %}
+
 <div class="card section">
-    <h2>{{ t.basis }}: {% for key, label in opts %}{% if metric == key %}{{ label }}{% endif %}{% endfor %}</h2>
+    <h2>{{ metric_label }} <span class="muted" style="font-size: var(--fs-sm); font-weight: var(--fw-normal);">— {{ t.lb_ranking }}</span></h2>
+    {% if rows %}
     <div class="table-wrap">
-    <table>
+    <table class="lb-table">
         <thead>
             <tr>
                 <th class="num">{{ t.rank }}</th>
                 <th>{{ t.player }}</th>
                 <th class="num">{{ t.matches_col }}</th>
-                <th class="num">{{ t.basis }}</th>
+                <th class="num">{{ metric_label }}</th>
+                <th class="num">{{ t.lb_vs_avg }}</th>
             </tr>
         </thead>
         <tbody>
             {% for r in rows %}
+            {# 팀 평균선 행 — 현재 선수 값이 평균을 넘어가는 지점에 삽입 #}
+            {% if avg_value and higher_better and r.value < avg_value and not loop.changed(avg_value) %}
+            {% set _ = loop.changed(avg_value) if false else none %}
+            {% endif %}
+            {% endfor %}
+            {# 재구조화: 평균선은 별도 처리 #}
+            {% set avg_inserted = [] %}
+            {% for r in rows %}
+            {% if avg_value and not avg_inserted %}
+                {% if (higher_better and r.value < avg_value) or (not higher_better and r.value > avg_value) %}
+                <tr class="lb-avg-row">
+                    <td class="num muted">—</td>
+                    <td class="muted">{{ t.lb_team_avg }}</td>
+                    <td class="num muted">—</td>
+                    <td class="num muted"><strong>{{ avg_value }}</strong></td>
+                    <td class="num muted">±0%</td>
+                </tr>
+                {% set _ = avg_inserted.append(1) %}
+                {% endif %}
+            {% endif %}
             <tr>
                 <td class="num">
                     {% if loop.index == 1 %}🥇
@@ -56,22 +85,61 @@
                     {% endif %}
                 </td>
                 <td><a href="/players/{{ r.name }}?lang={{ lang }}" class="player-link">{{ r.name }}</a></td>
-                <td class="num">{{ r.matches }}</td>
-                <td class="num"><strong class="rank-value">{{ r.value }}</strong></td>
+                <td class="num muted">{{ r.matches }}</td>
+                <td class="num">
+                    <strong class="rank-value">{{ r.value }}</strong>
+                    {% if top_value and top_value != 0 %}
+                    <div class="lb-bar"><span class="lb-bar__fill" style="width: {{ (r.value / top_value * 100)|round(1) }}%"></span></div>
+                    {% endif %}
+                </td>
+                <td class="num">
+                    {% if avg_value and avg_value != 0 %}
+                        {% set pct = ((r.value - avg_value) / avg_value * 100)|round(0)|int %}
+                        {% set is_good = (higher_better and pct > 0) or (not higher_better and pct < 0) %}
+                        {% set is_flat = pct == 0 %}
+                        <span class="delta-{{ 'up' if is_good else ('flat' if is_flat else 'down') }}">{{ '+' if pct > 0 }}{{ pct }}%</span>
+                    {% else %}-{% endif %}
+                </td>
             </tr>
             {% endfor %}
+            {# 모든 선수가 평균보다 좋으면 마지막에 평균선 #}
+            {% if avg_value and not avg_inserted %}
+            <tr class="lb-avg-row">
+                <td class="num muted">—</td>
+                <td class="muted">{{ t.lb_team_avg }}</td>
+                <td class="num muted">—</td>
+                <td class="num muted"><strong>{{ avg_value }}</strong></td>
+                <td class="num muted">±0%</td>
+            </tr>
+            {% endif %}
         </tbody>
     </table>
     </div>
+    {% else %}
+    <p class="muted empty-state">{{ t.no_data }}</p>
+    {% endif %}
 </div>
 
 <style>
-.filter-divider { width: var(--space-4); }
-.rank-value { color: var(--accent); }
+/* 모드 세그먼트 토글 — 큰 버튼 */
+.mode-segment { display: inline-flex; gap: 0; border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; margin-bottom: var(--space-4); }
+.mode-segment__btn { padding: var(--space-2) var(--space-6); font-size: var(--fs-sm); font-weight: var(--fw-semibold); color: var(--text-2); text-decoration: none; background: var(--card); transition: background 0.15s, color 0.15s; }
+.mode-segment__btn:hover { background: var(--card-2); }
+.mode-segment__btn.active { background: var(--accent); color: var(--on-accent); }
+.mode-segment__btn:not(:last-child) { border-right: 1px solid var(--border); }
+/* 지표 pill 행 */
+.lb-metrics { margin-bottom: var(--space-4); }
+/* 리더보드 표 */
+.lb-table .rank-value { color: var(--accent); }
+.lb-bar { height: 4px; border-radius: var(--radius-full); background: var(--card-2); margin-top: var(--space-1); min-width: 80px; }
+.lb-bar__fill { display: block; height: 100%; border-radius: inherit; background: var(--accent); opacity: 0.6; }
+.lb-avg-row { border-top: 2px dashed var(--border-strong); border-bottom: 2px dashed var(--border-strong); }
+.lb-avg-row td { background: var(--card-2); }
 .lb-filters--mobile { display: none; gap: var(--space-2); margin-bottom: var(--space-4); flex-wrap: wrap; }
 .lb-filters--mobile .select { flex: 1; min-width: 120px; }
 @media (max-width: 600px) {
-    .lb-filters--desktop { display: none; }
+    .mode-segment { display: none; }
+    .lb-metrics { display: none; }
     .lb-filters--mobile { display: flex; }
 }
 </style>
