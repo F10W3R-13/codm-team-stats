@@ -1207,6 +1207,8 @@ _COMPARE_SND = [
     ("avg_adr", "avg_adr", True),
     ("avg_score", "avg_score", True),
     ("avg_impact", "avg_impact", True),
+    ("avg_fk", "avg_fk", True),
+    ("avg_lww", "avg_lww", True),
 ]
 
 
