@@ -60,25 +60,69 @@
 </div>
 {% endif %}
 
-{# ── 맵별 성적 히트맵 (HP 전용) ── #}
-{% if player_maps %}
+{# ── 맵별 성적 히트맵 (HP/SND 토글) ── #}
+{% if player_maps or player_maps_snd %}
 <div class="card section">
     <h2>🗺️ {{ t.player_maps_title }}</h2>
-    <p class="muted stat-label">{{ t.player_maps_help }} ({{ t.zcs_label }} {{ stats.hp.zcs }})</p>
-    <div class="map-heatmap">
-        <div class="map-heatmap__bar">
-            <span class="text-danger">{{ t.player_maps_weak }}</span>
-            <span class="muted">{{ t.player_maps_avg }}</span>
-            <span class="text-success">{{ t.player_maps_strong }}</span>
+
+    {# 모드 토글 — HP/SND 둘 다 데이터 있을 때만 노출 #}
+    {% if player_maps and player_maps_snd %}
+    <div class="mode-toggle" data-mode-toggle>
+        <button class="mode-toggle__btn active" data-mode="hp">
+            <span class="badge hp">{{ t.mode_hp }}</span>
+        </button>
+        <button class="mode-toggle__btn" data-mode="snd">
+            <span class="badge snd">{{ t.mode_snd }}</span>
+        </button>
+    </div>
+    {% endif %}
+
+    {# HP 패널 #}
+    <div class="map-panel" data-map-panel="hp" {% if not player_maps %}style="display:none"{% endif %}>
+        {% if player_maps %}
+        <p class="muted stat-label">{{ t.player_maps_help }} ({{ t.zcs_label }} {{ stats.hp.zcs }})</p>
+        <div class="map-heatmap">
+            <div class="map-heatmap__bar">
+                <span class="text-danger">{{ t.player_maps_weak }}</span>
+                <span class="muted">{{ t.player_maps_avg }}</span>
+                <span class="text-success">{{ t.player_maps_strong }}</span>
+            </div>
+            {% for m in player_maps %}
+            <a href="/maps/{{ m.map_name }}?lang={{ lang }}" class="map-heat-row {{ m.heat_class }}">
+                <span class="map-heat-row__name">{{ m.map_name }}</span>
+                <span class="map-heat-row__zcs">{{ m.metric }}</span>
+                <span class="map-heat-row__pct">{{ '+' if m.metric_pct > 0 }}{{ m.metric_pct }}%</span>
+                <span class="muted map-heat-row__matches">{{ m.matches }} {{ t.matches }}</span>
+            </a>
+            {% endfor %}
         </div>
-        {% for m in player_maps %}
-        <a href="/maps/{{ m.map_name }}?lang={{ lang }}" class="map-heat-row {{ m.heat_class }}">
-            <span class="map-heat-row__name">{{ m.map_name }}</span>
-            <span class="map-heat-row__zcs">{{ m.zcs }}</span>
-            <span class="map-heat-row__pct">{{ '+' if m.zcs_pct > 0 }}{{ m.zcs_pct }}%</span>
-            <span class="muted map-heat-row__matches">{{ m.matches }} {{ t.matches }}</span>
-        </a>
-        {% endfor %}
+        {% else %}
+        <p class="muted stat-label">{{ t.player_maps_no_data_hp }}</p>
+        {% endif %}
+    </div>
+
+    {# SND 패널 #}
+    <div class="map-panel" data-map-panel="snd" {% if not player_maps_snd %}style="display:none"{% endif %}>
+        {% if player_maps_snd %}
+        <p class="muted stat-label">{{ t.player_maps_help_snd }} ({{ t.rds_label }} {{ stats.snd.rds if stats.snd else '-' }})</p>
+        <div class="map-heatmap">
+            <div class="map-heatmap__bar">
+                <span class="text-danger">{{ t.player_maps_weak }}</span>
+                <span class="muted">{{ t.player_maps_avg }}</span>
+                <span class="text-success">{{ t.player_maps_strong }}</span>
+            </div>
+            {% for m in player_maps_snd %}
+            <a href="/maps/{{ m.map_name }}?mode=SND&lang={{ lang }}" class="map-heat-row {{ m.heat_class }}">
+                <span class="map-heat-row__name">{{ m.map_name }}</span>
+                <span class="map-heat-row__zcs">{{ m.metric }}</span>
+                <span class="map-heat-row__pct">{{ '+' if m.metric_pct > 0 }}{{ m.metric_pct }}%</span>
+                <span class="muted map-heat-row__matches">{{ m.matches }} {{ t.matches }}</span>
+            </a>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="muted stat-label">{{ t.player_maps_no_data_snd }}</p>
+        {% endif %}
     </div>
 </div>
 {% endif %}
@@ -369,5 +413,21 @@ syncModeButtons();
 {% if stats.hp or stats.snd %}
 loadSeries();  // 버튼 스타일은 syncModeButtons로, 데이터 로드만 트리거
 {% endif %}
+
+// 맵 히트맵 HP/SND 모드 토글
+document.querySelectorAll('[data-mode-toggle]').forEach(function(toggle) {
+    toggle.addEventListener('click', function(e) {
+        var btn = e.target.closest('[data-mode]');
+        if (!btn) return;
+        var mode = btn.dataset.mode;
+        toggle.querySelectorAll('.mode-toggle__btn').forEach(function(b) {
+            b.classList.toggle('active', b === btn);
+        });
+        var card = toggle.closest('.card');
+        card.querySelectorAll('[data-map-panel]').forEach(function(panel) {
+            panel.style.display = (panel.dataset.mapPanel === mode) ? '' : 'none';
+        });
+    });
+});
 </script>
 {% endblock %}
