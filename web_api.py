@@ -185,7 +185,7 @@ async def leaderboard_page(
     metric: str = Query("avg_kd"),
     lang: str = Query("ko"),
 ):
-    custom_metrics = {"dpd", "dpk", "impact_delta", "ap_pct", "zcs"}
+    custom_metrics = {"dpd", "dpk", "impact_delta", "ap_pct", "zcs", "rds"}
     if metric in custom_metrics:
         rows = queries.advanced_leaderboard(metric, 20)
     else:

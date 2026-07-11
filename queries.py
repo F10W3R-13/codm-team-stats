@@ -169,7 +169,7 @@ def leaderboard(mode: str = "HP", metric: str = "avg_kd", limit: int = 10) -> li
     반환: [{name, matches, <metric 값>}, ...]
     """
     valid_hp = {"avg_kd", "avg_k", "avg_dmg", "avg_score", "avg_obj"}
-    valid_snd = {"avg_kd", "avg_k", "avg_score", "avg_adr"}
+    valid_snd = {"avg_kd", "avg_k", "avg_score", "avg_adr", "rds"}
 
     if mode == "HP":
         if metric not in valid_hp:
@@ -194,6 +194,7 @@ def leaderboard(mode: str = "HP", metric: str = "avg_kd", limit: int = 10) -> li
             "avg_k": "AVG(kills)",
             "avg_score": "AVG(score)",
             "avg_adr": "AVG(adr)",
+            "rds": "MAX(0, 4.1*kills + 3.5*assists + 14*first_kill + 20*lone_wolf_win + 0.12*adr - 5*deaths)",
         }[metric]
         sql = f"""SELECT p.name,
                          COUNT(*) matches,
@@ -403,13 +404,17 @@ def all_players_overview(mode: str = "HP") -> list:
 
 
 def advanced_leaderboard(metric: str = "dpd", limit: int = 20) -> list:
-    """HP 커스텀 지표 기준 리더보드. metric: dpd/dpk/impact_delta/ap_pct/zcs.
+    """커스텀 지표 기준 리더보드. metric: dpd/dpk/impact_delta/ap_pct/zcs(HP), rds(SND).
 
-    반환: [{name, matches, value}, ...] (내림차순)
+    반환: [{name, matches, value}, ...] (rds는 내림차순, dpk는 오름차순)
     """
-    players = all_players_overview("HP")
-    if metric not in {"dpd", "dpk", "impact_delta", "ap_pct", "zcs"}:
-        metric = "dpd"
+    # rds는 SND, 나머지는 HP
+    if metric == "rds":
+        players = all_players_overview("SND")
+    else:
+        players = all_players_overview("HP")
+        if metric not in {"dpd", "dpk", "impact_delta", "ap_pct", "zcs"}:
+            metric = "dpd"
     # 값이 있는 선수만, 해당 지표 기준 정렬
     ranked = [
         {"name": p["name"], "matches": p["matches"], "value": p.get(metric)}
