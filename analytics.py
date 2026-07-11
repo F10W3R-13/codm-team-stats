@@ -88,19 +88,27 @@ def match_report(match_id: int) -> dict:
                    WHERE s.match_id=? ORDER BY s.kills DESC""",
                 (match_id,),
             ).fetchall()
+            import metrics as _metrics
             for r in rows:
+                rds = _metrics.compute_rds(
+                    r["kills"] or 0, r["assists"] or 0,
+                    r["first_kill"] or 0, r["lone_wolf_win"] or 0,
+                    r["adr"] or 0, r["deaths"] or 0,
+                )
                 result["players"].append({
                     "name": r["name"], "k": r["kills"] or 0, "d": r["deaths"] or 0,
                     "a": r["assists"] or 0, "kd": r["kd_ratio"] or 0,
                     "score": r["score"] or 0, "impact": r["impact"] or 0,
                     "adr": r["adr"] or 0, "fk": r["first_kill"] or 0,
-                    "lww": r["lone_wolf_win"] or 0,
+                    "lww": r["lone_wolf_win"] or 0, "rds": rds,
                 })
+            rds_vals = [p["rds"] for p in result["players"] if p["rds"] is not None]
             result["team_totals"] = {
                 "kills": sum(p["k"] for p in result["players"]),
                 "deaths": sum(p["d"] for p in result["players"]),
                 "assists": sum(p["a"] for p in result["players"]),
                 "fk": sum(p["fk"] for p in result["players"]),
+                "rds": round(sum(rds_vals) / len(rds_vals), 1) if rds_vals else None,
             }
             for stat, label in [("k", "킬"), ("kd", "K/D"), ("adr", "ADR"),
                                 ("fk", "퍼스트킬"), ("a", "어시스트")]:
