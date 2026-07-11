@@ -103,9 +103,6 @@ STRINGS = {
 
         # 팀 인사이트
         "nav_insights": "팀 인사이트",
-        "team_insights_title": "팀 인사이트",
-        "team_insights_help": "맵별 성적, 팀 추세, 맵별 에이스/약점 선수 분석으로 밴픽·로스터 결정에 활용.",
-        "team_insights_link": "팀 인사이트 전체 보기",
         "team_trend_title": "팀 추세 (최근 vs 시즌 평균)",
         "recent_period": "최근",
         "season": "시즌",

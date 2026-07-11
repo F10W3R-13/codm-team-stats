@@ -95,9 +95,6 @@ STRINGS = {
 
         # Team insights
         "nav_insights": "Análisis del Equipo",
-        "team_insights_title": "Análisis del Equipo",
-        "team_insights_help": "Rendimiento por mapa, tendencias del equipo y jugadores estrella/débiles por mapa para guiar decisiones de ban/pick y roster.",
-        "team_insights_link": "Ver análisis completo del equipo",
         "team_trend_title": "Tendencia del Equipo (Reciente vs Temporada)",
         "recent_period": "Reciente",
         "season": "Temporada",

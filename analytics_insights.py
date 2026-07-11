@@ -52,7 +52,6 @@ def match_insight(report: dict, lang: str = "ko") -> str:
             "team_totals": report["team_totals"],
             "players": report["players"],
         }
-        li = _lang_instruction(lang)
         completion = _client().chat.completions.create(
             model=config.OPENAI_MODEL,
             temperature=0.5,
@@ -72,7 +71,9 @@ def match_insight(report: dict, lang: str = "ko") -> str:
             ],
         )
         return completion.choices[0].message.content.strip()
-    except Exception:
+    except Exception as e:
+        import traceback
+        print(f"[match_insight] ERROR: {e}\n{traceback.format_exc()}", flush=True)
         return ""
 
 
@@ -86,7 +87,6 @@ def weekly_insight(report: dict, lang: str = "ko") -> str:
             "matches_recent": report["matches_recent"],
             "players": report["players"],
         }
-        li = _lang_instruction(lang)
         completion = _client().chat.completions.create(
             model=config.OPENAI_MODEL,
             temperature=0.5,
@@ -106,7 +106,9 @@ def weekly_insight(report: dict, lang: str = "ko") -> str:
             ],
         )
         return completion.choices[0].message.content.strip()
-    except Exception:
+    except Exception as e:
+        import traceback
+        print(f"[weekly_insight] ERROR: {e}\n{traceback.format_exc()}", flush=True)
         return ""
 
 
@@ -142,7 +144,9 @@ def trend_insight(trend: dict, lang: str = "ko") -> str:
             ],
         )
         return completion.choices[0].message.content.strip()
-    except Exception:
+    except Exception as e:
+        import traceback
+        print(f"[trend_insight] ERROR: {e}\n{traceback.format_exc()}", flush=True)
         return ""
 
 
@@ -161,7 +165,6 @@ def player_profile_insight(stats: dict, team_hp: dict = None, lang: str = "ko") 
             "snd": stats.get("snd"),
             "team_hp_avg": team_hp,
         }
-        li = _lang_instruction(lang)
         completion = _client().chat.completions.create(
             model=config.OPENAI_MODEL,
             temperature=0.5,
@@ -185,43 +188,9 @@ def player_profile_insight(stats: dict, team_hp: dict = None, lang: str = "ko") 
             ],
         )
         return completion.choices[0].message.content.strip()
-    except Exception:
-        return ""
-
-
-def team_insight(team_data: dict, lang: str = "ko") -> str:
-    """팀 전체 인사이트 — 팀 추세 + 맵별 성적 + 맵별 선수 종합.
-
-    팀 추세(상승/하락), 강/약점 맵, 맵별 에이스/약점 선수 등을
-    자연어로 요약. 밴픽 코칭 관점 포함. 실패 시 빈 문자열.
-    """
-    if not team_data:
-        return ""
-    try:
-        li = _lang_instruction(lang)
-        completion = _client().chat.completions.create(
-            model=config.OPENAI_MODEL,
-            temperature=0.5,
-            max_tokens=500,
-            messages=[
-                {
-                    "role": "system",
-                    "content": prompt_context.build_system_prompt(
-                        "You are advising the coach on map strategy. Write 4-6 sentences of team "
-                        "insight from the JSON data which includes: team trend (recent vs season avg), "
-                        "per-map team K/D, and per-map player strengths. Cover: 1) overall team "
-                        "trajectory (rising/falling), 2) strongest and weakest maps with K/D evidence "
-                        "and map tendency context, 3) which players excel/struggle on key maps (use "
-                        "role + IGN — for roster/map-pick decisions), 4) a brief map ban/pick "
-                        "suggestion if data supports it. Grounded in numbers. Concise, actionable.",
-                        lang,
-                    ),
-                },
-                {"role": "user", "content": json.dumps(team_data, ensure_ascii=False, default=str)},
-            ],
-        )
-        return completion.choices[0].message.content.strip()
-    except Exception:
+    except Exception as e:
+        import traceback
+        print(f"[player_profile_insight] ERROR: {e}\n{traceback.format_exc()}", flush=True)
         return ""
 
 
@@ -257,7 +226,6 @@ def map_advice(map_data: dict, lang: str = "ko") -> str:
             ],
             "team_avg": map_data.get("team_avg"),
         }
-        li = _lang_instruction(lang)
         zcs_hint = (
             f"'player X has highest ZCS at 220'). " if is_hp else ""
         )
@@ -284,7 +252,9 @@ def map_advice(map_data: dict, lang: str = "ko") -> str:
             ],
         )
         return completion.choices[0].message.content.strip()
-    except Exception:
+    except Exception as e:
+        import traceback
+        print(f"[map_advice] ERROR: {e}\n{traceback.format_exc()}", flush=True)
         return ""
 
 
@@ -298,7 +268,6 @@ def summarize_transcript(report: dict, transcript: str, lang: str = "ko") -> str
     if not transcript or not transcript.strip():
         return ""
     try:
-        li = _lang_instruction(lang)
         # 전사가 너무 길면 토큰 절약을 위해 자름 (문단 단위 약 12000자)
         trunc = transcript[:12000]
         if len(transcript) > 12000:
@@ -343,7 +312,9 @@ def summarize_transcript(report: dict, transcript: str, lang: str = "ko") -> str
             ],
         )
         return completion.choices[0].message.content.strip()
-    except Exception:
+    except Exception as e:
+        import traceback
+        print(f"[summarize_transcript] ERROR: {e}\n{traceback.format_exc()}", flush=True)
         return ""
 
 

@@ -75,9 +75,9 @@ def analyze_images(url1: str, url2: str, roster: list = None) -> dict:
     completion = openai_client.chat.completions.create(
         model=config.OPENAI_MODEL,
         temperature=config.OPENAI_TEMPERATURE,
-        top_p=0,
         max_tokens=config.OPENAI_MAX_TOKENS,
         response_format={"type": "json_object"},
+        timeout=60,
         n=1,
         messages=[
             {
@@ -216,7 +216,9 @@ async def on_message(message: discord.Message):
 
         mode = result.get("mode", "").upper()
         # 신규 프롬프트는 "players" 키 사용. 구버전 호환용 "result" fallback.
-        players = result.get("players") or result.get("result", [])
+        # 단, 신규 프롬프트의 "result"는 승패 문자열("WIN"/"LOSS")이므로 리스트인 경우만 폴백.
+        _result_raw = result.get("result", [])
+        players = result.get("players") or (_result_raw if isinstance(_result_raw, list) else [])
         match_result = result.get("result") if isinstance(result.get("result"), str) else None
         team_score = result.get("team_score")
         opponent_score = result.get("opponent_score")

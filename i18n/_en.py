@@ -95,9 +95,6 @@ STRINGS = {
 
         # Team insights
         "nav_insights": "Team Insights",
-        "team_insights_title": "Team Insights",
-        "team_insights_help": "Per-map performance, team trends, and map-specific ace/weak players to guide ban/pick and roster decisions.",
-        "team_insights_link": "View full team insights",
         "team_trend_title": "Team Trend (Recent vs Season)",
         "recent_period": "Recent",
         "season": "Season",

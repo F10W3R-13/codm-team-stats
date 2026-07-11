@@ -90,14 +90,7 @@ def player_overall_stats(player_id: int) -> dict:
             result["hp"]["std_kd"] = _stddev([x["kd_ratio"] for x in rows if x["kd_ratio"] is not None], 2)
             result["hp"]["std_kills"] = _stddev([x["kills"] for x in rows if x["kills"] is not None], 1)
             result["hp"]["std_dmg"] = _stddev([x["total_damage"] for x in rows if x["total_damage"] is not None], 0)
-            # HP 커스텀 지표(DPD/DPK/ID/AP%/ZCS) — 평균 스탯 기반으로 계산해 추가.
-            # (player_detail 커스텀 지표 카드 + 팀 대비 비교표 ZCS 행 표시용)
-            result["hp"].update(metrics.all_hp_metrics(
-                result["hp"].get("avg_k"), result["hp"].get("avg_d"),
-                result["hp"].get("avg_obj"), result["hp"].get("avg_score"),
-                result["hp"].get("avg_impact"), result["hp"].get("avg_dmg"),
-                result["hp"].get("avg_capture"),
-            ))
+            # HP 커스텀 지표(DPD/DPK/ID/AP%/ZCS)는 아래(130줄)에서 한 번만 계산.
 
         # SND 평균 + 표준편차(기복)
         r = conn.execute(
@@ -137,7 +130,7 @@ def player_overall_stats(player_id: int) -> dict:
         # 'id' 키 충돌 주의: impact_delta로 저장
         h["dpd"] = m["dpd"]
         h["dpk"] = m["dpk"]
-        h["impact_delta"] = m["id"]
+        h["impact_delta"] = m["impact_delta"]
         h["ap_pct"] = m["ap_pct"]
         h["zcs"] = m["zcs"]
 
@@ -153,7 +146,7 @@ def team_averages(mode: str = "HP") -> dict:
     if not players:
         return {}
     keys = [k for k in players[0].keys()
-            if k not in ("name",) and isinstance(players[0].get(k), (int, float))]
+            if k not in ("name", "id") and isinstance(players[0].get(k), (int, float))]
     avg = {}
     for k in keys:
         vals = [p[k] for p in players if p.get(k) is not None]
@@ -167,7 +160,7 @@ def leaderboard(mode: str = "HP", metric: str = "avg_kd", limit: int = 10) -> li
     반환: [{name, matches, <metric 값>}, ...]
     """
     valid_hp = {"avg_kd", "avg_k", "avg_dmg", "avg_score", "avg_obj"}
-    valid_snd = {"avg_kd", "avg_k", "avg_dmg", "avg_score", "avg_adr"}
+    valid_snd = {"avg_kd", "avg_k", "avg_score", "avg_adr"}
 
     if mode == "HP":
         if metric not in valid_hp:
@@ -190,7 +183,6 @@ def leaderboard(mode: str = "HP", metric: str = "avg_kd", limit: int = 10) -> li
         expr = {
             "avg_kd": "AVG(kd_ratio)",
             "avg_k": "AVG(kills)",
-            "avg_dmg": "AVG(score)",  # SND는 total_damage 없음 → score로 대체
             "avg_score": "AVG(score)",
             "avg_adr": "AVG(adr)",
         }[metric]
@@ -346,7 +338,7 @@ def player_kd_trend(player_id: int, mode: str = "HP", limit: int = 30) -> list:
 def all_players_overview(mode: str = "HP") -> list:
     """모든 선수의 모드별 평균 스탯 (선수 페이지용). HP는 커스텀 지표 포함."""
     if mode == "HP":
-        sql = """SELECT p.name,
+        sql = """SELECT p.id, p.name,
                         COUNT(*) matches,
                         ROUND(AVG(s.kills),1) avg_k,
                         ROUND(AVG(s.deaths),1) avg_d,
@@ -359,7 +351,7 @@ def all_players_overview(mode: str = "HP") -> list:
                  FROM player_stats_hp s JOIN players p ON p.id=s.player_id
                  GROUP BY p.id ORDER BY avg_kd DESC"""
     else:
-        sql = """SELECT p.name,
+        sql = """SELECT p.id, p.name,
                         COUNT(*) matches,
                         ROUND(AVG(s.kills),1) avg_k,
                         ROUND(AVG(s.deaths),1) avg_d,
@@ -392,12 +384,12 @@ def all_players_overview(mode: str = "HP") -> list:
 
 
 def advanced_leaderboard(metric: str = "dpd", limit: int = 20) -> list:
-    """HP 커스텀 지표 기준 리더보드. metric: dpd/dpk/id/ap_pct/zcs.
+    """HP 커스텀 지표 기준 리더보드. metric: dpd/dpk/impact_delta/ap_pct/zcs.
 
     반환: [{name, matches, value}, ...] (내림차순)
     """
     players = all_players_overview("HP")
-    if metric not in {"dpd", "dpk", "id", "ap_pct", "zcs"}:
+    if metric not in {"dpd", "dpk", "impact_delta", "ap_pct", "zcs"}:
         metric = "dpd"
     # 값이 있는 선수만, 해당 지표 기준 정렬
     ranked = [
@@ -415,7 +407,7 @@ def player_metric_timeseries(player_id: int, mode: str = "HP", limit: int = 50) 
     """선수의 매치별 모든 지표(기본+커스텀) 시계열. 최신 limit개, 시간순(과거→최신).
 
     반환: [{date, kills, deaths, kd, obj, score, impact, dmg, cap,
-            dpd, dpk, id, ap_pct, zcs}, ...]  (HP)
+            dpd, dpk, impact_delta, ap_pct, zcs}, ...]  (HP)
           [{date, kills, deaths, assists, kd, score, impact, adr,
             fk, lww}, ...]  (SND)
     """
@@ -446,7 +438,7 @@ def player_metric_timeseries(player_id: int, mode: str = "HP", limit: int = 50) 
             # id 키 충돌 주의: dict의 'id' 대신 'impact_delta' 사용
             r["dpd"] = m["dpd"]
             r["dpk"] = m["dpk"]
-            r["impact_delta"] = m["id"]  # 'id'는 예약 느낌이라 별명 사용
+            r["impact_delta"] = m["impact_delta"]
             r["ap_pct"] = m["ap_pct"]
             r["zcs"] = m["zcs"]
     return rows
@@ -547,12 +539,13 @@ def match_history_grouped(mode: str = None, date_page: int = 1,
                          (SELECT ROUND(AVG(kd_ratio),2) FROM player_stats_hp WHERE match_id=m.id) avg_kd_hp,
                          (SELECT ROUND(AVG(kd_ratio),2) FROM player_stats_snd WHERE match_id=m.id) avg_kd_snd,
                          (SELECT ROUND(AVG(MAX(0, 1.1*obj_time + 8*capture_kill + 4.1*kills - 5*deaths)),1)
-                          FROM player_stats_hp WHERE match_id=m.id) avg_zcs
+                          FROM player_stats_hp WHERE match_id=m.id) avg_zcs,
+                         (m.match_date IS NULL) is_null
                   FROM matches m
                   WHERE ({('m.match_date IN (%s)' % placeholders) if placeholders else 'FALSE'}
                   {(' OR ' if placeholders and has_null else '') + ('m.match_date IS NULL' if has_null else '')})
                   {mode_cond}
-                  ORDER BY (m.match_date IS NULL), m.match_date DESC, m.id DESC"""
+                  ORDER BY is_null, m.match_date DESC, m.id DESC"""
         qp = [d for d in page_dates if d is not None] + ([mode] if mode else [])
         rows = conn.execute(db._adapt_sql(sql), qp).fetchall()
 
@@ -582,10 +575,11 @@ def match_history_grouped(mode: str = None, date_page: int = 1,
     ]
     groups = []
     for d in page_dates:
-        grp_matches = [m for m in matches if m["match_date"] == d and not (d is None and m["match_date"] is not None)]
-        # None 그룹은 match_date IS NULL인 행만
+        # None 그룹은 match_date IS NULL인 행만, 그 외는 날짜 일치
         if d is None:
             grp_matches = [m for m in matches if m["match_date"] is None]
+        else:
+            grp_matches = [m for m in matches if m["match_date"] == d]
         if grp_matches:
             dn = day_notes_map.get(d, {}) if d is not None else {}
             groups.append({
@@ -698,6 +692,9 @@ def map_team_stats_recent(mode: str = "HP", recent_matches: int = 10,
     """
     if recent_matches is None:
         return map_team_stats(mode, min_matches)
+    # mode 화이트리스트 강제 — recent_ids 서브쿼리에 문자열 보간되므로 인젝션 방어.
+    if mode not in ("HP", "SND"):
+        raise ValueError(f"map_team_stats_recent: invalid mode={mode!r}")
     if recent_matches <= 0:
         recent_matches = 10
     # 최근 N매치 id 서브쿼리 (mode 고정) — SQLite/Postgres 공통
@@ -914,7 +911,7 @@ def map_trend(map_name: str, mode: str = "HP", days: int = 30) -> dict:
                 block["zcs"] = m["zcs"]
                 block["dpd"] = m["dpd"]
                 block["dpk"] = m["dpk"]
-                block["id"] = m["id"]
+                block["impact_delta"] = m["impact_delta"]
                 block["ap_pct"] = m["ap_pct"]
 
     # 비교할 지표 + 메타 (높을수록 좋은가, 라벨 키)
@@ -930,7 +927,7 @@ def map_trend(map_name: str, mode: str = "HP", days: int = 30) -> dict:
             ("avg_impact", True, "avg_impact"),
             ("dpd", True, "m_dpd"),
             ("dpk", False, "m_dpk"),
-            ("id", True, "m_id"),
+            ("impact_delta", True, "m_id"),
             ("ap_pct", True, "m_ap_pct"),
         ]
     else:
@@ -998,9 +995,29 @@ def win_loss_summary(mode: str = None) -> dict:
                "none": n, "win_rate": win_rate}
 
         if not mode:
-            out["by_mode"] = {
-                m: win_loss_summary(m) for m in ("HP", "SND")
-            }
+            # mode=None: 단일 GROUP BY 쿼리로 HP/SND 각각 집계 (재귀 호출 제거)
+            by_mode = {}
+            rows = conn.execute(
+                "SELECT mode, result, COUNT(*) c FROM matches "
+                "WHERE mode IN ('HP','SND') GROUP BY mode, result"
+            ).fetchall()
+            mode_counts = {}
+            for r in rows:
+                m = r["mode"]
+                mode_counts.setdefault(m, {"total": 0, "wins": 0, "losses": 0, "draw": 0})
+                mode_counts[m]["total"] += r["c"]
+                if r["result"] == "WIN":
+                    mode_counts[m]["wins"] += r["c"]
+                elif r["result"] == "LOSS":
+                    mode_counts[m]["losses"] += r["c"]
+                elif r["result"] == "DRAW":
+                    mode_counts[m]["draw"] += r["c"]
+            for m, c in mode_counts.items():
+                c["none"] = c["total"] - c["wins"] - c["losses"] - c["draw"]
+                dec = c["wins"] + c["losses"]
+                c["win_rate"] = round(c["wins"] / dec * 100, 1) if dec else None
+                by_mode[m] = c
+            out["by_mode"] = by_mode
         return out
 
 

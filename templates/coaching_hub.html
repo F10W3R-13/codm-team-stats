@@ -348,7 +348,9 @@ const zcsChart = new Chart(document.getElementById('zcsChart'), {
         scales: { x: { display: false }, y: { grid: { color: TDS.border }, ticks: { color: TDS.muted } } },
     })
 });
-_chartRegistry.set('zcsChart', zcsChart);
-</script>
+zcsChart._onThemeChange = function(chart, tds) {
+    chart.data.datasets[0].backgroundColor = hexToRgba(tds.accent, 0.08);
+};
+_chartRegistry.set('zcsChart', zcsChart);</script>
 {% endif %}
 {% endblock %}

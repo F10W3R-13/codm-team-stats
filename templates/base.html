@@ -39,6 +39,14 @@
     // 차트 인스턴스 레지스트리 — 테마 토글 시 색 리렌더에 사용.
     // 각 페이지의 new Chart 후 _chartRegistry.set(id, chart) 로 등록.
     const _chartRegistry = new Map();
+    // 헥스 색(#RRGGBB) → rgba(alpha) 변환 — 차트 채우기색에 사용.
+    function hexToRgba(hex, alpha) {
+        const h = hex.replace('#', '');
+        const r = parseInt(h.substring(0, 2), 16);
+        const g = parseInt(h.substring(2, 4), 16);
+        const b = parseInt(h.substring(4, 6), 16);
+        return `rgba(${r},${g},${b},${alpha})`;
+    }
     // Cartesian(line/bar) 기본 옵션. overrides로 차이점만 지정.
     function chartOptions(overrides = {}) {
         return Object.assign({

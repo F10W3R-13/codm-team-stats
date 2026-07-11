@@ -285,6 +285,9 @@ def player_trend(name: str, recent_n: int = 10) -> dict:
                     delta[key + "_pct"] = round((recent[key] - ov) / ov * 100, 1)
                 else:
                     delta[key + "_pct"] = 0
+            # 데스는 "낮을수록 좋음" — GPT 트렌드 인사이트가 방향을 오독하지 않도록 메타 명시.
+            # (d_pct > 0 = 데스 증가 = 나쁨. K/KD는 양수=좋음.)
+            delta["meta"] = {"d": "lower_is_better"}
 
             last_matches = [
                 {"date": r["match_date"], "k": r["k"], "d": r["d"], "kd": r["kd"]}
@@ -316,35 +319,7 @@ def last_match_id(mode: str = None) -> int:
         return r["id"] if r else None
 
 
-# ── 팀 인사이트 데이터 조립 ──────────────────────────────────────────────
-
-def team_insights_data(days: int = 30, mode: str = "HP") -> dict:
-    """팀 인사이트용 종합 데이터 조립 (GPT 인사이트 + 웹 표시용).
-
-    반환: {
-        trend: team_trend 결과,
-        maps: [{map_name, matches, avg_kd, avg_k, avg_dmg, top_player, weak_player}],
-    }
-    """
-    import queries
-    trend = queries.team_trend(days)
-    maps_raw = queries.map_team_stats(mode, min_matches=3)
-
-    # 각 맵별 에이스/약점 선수 추가
-    maps = []
-    for m in maps_raw:
-        players = queries.map_player_stats(m["map_name"], mode, min_matches=2)
-        top = players[0] if players else None
-        weak = players[-1] if players else None
-        entry = dict(m)
-        entry["top_player"] = {"name": top["player_name"], "kd": top["avg_kd"]} if top else None
-        entry["weak_player"] = {"name": weak["player_name"], "kd": weak["avg_kd"]} if weak else None
-        entry["players"] = players[:5]  # 상위 5명
-        maps.append(entry)
-
-    return {"trend": trend, "maps": maps, "mode": mode}
-
-
+# ── 맵 상세 ─────────────────────────────────────────────────────────────
 def map_detail(map_name: str, mode: str = "HP", days: int = 30) -> dict:
     """단일 맵의 종합 상세 데이터 조립 (맵 상세 페이지용).
 
@@ -502,7 +477,7 @@ def banpick_board(recent_matches=None) -> dict:
     }
 
 
-def coaching_hub(mode: str = "HP", recent_matches: int = 10) -> dict:
+def coaching_hub(mode: str = "HP", recent_matches: int | None = 10) -> dict:
     """코칭 허브(/ 홈)용 종합 데이터 — 액션/진단 중심.
 
     "다음 매치 전에 뭘 해야 하나"를 한눈에:

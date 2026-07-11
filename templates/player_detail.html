@@ -115,6 +115,7 @@
     {% if insight %}
     <p id="insightText" class="insight-text">{{ insight }}</p>
     {% else %}
+    {% if stats.hp or stats.snd %}
     <p id="insightText" class="muted">⏳ {{ t.insight_fetching }}...</p>
     <script>
     (() => {
@@ -128,6 +129,7 @@
             }).catch(() => { document.getElementById('insightCard').style.display = 'none'; });
     })();
     </script>
+    {% endif %}
     {% endif %}
 </div>
 
@@ -167,6 +169,7 @@
 .section-help { font-size: var(--fs-xs); margin-bottom: var(--space-4); }
 .insight-text { line-height: 1.7; white-space: pre-wrap; }
 .metric-controls { display: flex; gap: var(--space-4); flex-wrap: wrap; align-items: flex-end; margin-bottom: var(--space-4); }
+.mode-toggle-group { display: inline-flex; gap: var(--space-1); }
 .metric-label { font-size: var(--fs-xs); display: block; margin-bottom: var(--space-1); }
 .chart-wrap--trend { height: 380px; }
 @media (max-width: 600px) {

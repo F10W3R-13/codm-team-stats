@@ -77,7 +77,7 @@ class StatsCommands(commands.Cog):
                     f"```\n"
                     f"DPD : {adv['dpd']}  (DMG/Death)\n"
                     f"DPK : {adv['dpk']}  (DMG/Kill)\n"
-                    f"ID  : {adv['id']}  (Impact−Score/34)\n"
+                    f"ID  : {adv['impact_delta']}  (Impact−Score/34)\n"
                     f"AP% : {adv['ap_pct']}  (CapKill/Kills)\n"
                     f"ZCS : {adv['zcs']}  (Zone Control)\n"
                     f"```"
@@ -276,7 +276,7 @@ class StatsCommands(commands.Cog):
         app_commands.Choice(name="Avg Score", value="avg_score"),
         app_commands.Choice(name="DPD (DMG/Death)", value="dpd"),
         app_commands.Choice(name="DPK (DMG/Kill)", value="dpk"),
-        app_commands.Choice(name="ID (Impact Delta)", value="id"),
+        app_commands.Choice(name="ID (Impact Delta)", value="impact_delta"),
         app_commands.Choice(name="AP% (Cap Ratio)", value="ap_pct"),
         app_commands.Choice(name="ZCS (Zone Control)", value="zcs"),
     ])
@@ -288,7 +288,7 @@ class StatsCommands(commands.Cog):
     ):
         m = mode.value if mode else "HP"
         met = metric.value if metric else "avg_kd"
-        custom = {"dpd", "dpk", "id", "ap_pct", "zcs"}
+        custom = {"dpd", "dpk", "impact_delta", "ap_pct", "zcs"}
         if met in custom:
             rows = queries.advanced_leaderboard(met, 15)
         else:
@@ -303,7 +303,7 @@ class StatsCommands(commands.Cog):
         metric_label = {
             "avg_kd": "K/D", "avg_k": "Avg Kills",
             "avg_dmg": "Avg DMG/Score", "avg_score": "Avg Score",
-            "dpd": "DPD", "dpk": "DPK", "id": "ID",
+            "dpd": "DPD", "dpk": "DPK", "impact_delta": "ID",
             "ap_pct": "AP%", "zcs": "ZCS",
         }.get(met, met)
 

@@ -90,7 +90,7 @@
 - `/maps`, `/maps/{name}` — **맵 탭**: ZCS 중심 카드 그리드 → 맵 상세(승률/전지표 최근vs시즌/AI 수치경향/선수별).
 - `/admin` — 관리 (승패·스코어·선수·날짜 복기 입력). 서브탭: 매치/별명/미매칭/선수 관리.
 - **`/trends` 삭제됨** (시계열은 `/players/{name}` 선수 상세에 통합). `/api/player/{name}/timeseries` JSON API만 남음.
-- **`/insights` 삭제됨** (팀 인사이트 탭 제거, 맵 탭으로 통합). `team_insights_data()`/`team_insight()` 함수는 coaching_hub 호환성 위해 잔존.
+- **`/insights` 삭제됨** (팀 인사이트 탭 제거, 맵 탭으로 통합). `team_insights_data()`/`team_insight()` 함수 및 관련 i18n 키도 함께 삭제됨.
 
 ### AI 인사이트 정책
 - 매치 분석, 선수 프로필, 팀 허브, 맵 상세에서 AI 인사이트 노출.

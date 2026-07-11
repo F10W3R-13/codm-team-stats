@@ -22,13 +22,15 @@ def compute_impact(kills, deaths, obj_time, total_damage) -> float:
 
 def compute_dpd(total_damage, deaths) -> float:
     """Damage Per Death = Total Damage / Deaths."""
-    if not total_damage or not deaths:
+    if not deaths:
         return None
     return round(total_damage / deaths, 2)
 
 
 def compute_dpk(total_damage, kills) -> float:
-    """Damage Per Kill = Total Damage / Kills."""
+    """Damage Per Kill = Total Damage / Kills (낮을수록 좋음).
+    total_damage=0은 보통 데이터 누락 — 0/kills=0이 '낮을수록 좋음' 체계에서
+    1등으로 왜곡되므로 None 처리."""
     if not total_damage or not kills:
         return None
     return round(total_damage / kills, 2)
@@ -36,9 +38,9 @@ def compute_dpk(total_damage, kills) -> float:
 
 def compute_id(impact, score) -> float:
     """Impact Delta = Impact − Score/34."""
-    if impact is None or not score:
+    if impact is None:
         return None
-    return round(impact - score / 34, 2)
+    return round(impact - (score or 0) / 34, 2)
 
 
 def compute_ap_pct(capture_kill, kills) -> float:
@@ -71,7 +73,7 @@ def all_hp_metrics(kills, deaths, obj_time, score, impact, total_damage, capture
     return {
         "dpd": compute_dpd(total_damage, deaths),
         "dpk": compute_dpk(total_damage, kills),
-        "id": compute_id(imp, score),
+        "impact_delta": compute_id(imp, score),
         "ap_pct": compute_ap_pct(capture_kill, kills),
         "zcs": compute_zcs(obj_time, capture_kill, kills, deaths),
         "impact": imp,

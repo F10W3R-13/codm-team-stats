@@ -5,8 +5,8 @@
 {% block content %}
 <h1>{{ t.leaderboard_title }}</h1>
 
-{% set metric_opts_hp = [('avg_kd', t.kd), ('avg_k', t.avg_k), ('avg_dmg', t.m_dmg), ('avg_score', t.avg_score), ('avg_obj', t.avg_obj), ('dpd', t.m_dpd), ('dpk', t.m_dpk), ('id', t.m_id), ('ap_pct', t.m_ap_pct), ('zcs', t.m_zcs)] %}
-{% set metric_opts_snd = [('avg_kd', t.kd), ('avg_k', t.avg_k), ('avg_dmg', t.m_dmg), ('avg_score', t.avg_score), ('avg_adr', t.avg_impact)] %}
+{% set metric_opts_hp = [('avg_kd', t.kd), ('avg_k', t.avg_k), ('avg_dmg', t.m_dmg), ('avg_score', t.avg_score), ('avg_obj', t.avg_obj), ('dpd', t.m_dpd), ('dpk', t.m_dpk), ('impact_delta', t.m_id), ('ap_pct', t.m_ap_pct), ('zcs', t.m_zcs)] %}
+{% set metric_opts_snd = [('avg_kd', t.kd), ('avg_k', t.avg_k), ('avg_score', t.avg_score), ('avg_adr', t.avg_impact)] %}
 {% set opts = metric_opts_hp if mode == 'HP' else metric_opts_snd %}
 
 {# 데스크탑: 필터 pills / 모바일: select 드롭다운 (10개 pill 벽 방지) #}

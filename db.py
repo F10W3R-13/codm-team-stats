@@ -13,6 +13,9 @@
 
 import os
 import sqlite3
+import logging
+
+log = logging.getLogger("codm-db")
 
 # DB 종류 판별
 DATABASE_URL = os.environ.get("DATABASE_URL", "")
@@ -201,7 +204,7 @@ def _adapt_sql(sql: str) -> str:
 
 
 def _adapt_params(params):
-    """psycopg2는 단일 param을 튜플/리스트로 감싸야 할 때가 있어 통일."""
+    """현재는 변환 불필요 (SQLite/Postgres 양쪽 같은 params 형식 사용). 향후 方言 차이 시 확장 지점."""
     return params
 
 
@@ -354,7 +357,8 @@ class _ConnAdapter:
                 (table, column),
             )
             return cur.fetchone() is not None
-        except Exception:
+        except Exception as e:
+            log.warning(f"[_has_column] {table}.{column} 확인 실패: {e}")
             return False
 
     def executescript(self, script):
@@ -453,8 +457,9 @@ def _learn_alias(conn, ign: str, player_id: int, source: str = "OCR Auto"):
                 "INSERT OR IGNORE INTO aliases(ign, player_id, source) VALUES (?, ?, ?)",
                 (ign, player_id, source),
             )
-    except Exception:
-        pass  # UNIQUE 충돌 등 — 이미 학습됐거나 다른 선수에게 할당됨
+    except Exception as e:
+        log.warning(f"[_learn_alias] {ign} → player_id={player_id} 학습 실패: {e}")
+        # UNIQUE 충돌 등 — 이미 학습됐거나 다른 선수에게 할당됨. 부수 기능이라 삼킴.
 
 
 def add_alias(ign: str, player_name: str) -> dict:
@@ -484,8 +489,9 @@ def add_alias(ign: str, player_name: str) -> dict:
                 "INSERT INTO aliases(ign, player_id, source) VALUES (?, ?, 'Manual')",
                 (ign, pid),
             )
-        except Exception:
-            return {"ok": False, "message": f"`{ign}` alias 등록 중 충돌 (이미 존재할 수 있음)"}
+        except Exception as e:
+            log.warning(f"[add_alias] {ign} → {player_name} 등록 실패: {e}")
+            return {"ok": False, "message": f"`{ign}` alias 등록 중 충돌 (이미 존재하거나 DB 오류): {e}"}
         return {"ok": True, "message": f"✅ `{ign}` → `{player_name}` 등록 완료",
                 "player": player_name, "ign": ign}
 

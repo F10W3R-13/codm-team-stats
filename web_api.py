@@ -92,12 +92,9 @@ async def coaching_hub_page(request: Request, lang: str = Query("ko"),
     cookie_val = request.cookies.get(auth.COOKIE_NAME)
     is_admin = bool(cookie_val and auth.check_cookie(cookie_val))
     data["open_notes"] = queries.open_notes() if is_admin else []
-    # 선수 태그용 — 실제 DB id (all_players_overview의 id는 metrics ID 지표라 사용 불가)
     data["players_list"] = [
-        {"id": pid, "name": p["name"]}
+        {"id": p["id"], "name": p["name"]}
         for p in queries.all_players_overview("HP")
-        for pid in [queries.get_player_id(p["name"])]
-        if pid
     ] if is_admin else []
     return render("coaching_hub.html", lang=lang, data=data, is_admin=is_admin)
 
@@ -128,13 +125,11 @@ async def player_detail(request: Request, name: str, lang: str = Query("ko")):
         raise HTTPException(404, "선수를 찾을 수 없습니다")
     stats = queries.player_overall_stats(pid)
     team_hp = queries.team_averages("HP") if stats["hp"] else {}
-    # key 비대칭 정규화: team_averages(all_players_overview)는 avg_ck/id를 쓰지만
-    # player_overall_stats는 avg_capture/impact_delta를 씀. 통합 패널 루프를 위해 별칭 추가.
+    # key 비대칭 정규화: team_averages(all_players_overview)는 avg_ck를 쓰지만
+    # player_overall_stats는 avg_capture를 씀. 통합 패널 루프를 위해 별칭 추가.
     if team_hp:
         if "avg_capture" not in team_hp and "avg_ck" in team_hp:
             team_hp["avg_capture"] = team_hp["avg_ck"]
-        if "impact_delta" not in team_hp and "id" in team_hp:
-            team_hp["impact_delta"] = team_hp["id"]
     # 역할 분류 (HP 전용) — player_overall_stats엔 team 컨텍스트가 없어 여기서 추가
     if stats["hp"] and team_hp:
         import metrics
@@ -175,7 +170,7 @@ async def leaderboard_page(
     metric: str = Query("avg_kd"),
     lang: str = Query("ko"),
 ):
-    custom_metrics = {"dpd", "dpk", "id", "ap_pct", "zcs"}
+    custom_metrics = {"dpd", "dpk", "impact_delta", "ap_pct", "zcs"}
     if metric in custom_metrics:
         rows = queries.advanced_leaderboard(metric, 20)
     else:
@@ -260,9 +255,7 @@ async def api_player_insight(name: str, lang: str = "ko"):
     if team_hp:
         if "avg_capture" not in team_hp and "avg_ck" in team_hp:
             team_hp["avg_capture"] = team_hp["avg_ck"]
-        if "impact_delta" not in team_hp and "id" in team_hp:
-            team_hp["impact_delta"] = team_hp["id"]
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
     insight = await loop.run_in_executor(
         None, lambda: analytics_insights.player_profile_insight(stats, team_hp, lang=lang))
     if insight:
@@ -278,7 +271,7 @@ async def api_match_insight(match_id: int, lang: str = "ko"):
     report = analytics.match_report(match_id)
     if not report:
         raise HTTPException(404, "매치 없음")
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
     insight = await loop.run_in_executor(
         None, lambda: analytics_insights.match_insight(report, lang=lang))
     if insight:
@@ -295,7 +288,7 @@ async def api_map_insight(map_name: str, mode: str = "HP", lang: str = "ko"):
     data = analytics.map_detail(map_name, mode)
     if not data:
         raise HTTPException(404, "맵 데이터 없음")
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
     advice = await loop.run_in_executor(
         None, lambda: analytics_insights.map_advice(data, lang=lang))
     if advice:
@@ -322,7 +315,7 @@ async def api_briefing(recent: str = Query("10")):
         import traceback
         traceback.print_exc()
         return {"insight": "", "error": f"data: {e}"}
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
     insight = await loop.run_in_executor(
         None, lambda: analytics_insights.briefing_insight(hub_data, lang="ko"))
     if insight:
@@ -478,7 +471,8 @@ async def admin_upload_day_transcript(match_date: str, lang: str = Query("ko"),
     if not report:
         return {"ok": False, "error": "report_failed"}
 
-    summary = analytics_insights.summarize_transcript(report, text, lang=lang)
+    summary = await asyncio.get_running_loop().run_in_executor(
+        None, lambda: analytics_insights.summarize_transcript(report, text, lang=lang))
     if not summary:
         return {"ok": False, "error": "summary_failed"}
 

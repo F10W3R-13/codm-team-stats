@@ -89,7 +89,8 @@
                     <td class="num muted">
                         {% if row.a is not none and row.b is not none %}
                             {% set d = (row.a - row.b) | round(1) %}
-                            <span class="delta-{{ 'up' if d > 0 else ('down' if d < 0 else 'flat') }}">
+                            {% set is_good = (row.higher_better and d > 0) or (not row.higher_better and d < 0) %}
+                            <span class="delta-{{ 'up' if is_good else ('down' if d != 0 else 'flat') }}">
                                 {{ '+' if d > 0 }}{{ d }}
                             </span>
                         {% else %}-{% endif %}
@@ -120,7 +121,8 @@
 
 <script>
 const chartData = {{ data.chart | tojson }};
-const labels = chartData.map(d => d.metric);
+const i18nT = {{ t | tojson }};
+const labels = chartData.map(d => i18nT[d.metric] || d.metric);
 const maxByMetric = {};
 labels.forEach((m, i) => {
     const a = chartData[i].a, b = chartData[i].b;
@@ -155,8 +157,14 @@ const radarChart = new Chart(document.getElementById('radarChart'), {
 });
 // 테마 토글 시 색 갱신
 radarChart._onThemeChange = function(chart, tds) {
-    if (chart.data.datasets[0]) chart.data.datasets[0].borderColor = tds.accent;
-    if (chart.data.datasets[1]) chart.data.datasets[1].borderColor = tds.danger;
+    if (chart.data.datasets[0]) {
+        chart.data.datasets[0].borderColor = tds.accent;
+        chart.data.datasets[0].backgroundColor = hexToRgba(tds.accent, 0.12);
+    }
+    if (chart.data.datasets[1]) {
+        chart.data.datasets[1].borderColor = tds.danger;
+        chart.data.datasets[1].backgroundColor = hexToRgba(tds.danger, 0.12);
+    }
 };
 _chartRegistry.set('radarChart', radarChart);
 </script>
