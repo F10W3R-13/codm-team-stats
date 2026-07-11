@@ -109,3 +109,34 @@ def get_domains(domains: list, lang: str = "ko") -> str:
         if content:
             parts.append(content)
     return "\n\n---\n\n".join(parts)
+
+
+def fingerprint() -> str:
+    """코칭 브레인 knowledge/ 전체의 변경 지문.
+
+    knowledge/ 하위 모든 .md 파일의 가장 최근 mtime을 'YYYY-MM-DDTHH:MM:SS'로 반환.
+    코치가 Obsidian에서 파일을 수정하면 이 값이 바뀜.
+    폴더가 없거나 읽기 실패 시 빈 문자열 (→ insight_cache는 이 경우 stale 검사 안 함).
+
+    용도: insight_cache가 캐시 hit 여부를 "저장 시점의 지문 == 현재 지문"으로 판정.
+    지문이 바뀌면 캐시 미스 → 다음 인사이트 조회 시 새 지식으로 GPT 재호출.
+    """
+    root = KNOWLEDGE_DIR
+    try:
+        latest = 0.0
+        for dirpath, _dirs, files in os.walk(root):
+            for fname in files:
+                if not fname.endswith(".md"):
+                    continue
+                try:
+                    m = os.path.getmtime(os.path.join(dirpath, fname))
+                    if m > latest:
+                        latest = m
+                except OSError:
+                    continue
+        if latest == 0.0:
+            return ""
+        import datetime
+        return datetime.datetime.fromtimestamp(latest).strftime("%Y-%m-%dT%H:%M:%S")
+    except OSError:
+        return ""

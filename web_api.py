@@ -29,6 +29,7 @@ import queries
 import admin_write
 import analytics
 import analytics_insights
+import coaching_brain_loader
 import insight_cache
 import i18n
 import auth
@@ -151,7 +152,8 @@ async def player_detail(request: Request, name: str, lang: str = Query("ko")):
                            else "heat--2" if p <= -15 else "heat--1" if p <= -5 else "heat-0")
     # AI 인사이트 — 캐시 hit 시에만 즉시 렌더. miss면 None (프런트가 fetch로 비동기 로드).
     cache_key = stats["name"] if stats["name"] else ""
-    insight = insight_cache.get("player", cache_key, lang)
+    insight = insight_cache.get("player", cache_key, lang,
+                                fingerprint=coaching_brain_loader.fingerprint())
     return render(
         "player_detail.html", lang=lang,
         stats=stats, team_hp=team_hp,
@@ -241,7 +243,8 @@ async def match_detail(request: Request, match_id: int, lang: str = Query("ko"))
             if pid:
                 match_players.append({"id": pid, "name": p["name"]})
     # GPT 매치 인사이트 — 캐시 hit 시에만 즉시 렌더. miss면 None (프런트 fetch).
-    insight = insight_cache.get("match", str(match_id), lang)
+    insight = insight_cache.get("match", str(match_id), lang,
+                                fingerprint=coaching_brain_loader.fingerprint())
     return render("match_detail.html", lang=lang, report=report, insight=insight,
                   is_admin=is_admin, day_notes=day_notes, match_notes=match_notes,
                   match_players=match_players)
@@ -262,7 +265,8 @@ async def api_player_timeseries(name: str, mode: str = "HP", limit: int = 50):
 @app.get("/api/insight/player/{name}")
 async def api_player_insight(name: str, lang: str = "ko"):
     cache_key = name
-    cached = insight_cache.get("player", cache_key, lang)
+    fp = coaching_brain_loader.fingerprint()
+    cached = insight_cache.get("player", cache_key, lang, fingerprint=fp)
     if cached is not None:
         return {"insight": cached, "cached": True}
     pid = queries.get_player_id(name)
@@ -279,13 +283,14 @@ async def api_player_insight(name: str, lang: str = "ko"):
     insight = await loop.run_in_executor(
         None, lambda: analytics_insights.player_profile_insight(stats, team_hp, lang=lang))
     if insight:
-        insight_cache.set("player", cache_key, lang, insight)
+        insight_cache.set("player", cache_key, lang, insight, fingerprint=fp)
     return {"insight": insight, "cached": False}
 
 
 @app.get("/api/insight/match/{match_id}")
 async def api_match_insight(match_id: int, lang: str = "ko"):
-    cached = insight_cache.get("match", str(match_id), lang)
+    fp = coaching_brain_loader.fingerprint()
+    cached = insight_cache.get("match", str(match_id), lang, fingerprint=fp)
     if cached is not None:
         return {"insight": cached, "cached": True}
     report = analytics.match_report(match_id)
@@ -295,14 +300,15 @@ async def api_match_insight(match_id: int, lang: str = "ko"):
     insight = await loop.run_in_executor(
         None, lambda: analytics_insights.match_insight(report, lang=lang))
     if insight:
-        insight_cache.set("match", str(match_id), lang, insight)
+        insight_cache.set("match", str(match_id), lang, insight, fingerprint=fp)
     return {"insight": insight, "cached": False}
 
 
 @app.get("/api/insight/map/{map_name}")
 async def api_map_insight(map_name: str, mode: str = "HP", lang: str = "ko"):
     cache_key = f"{map_name}_{mode}"
-    cached = insight_cache.get("map", cache_key, lang)
+    fp = coaching_brain_loader.fingerprint()
+    cached = insight_cache.get("map", cache_key, lang, fingerprint=fp)
     if cached is not None:
         return {"insight": cached, "cached": True}
     data = analytics.map_detail(map_name, mode)
@@ -312,7 +318,7 @@ async def api_map_insight(map_name: str, mode: str = "HP", lang: str = "ko"):
     advice = await loop.run_in_executor(
         None, lambda: analytics_insights.map_advice(data, lang=lang))
     if advice:
-        insight_cache.set("map", cache_key, lang, advice)
+        insight_cache.set("map", cache_key, lang, advice, fingerprint=fp)
     return {"insight": advice, "cached": False}
 
 
@@ -324,7 +330,8 @@ async def api_briefing(recent: str = Query("10")):
     """
     if recent not in ("5", "10", "season"):
         recent = "10"
-    cached = insight_cache.get("briefing", recent, "ko")
+    fp = coaching_brain_loader.fingerprint()
+    cached = insight_cache.get("briefing", recent, "ko", fingerprint=fp)
     if cached is not None:
         return {"insight": cached, "cached": True}
     n = None if recent == "season" else int(recent)
@@ -339,7 +346,7 @@ async def api_briefing(recent: str = Query("10")):
     insight = await loop.run_in_executor(
         None, lambda: analytics_insights.briefing_insight(hub_data, lang="ko"))
     if insight:
-        insight_cache.set("briefing", recent, "ko", insight)
+        insight_cache.set("briefing", recent, "ko", insight, fingerprint=fp)
     return {"insight": insight, "cached": False}
 
 
@@ -366,7 +373,8 @@ async def map_detail_page(
         raise HTTPException(404, "맵 데이터를 찾을 수 없습니다")
     # AI 간접 제언 — 캐시 hit 시에만 즉시 렌더. miss면 None (프런트 fetch).
     cache_key = f"{map_name}_{mode}"
-    advice = insight_cache.get("map", cache_key, lang)
+    advice = insight_cache.get("map", cache_key, lang,
+                               fingerprint=coaching_brain_loader.fingerprint())
     return render("map_detail.html", lang=lang, data=data, advice=advice)
 
 
