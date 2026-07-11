@@ -54,6 +54,23 @@ def render(template_name: str, lang: str = "ko", **context) -> str:
     return tpl.render(lang=lang, t=t, languages=i18n.LANGUAGES, **context)
 
 
+def _heat_class(pct: float) -> str:
+    """맵 히트맵 색 등급 (±% 기준). HP/SND 공용.
+
+    5단계: 강함(heat-2/heat-1), 평균(heat-0), 약함(heat--1/heat--2).
+    절대 임계값이 아닌 맵 간 상대 차이 표현.
+    """
+    if pct >= 15:
+        return "heat-2"
+    if pct >= 5:
+        return "heat-1"
+    if pct <= -15:
+        return "heat--2"
+    if pct <= -5:
+        return "heat--1"
+    return "heat-0"
+
+
 app = FastAPI(title="CODM Team Stats")
 
 
@@ -143,13 +160,14 @@ async def player_detail(request: Request, name: str, lang: str = Query("ko")):
             stats["hp"]["slay_score"] = r["slay_score"]
             stats["hp"]["obj_score"] = r["obj_score"]
             stats["hp"]["spectrum_pos"] = metrics.role_spectrum_pos(r["slay_score"], r["obj_score"])
-    # 맵별 성적 (HP 전용) — 본인 평균 대비 강한/약한 맵
-    player_maps = queries.player_map_breakdown(pid, min_matches=5) if stats["hp"] else []
-    # 히트맵 색 클래스 — zcs_pct 크기에 비롯한 5단계 (절대 임계값 아님, 맵 간 상대 차이 표현)
+    # 맵별 성적 — HP(ZCS)/SND(RDS) 본인 평균 대비 강은/약한 맵
+    player_maps = queries.player_map_breakdown(pid, mode="HP", min_matches=5) if stats["hp"] else []
+    player_maps_snd = queries.player_map_breakdown(pid, mode="SND", min_matches=2) if stats["snd"] else []
+    # 히트맵 색 클래스 — metric_pct 크기에 비례한 5단계 (HP/SND 공용)
     for m in player_maps:
-        p = m["zcs_pct"]
-        m["heat_class"] = ("heat-2" if p >= 15 else "heat-1" if p >= 5
-                           else "heat--2" if p <= -15 else "heat--1" if p <= -5 else "heat-0")
+        m["heat_class"] = _heat_class(m["metric_pct"])
+    for m in player_maps_snd:
+        m["heat_class"] = _heat_class(m["metric_pct"])
     # AI 인사이트 — 캐시 hit 시에만 즉시 렌더. miss면 None (프런트가 fetch로 비동기 로드).
     cache_key = stats["name"] if stats["name"] else ""
     insight = insight_cache.get("player", cache_key, lang,
@@ -157,7 +175,7 @@ async def player_detail(request: Request, name: str, lang: str = Query("ko")):
     return render(
         "player_detail.html", lang=lang,
         stats=stats, team_hp=team_hp,
-        insight=insight, player_maps=player_maps,
+        insight=insight, player_maps=player_maps, player_maps_snd=player_maps_snd,
     )
 
 

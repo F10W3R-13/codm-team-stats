@@ -574,6 +574,31 @@
         .nav-toggle.open span:nth-child(2) { opacity: 0; }
         .nav-toggle.open span:nth-child(3) { transform: translateY(-8px) rotate(-45deg); }
 
+        /* ═══ HP/SND 모드 토글 (player_detail) ═══ */
+        .mode-toggle {
+            display: inline-flex;
+            gap: var(--space-1);
+            margin-bottom: var(--space-3);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-full);
+            padding: var(--space-1);
+            background: var(--surface);
+        }
+        .mode-toggle__btn {
+            border: none;
+            background: transparent;
+            padding: var(--space-1) var(--space-3);
+            border-radius: var(--radius-full);
+            cursor: pointer;
+            font: inherit;
+            color: var(--muted);
+            transition: background 0.15s, color 0.15s;
+        }
+        .mode-toggle__btn.active {
+            background: var(--accent);
+            color: var(--on-accent);
+        }
+
         /* ═══ 반응형: 태블릿 이하 (≤768px) ═══ */
         @media (max-width: 768px) {
             .nav {
