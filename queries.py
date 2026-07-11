@@ -1190,6 +1190,7 @@ def team_role_distribution() -> list:
         out.append({
             "name": p["name"], "role": role,
             "slay_score": slay, "obj_score": obj,
+            "spectrum_pos": metrics.role_spectrum_pos(slay, obj),
             "avg_k": p.get("avg_k"), "avg_obj": p.get("avg_obj"),
             "avg_dmg": p.get("avg_dmg"), "avg_capture": p_norm.get("avg_capture"),
         })

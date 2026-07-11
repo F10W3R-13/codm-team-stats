@@ -106,15 +106,17 @@ async def players_page(
     lang: str = Query("ko"),
 ):
     players = queries.all_players_overview(mode)
-    # HP 모드: 역할(slayer/objective/balanced) 배지 표시용 — classify_role로 계산해 추가.
+    # HP 모드: 역할 스펙트럼 데이터(slay/obj_score + 위치) 추가 — 허브와 동일 출처.
     if mode == "HP" and players:
         import metrics
-        team_avg = queries.team_averages("HP")
+        roles = {r["name"]: r for r in queries.team_role_distribution()}
         for p in players:
-            p_norm = dict(p)
-            if "avg_ck" in p_norm and "avg_capture" not in p_norm:
-                p_norm["avg_capture"] = p_norm["avg_ck"]
-            p["role"] = metrics.classify_role(p_norm, team_avg) if team_avg else "balanced"
+            r = roles.get(p["name"])
+            if r:
+                p["role"] = r["role"]
+                p["slay_score"] = r["slay_score"]
+                p["obj_score"] = r["obj_score"]
+                p["spectrum_pos"] = metrics.role_spectrum_pos(r["slay_score"], r["obj_score"])
     return render("players.html", lang=lang, players=players, mode=mode)
 
 
@@ -130,10 +132,16 @@ async def player_detail(request: Request, name: str, lang: str = Query("ko")):
     if team_hp:
         if "avg_capture" not in team_hp and "avg_ck" in team_hp:
             team_hp["avg_capture"] = team_hp["avg_ck"]
-    # 역할 분류 (HP 전용) — player_overall_stats엔 team 컨텍스트가 없어 여기서 추가
-    if stats["hp"] and team_hp:
+    # 역할 스펙트럼 (HP 전용) — 허브와 동일 출처(team_role_distribution).
+    if stats["hp"]:
         import metrics
-        stats["hp"]["role"] = metrics.classify_role(stats["hp"], team_hp)
+        roles = {r["name"]: r for r in queries.team_role_distribution()}
+        r = roles.get(stats["name"])
+        if r:
+            stats["hp"]["role"] = r["role"]
+            stats["hp"]["slay_score"] = r["slay_score"]
+            stats["hp"]["obj_score"] = r["obj_score"]
+            stats["hp"]["spectrum_pos"] = metrics.role_spectrum_pos(r["slay_score"], r["obj_score"])
     # AI 인사이트 — 캐시 hit 시에만 즉시 렌더. miss면 None (프런트가 fetch로 비동기 로드).
     cache_key = stats["name"] if stats["name"] else ""
     insight = insight_cache.get("player", cache_key, lang)

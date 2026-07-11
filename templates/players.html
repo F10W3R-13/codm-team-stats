@@ -18,11 +18,18 @@
     <a href="/players/{{ p.name }}?lang={{ lang }}" class="card player-card">
         <div class="player-card__header">
             <div class="player-card__name">🎯 {{ p.name }}</div>
-            {% if p.role %}
-            <span class="role-badge role-badge--{{ p.role }}">{{ t['role_' + p.role] }}</span>
-            {% endif %}
         </div>
         <div class="muted player-card__matches">{{ p.matches }} {{ t.matches }}</div>
+        {% if mode == 'HP' and p.spectrum_pos is not none %}
+        <div class="mini-spectrum" title="{{ t.hub_spectrum_slay }} {{ p.slay_score }} · {{ t.hub_spectrum_obj }} {{ p.obj_score }}">
+            <span class="mini-spectrum__mid"></span>
+            <span class="mini-spectrum__marker mini-spectrum__marker--{{ p.role }}" style="left: {{ p.spectrum_pos }}%"></span>
+        </div>
+        <div class="mini-spectrum__labels">
+            <span class="text-hp">{{ t.hub_spectrum_obj }}</span>
+            <span class="text-danger">{{ t.hub_spectrum_slay }}</span>
+        </div>
+        {% endif %}
         {% if mode == 'HP' %}
         <div class="stat-label">{{ t.zcs_label }}</div>
         <div class="player-card__value player-card__value--hp">{{ p.zcs if p.zcs is not none else '-' }}</div>

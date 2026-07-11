@@ -3,11 +3,17 @@
 {% block nav_players %}active{% endblock %}
 
 {% block content %}
-<h1>🎯 {{ stats.name }}
-{% if stats.hp and stats.hp.role %}
-<span class="role-badge role-badge--{{ stats.hp.role }}">{{ t['role_' + stats.hp.role] }}</span>
+<h1>🎯 {{ stats.name }}</h1>
+{% if stats.hp and stats.hp.spectrum_pos is not none %}
+<div class="mini-spectrum section" style="max-width: 280px;" title="{{ t.hub_spectrum_slay }} {{ stats.hp.slay_score }} · {{ t.hub_spectrum_obj }} {{ stats.hp.obj_score }}">
+    <span class="mini-spectrum__mid"></span>
+    <span class="mini-spectrum__marker mini-spectrum__marker--{{ stats.hp.role }}" style="left: {{ stats.hp.spectrum_pos }}%"></span>
+</div>
+<div class="mini-spectrum__labels" style="max-width: 280px; margin-bottom: var(--space-4);">
+    <span class="text-hp">{{ t.hub_spectrum_obj }}</span>
+    <span class="text-danger">{{ t.hub_spectrum_slay }}</span>
+</div>
 {% endif %}
-</h1>
 
 <!-- HP 통합 지표 패널 (기본 + 커스텀 + 팀 평균 대비) -->
 {% if stats.hp %}

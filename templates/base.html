@@ -357,6 +357,23 @@
         .role-badge--slayer    { background: var(--danger-weak);  color: var(--danger); }
         .role-badge--objective { background: var(--hp-weak);      color: var(--hp); }
         .role-badge--balanced  { background: var(--card-2);       color: var(--text-2); }
+        /* 미니 역할 스펙트럼 — 선수 카드/상세용 (허브 spectrum의 축소판, 동일 축·색상) */
+        .mini-spectrum { position: relative; height: 8px; border-radius: var(--radius-full); background: var(--card-2); }
+        .mini-spectrum::before {
+            content: ''; position: absolute; inset: 0; border-radius: inherit;
+            background: linear-gradient(90deg, var(--hp-weak), transparent 45%, transparent 55%, var(--danger-weak));
+        }
+        .mini-spectrum__mid { position: absolute; left: 50%; top: 0; bottom: 0; width: 1px; background: var(--border-strong); transform: translateX(-50%); z-index: 1; }
+        .mini-spectrum__marker {
+            position: absolute; top: 50%; width: 14px; height: 14px; border-radius: var(--radius-full);
+            border: 2px solid var(--card); transform: translate(-50%, -50%); box-shadow: var(--shadow-sm); z-index: 2;
+        }
+        .mini-spectrum__marker--slayer { background: var(--danger); }
+        .mini-spectrum__marker--objective { background: var(--hp); }
+        .mini-spectrum__marker--balanced { background: var(--muted); }
+        .mini-spectrum__labels { display: flex; justify-content: space-between; font-size: var(--fs-xs); font-weight: var(--fw-medium); margin-top: var(--space-1); }
+        .player-card .mini-spectrum { height: 6px; }
+        .player-card .mini-spectrum__marker { width: 12px; height: 12px; }
         /* 버튼 (기존엔 클래스 없었음 — 인라인 스타일 전면 대체) */
         .btn {
             display: inline-flex; align-items: center; justify-content: center; gap: var(--space-2);

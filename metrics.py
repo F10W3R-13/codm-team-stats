@@ -115,3 +115,16 @@ def classify_role(player_hp: dict, team_hp: dict) -> str:
     if slay >= ROLE_THRESHOLD and slay > obj:
         return "slayer"
     return "balanced"
+
+
+def role_spectrum_pos(slay_score: float, obj_score: float) -> float:
+    """역할 스펙트럼 바 위 마커 위치(%, 5~95).
+
+    slay_score / obj_score: 팀 평균 대비 비율(team_role_distribution과 동일 로직).
+    반환: 5.0(순 OBJ) ~ 95.0(순 Slayer). 양쪽 극단은 clamp.
+    허브(coaching_hub.html) 인라인 공식과 동일 — 단일 진실.
+    """
+    ss = slay_score if slay_score else 1.0
+    os_ = obj_score if obj_score else 1.0
+    norm = (ss - os_) / (ss + os_)  # -1(순obj) ~ +1(순slay)
+    return round(max(5, min(95, 50 + norm * 450)), 1)
