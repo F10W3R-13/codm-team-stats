@@ -23,10 +23,11 @@
         <div class="label">{{ t.map_win_rate }}</div>
     </div>
     {% endif %}
-    {% if data.trend.season.zcs is not none %}
+    {% set season_metric = data.trend.season.rds if data.mode == 'SND' else data.trend.season.zcs %}
+    {% if season_metric is not none %}
     <div class="card stat-card card--accent">
-        <div class="value text-accent">{{ data.trend.season.zcs }}</div>
-        <div class="label">{{ t.zcs_label }} ({{ t.hub_season }})</div>
+        <div class="value text-accent">{{ season_metric }}</div>
+        <div class="label">{% if data.mode == 'SND' %}{{ t.rds_label }}{% else %}{{ t.zcs_label }}{% endif %} ({{ t.hub_season }})</div>
     </div>
     {% endif %}
 </div>
@@ -108,6 +109,7 @@
                 <th class="num" data-mobile-hide>{{ t.m_dmg }}</th>
                 <th class="num" data-mobile-hide>{{ t.m_obj }}</th>
                 {% else %}
+                <th class="num">{% if data.mode == 'SND' %}{{ t.rds_label }}{% else %}{{ t.zcs_label }}{% endif %}</th>
                 <th class="num">{{ t.m_kills }}</th>
                 {% endif %}
             </tr>
@@ -124,6 +126,7 @@
                 <td class="num" data-mobile-hide>{{ p.avg_dmg }}</td>
                 <td class="num" data-mobile-hide>{{ p.avg_obj }}</td>
                 {% else %}
+                <td class="num"><strong class="{% if data.mode == 'SND' %}rds-strong{% else %}zcs-strong{% endif %}">{% if data.mode == 'SND' %}{{ p.avg_rds or '-' }}{% else %}{{ p.avg_zcs or '-' }}{% endif %}</strong></td>
                 <td class="num">{{ p.avg_k }}</td>
                 {% endif %}
             </tr>
@@ -139,5 +142,6 @@
 .trend-note { font-size: var(--fs-xs); margin-bottom: var(--space-3); }
 .insight-text { line-height: 1.7; }
 .zcs-strong { color: var(--accent); }
+.rds-strong { color: var(--snd); }
 </style>
 {% endblock %}

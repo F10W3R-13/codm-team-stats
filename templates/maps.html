@@ -23,9 +23,9 @@
         <div class="entity-card__value entity-card__value--hp">{{ m.avg_zcs or '-' }}</div>
         <div class="muted entity-card__sub">{{ t.kd }} {{ m.avg_kd }} · {{ t.m_kills }} {{ m.avg_k }}</div>
         {% else %}
-        <div class="stat-label">{{ t.kd }}</div>
-        <div class="entity-card__value entity-card__value--snd">{{ m.avg_kd }}</div>
-        <div class="muted entity-card__sub">{{ t.m_kills }} {{ m.avg_k }}</div>
+        <div class="stat-label">{% if mode == 'SND' %}{{ t.rds_label }}{% else %}{{ t.zcs_label }}{% endif %}</div>
+        <div class="entity-card__value entity-card__value--snd">{% if mode == 'SND' %}{{ m.avg_rds or '-' }}{% else %}{{ m.avg_zcs or '-' }}{% endif %}</div>
+        <div class="muted entity-card__sub">{{ t.kd }} {{ m.avg_kd }} · {{ t.m_kills }} {{ m.avg_k }}</div>
         {% endif %}
     </a>
     {% endfor %}
