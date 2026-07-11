@@ -90,7 +90,7 @@
             {% for m in player_maps %}
             <a href="/maps/{{ m.map_name }}?lang={{ lang }}" class="map-heat-row {{ m.heat_class }}">
                 <span class="map-heat-row__name">{{ m.map_name }}</span>
-                <span class="map-heat-row__zcs">{{ m.metric }}</span>
+                <span class="map-heat-row__metric">{{ m.metric }}</span>
                 <span class="map-heat-row__pct">{{ '+' if m.metric_pct > 0 }}{{ m.metric_pct }}%</span>
                 <span class="muted map-heat-row__matches">{{ m.matches }} {{ t.matches }}</span>
             </a>
@@ -114,7 +114,7 @@
             {% for m in player_maps_snd %}
             <a href="/maps/{{ m.map_name }}?mode=SND&lang={{ lang }}" class="map-heat-row {{ m.heat_class }}">
                 <span class="map-heat-row__name">{{ m.map_name }}</span>
-                <span class="map-heat-row__zcs">{{ m.metric }}</span>
+                <span class="map-heat-row__metric">{{ m.metric }}</span>
                 <span class="map-heat-row__pct">{{ '+' if m.metric_pct > 0 }}{{ m.metric_pct }}%</span>
                 <span class="muted map-heat-row__matches">{{ m.matches }} {{ t.matches }}</span>
             </a>
@@ -251,7 +251,7 @@
 .map-heat-row { display: flex; align-items: center; gap: var(--space-2); text-decoration: none; color: inherit; padding: var(--space-2) var(--space-3); border-radius: var(--radius-sm); border-left: 4px solid transparent; transition: filter 0.15s; }
 .map-heat-row:hover { filter: brightness(0.97); }
 .map-heat-row__name { font-weight: var(--fw-semibold); min-width: 90px; }
-.map-heat-row__zcs { margin-left: auto; font-weight: var(--fw-semibold); min-width: 50px; text-align: right; }
+.map-heat-row__metric { margin-left: auto; font-weight: var(--fw-semibold); min-width: 50px; text-align: right; }
 .map-heat-row__pct { min-width: 55px; text-align: right; font-weight: var(--fw-medium); }
 .map-heat-row__matches { font-size: var(--fs-xs); min-width: 70px; text-align: right; }
 /* 히트 색 — ±% 크기에 비례 (AGENTS.md 토큰: success/danger weak) */
