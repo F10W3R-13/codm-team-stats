@@ -607,6 +607,13 @@
             [data-mobile-hide] { display: none; }
             th, td { padding: 0.65rem 0.45rem; }
             .table-wrap table { min-width: 460px; }
+            /* admin 표 내 버튼 터치 타겟 확보 — 가로 스크롤 중에도 클릭 가능 */
+            .btn--sm {
+                min-height: 36px;
+                min-width: 36px;
+                padding: var(--space-2) var(--space-3);
+            }
+            .row-actions { position: sticky; right: 0; }
         }
 
         /* ═══ 반응형: 소형폰 (≤400px) ═══ */

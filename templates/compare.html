@@ -123,11 +123,11 @@
 const chartData = {{ data.chart | tojson }};
 const i18nT = {{ t | tojson }};
 const labels = chartData.map(d => i18nT[d.metric] || d.metric);
+// maxByMetric은 원본 metric 키로 만들어야 chartData.map에서 d.metric으로 접근 가능
 const maxByMetric = {};
-labels.forEach((m, i) => {
-    const a = chartData[i].a, b = chartData[i].b;
-    const vals = [a, b].filter(v => v != null && v > 0);
-    maxByMetric[m] = vals.length ? Math.max(...vals) : 1;
+chartData.forEach(d => {
+    const vals = [d.a, d.b].filter(v => v != null && v > 0);
+    maxByMetric[d.metric] = vals.length ? Math.max(...vals) : 1;
 });
 const radarChart = new Chart(document.getElementById('radarChart'), {
     type: 'radar',
