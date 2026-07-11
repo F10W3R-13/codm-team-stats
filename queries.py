@@ -1040,6 +1040,7 @@ def map_trend(map_name: str, mode: str = "HP", days: int = 30) -> dict:
     else:
         metric_defs = [
             ("avg_kd", True, "kd"),
+            ("rds", True, "rds_label"),
             ("avg_k", True, "avg_k"),
             ("avg_d", False, "avg_d"),
             ("avg_a", True, "avg_a"),
