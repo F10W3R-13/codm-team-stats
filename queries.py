@@ -465,6 +465,13 @@ def player_metric_timeseries(player_id: int, mode: str = "HP", limit: int = 50) 
             r["impact_delta"] = m["impact_delta"]
             r["ap_pct"] = m["ap_pct"]
             r["zcs"] = m["zcs"]
+    else:  # SND: RDS 계산 추가
+        for r in rows:
+            m = metrics.all_snd_metrics(
+                r.get("kills"), r.get("assists"), r.get("fk"),
+                r.get("lww"), r.get("adr"), r.get("deaths"),
+            )
+            r["rds"] = m["rds"]
     return rows
 
 
