@@ -368,7 +368,9 @@ def all_players_overview(mode: str = "HP") -> list:
                         ROUND(AVG(s.kd_ratio),2) avg_kd,
                         ROUND(AVG(s.score),0) avg_score,
                         ROUND(AVG(s.adr),0) avg_adr,
-                        ROUND(AVG(s.impact),0) avg_impact
+                        ROUND(AVG(s.impact),0) avg_impact,
+                        ROUND(AVG(s.first_kill),2) avg_fk,
+                        ROUND(AVG(s.lone_wolf_win),2) avg_lww
                  FROM player_stats_snd s JOIN players p ON p.id=s.player_id
                  GROUP BY p.id ORDER BY avg_kd DESC"""
     with db.get_conn() as conn:
@@ -387,6 +389,14 @@ def all_players_overview(mode: str = "HP") -> list:
                 p["avg_k"], p["avg_d"], p["avg_obj"],
                 p["avg_score"], p["avg_impact"],
                 p["avg_dmg"], p["avg_ck"],
+            )
+            p.update(m)
+    # SND는 커스텀 지표(RDS)를 평균 raw 값으로부터 계산해 추가
+    if mode == "SND":
+        for p in rows:
+            m = metrics.all_snd_metrics(
+                p["avg_k"], p["avg_a"], p["avg_fk"], p["avg_lww"],
+                p["avg_adr"], p["avg_d"],
             )
             p.update(m)
     return rows
