@@ -36,8 +36,8 @@
         <div class="muted player-card__sub">{{ t.kd }} {{ p.avg_kd }} · {{ t.m_kills }} {{ p.avg_k }} · {{ t.m_dmg }} {{ p.avg_dmg }}</div>
         {% else %}
         <div class="stat-label">{{ t.kd }}</div>
-        <div class="player-card__value player-card__value--snd">{{ p.avg_kd }}</div>
-        <div class="muted player-card__sub">{{ t.m_kills }} {{ p.avg_k }} · {{ t.avg_adr }} {{ p.avg_adr }}</div>
+        <div class="player-card__value player-card__value--snd">{{ p.rds if p.rds is not none else '-' }}</div>
+        <div class="muted player-card__sub">{{ t.kd }} {{ p.avg_kd }} · {{ t.m_kills }} {{ p.avg_k }}</div>
         {% endif %}
     </a>
     {% endfor %}
