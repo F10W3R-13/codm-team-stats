@@ -348,7 +348,7 @@ function renderTable() {
     if (currentMode === 'HP') {
         cols.push('obj','dmg','cap','dpd','dpk','impact_delta','ap_pct','zcs');
     } else {
-        cols.push('assists','adr','fk','lww');
+        cols.push('rds','assists','adr','fk','lww');
     }
     const headLabels = { date: "{{ t.date }}" };
     const mergedHead = Object.assign({}, L, headLabels);
