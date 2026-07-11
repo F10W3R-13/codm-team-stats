@@ -134,6 +134,15 @@ def player_overall_stats(player_id: int) -> dict:
         h["ap_pct"] = m["ap_pct"]
         h["zcs"] = m["zcs"]
 
+    # SND 커스텀 지표(RDS) 계산 추가
+    if result["snd"]:
+        s = result["snd"]
+        m = metrics.all_snd_metrics(
+            s["avg_k"], s["avg_a"], s["avg_fk"], s["avg_lww"],
+            s["avg_adr"], s["avg_d"],
+        )
+        s["rds"] = m["rds"]
+
     return result
 
 
