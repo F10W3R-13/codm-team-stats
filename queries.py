@@ -704,7 +704,8 @@ def map_team_stats(mode: str = "HP", min_matches: int = 2) -> list:
                         COUNT(*) n_matches,
                         ROUND(AVG(s.kd_ratio),2) avg_kd,
                         ROUND(AVG(s.kills),1) avg_k,
-                        ROUND(AVG(s.adr),0) avg_adr
+                        ROUND(AVG(s.adr),0) avg_adr,
+                        ROUND(AVG(MAX(0, 4.1*s.kills + 3.5*s.assists + 14*s.first_kill + 20*s.lone_wolf_win + 0.12*s.adr - 5*s.deaths)),1) avg_rds
                  FROM player_stats_snd s JOIN matches m ON m.id=s.match_id
                  WHERE m.map_name IS NOT NULL AND m.map_name != '' AND m.mode='SND'
                  GROUP BY LOWER(m.map_name)
@@ -754,7 +755,8 @@ def map_team_stats_recent(mode: str = "HP", recent_matches: int = 10,
                         COUNT(*) n_matches,
                         ROUND(AVG(s.kd_ratio),2) avg_kd,
                         ROUND(AVG(s.kills),1) avg_k,
-                        ROUND(AVG(s.adr),0) avg_adr
+                        ROUND(AVG(s.adr),0) avg_adr,
+                        ROUND(AVG(MAX(0, 4.1*s.kills + 3.5*s.assists + 14*s.first_kill + 20*s.lone_wolf_win + 0.12*s.adr - 5*s.deaths)),1) avg_rds
                  FROM player_stats_snd s JOIN matches m ON m.id=s.match_id
                  WHERE m.map_name IS NOT NULL AND m.map_name != '' AND m.mode='SND'
                    AND m.id IN ({recent_ids})
@@ -839,7 +841,8 @@ def map_player_stats(map_name: str, mode: str = "HP", min_matches: int = 2) -> l
                         COUNT(*) matches,
                         ROUND(AVG(s.kd_ratio),2) avg_kd,
                         ROUND(AVG(s.kills),1) avg_k,
-                        ROUND(AVG(s.adr),0) avg_adr
+                        ROUND(AVG(s.adr),0) avg_adr,
+                        ROUND(AVG(MAX(0, 4.1*s.kills + 3.5*s.assists + 14*s.first_kill + 20*s.lone_wolf_win + 0.12*s.adr - 5*s.deaths)),1) avg_rds
                  FROM player_stats_snd s
                  JOIN matches m ON m.id=s.match_id
                  JOIN players p ON p.id=s.player_id
