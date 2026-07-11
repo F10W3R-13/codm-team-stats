@@ -194,7 +194,7 @@ def leaderboard(mode: str = "HP", metric: str = "avg_kd", limit: int = 10) -> li
             "avg_k": "AVG(kills)",
             "avg_score": "AVG(score)",
             "avg_adr": "AVG(adr)",
-            "rds": "MAX(0, 4.1*kills + 3.5*assists + 14*first_kill + 20*lone_wolf_win + 0.12*adr - 5*deaths)",
+            "rds": "AVG(MAX(0, 4.1*kills + 3.5*assists + 14*first_kill + 20*lone_wolf_win + 0.12*adr - 5*deaths))",
         }[metric]
         sql = f"""SELECT p.name,
                          COUNT(*) matches,
