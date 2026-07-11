@@ -64,7 +64,7 @@
 {% if player_maps %}
 <div class="card section">
     <h2>🗺️ {{ t.player_maps_title }}</h2>
-    <p class="muted stat-label">{{ t.player_maps_help }} ({{ t.kd }} {{ stats.hp.avg_kd }})</p>
+    <p class="muted stat-label">{{ t.player_maps_help }} ({{ t.zcs_label }} {{ stats.hp.zcs }})</p>
     {% set strong_maps = player_maps | selectattr('label', 'equalto', 'strong') | list %}
     {% set weak_maps = player_maps | selectattr('label', 'equalto', 'weak') | list %}
     {% if strong_maps or weak_maps %}
@@ -75,8 +75,8 @@
             {% for m in strong_maps[:3] %}
             <a href="/maps/{{ m.map_name }}?lang={{ lang }}" class="map-row">
                 <span class="map-row__name">{{ m.map_name }}</span>
-                <span class="map-row__kd">{{ m.kd }}</span>
-                <span class="delta-up">{{ '+' if m.kd_pct > 0 }}{{ m.kd_pct }}%</span>
+                <span class="map-row__kd">{{ m.zcs }}</span>
+                <span class="delta-up">{{ '+' if m.zcs_pct > 0 }}{{ m.zcs_pct }}%</span>
                 <span class="muted map-row__matches">{{ m.matches }} {{ t.matches }}</span>
             </a>
             {% endfor %}
@@ -88,8 +88,8 @@
             {% for m in weak_maps[-3:] | reverse %}
             <a href="/maps/{{ m.map_name }}?lang={{ lang }}" class="map-row">
                 <span class="map-row__name">{{ m.map_name }}</span>
-                <span class="map-row__kd">{{ m.kd }}</span>
-                <span class="delta-down">{{ m.kd_pct }}%</span>
+                <span class="map-row__kd">{{ m.zcs }}</span>
+                <span class="delta-down">{{ m.zcs_pct }}%</span>
                 <span class="muted map-row__matches">{{ m.matches }} {{ t.matches }}</span>
             </a>
             {% endfor %}
@@ -105,15 +105,15 @@
         <summary>{{ t.player_maps_all }}</summary>
         <div class="table-wrap">
         <table>
-            <thead><tr><th>{{ t.map }}</th><th class="num">{{ t.matches_col }}</th><th class="num">{{ t.kd }}</th><th class="num">{{ t.lb_vs_avg }}</th></tr></thead>
+            <thead><tr><th>{{ t.map }}</th><th class="num">{{ t.matches_col }}</th><th class="num">{{ t.zcs_label }}</th><th class="num">{{ t.lb_vs_avg }}</th></tr></thead>
             <tbody>
             {% for m in player_maps %}
             <tr>
                 <td><a href="/maps/{{ m.map_name }}?lang={{ lang }}" class="player-link">{{ m.map_name }}</a></td>
                 <td class="num muted">{{ m.matches }}</td>
-                <td class="num">{{ m.kd }}</td>
+                <td class="num">{{ m.zcs }}</td>
                 <td class="num">
-                    <span class="delta-{{ 'up' if m.label == 'strong' else ('down' if m.label == 'weak' else 'flat') }}">{{ '+' if m.kd_pct > 0 }}{{ m.kd_pct }}%</span>
+                    <span class="delta-{{ 'up' if m.label == 'strong' else ('down' if m.label == 'weak' else 'flat') }}">{{ '+' if m.zcs_pct > 0 }}{{ m.zcs_pct }}%</span>
                 </td>
             </tr>
             {% endfor %}

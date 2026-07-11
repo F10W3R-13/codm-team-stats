@@ -143,7 +143,7 @@ async def player_detail(request: Request, name: str, lang: str = Query("ko")):
             stats["hp"]["obj_score"] = r["obj_score"]
             stats["hp"]["spectrum_pos"] = metrics.role_spectrum_pos(r["slay_score"], r["obj_score"])
     # 맵별 성적 (HP 전용) — 본인 평균 대비 강한/약한 맵
-    player_maps = queries.player_map_breakdown(pid, "HP", min_matches=5) if stats["hp"] else []
+    player_maps = queries.player_map_breakdown(pid, min_matches=5) if stats["hp"] else []
     # AI 인사이트 — 캐시 hit 시에만 즉시 렌더. miss면 None (프런트가 fetch로 비동기 로드).
     cache_key = stats["name"] if stats["name"] else ""
     insight = insight_cache.get("player", cache_key, lang)
