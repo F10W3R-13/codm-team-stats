@@ -10,7 +10,6 @@
 <div class="subtabs">
     <a href="/admin?lang={{ lang }}" class="subtab">📋 {{ t.admin_tab_matches }}</a>
     <a href="/admin/aliases?lang={{ lang }}" class="subtab">🏷️ {{ t.admin_tab_aliases }}</a>
-    <a href="/admin/unmatched?lang={{ lang }}" class="subtab">🔍 {{ t.admin_tab_unmatched }}</a>
     <a href="/admin/players?lang={{ lang }}" class="subtab active">👤 {{ t.admin_tab_players }}</a>
 </div>
 
@@ -31,6 +30,7 @@
                 <th>{{ t.player }}</th>
                 <th class="num">{{ t.mode_hp }}</th>
                 <th class="num">{{ t.mode_snd }}</th>
+                <th class="num">{{ t.alias_source }}</th>
                 <th>{{ t.merge_dst }}</th>
                 <th></th>
             </tr>
@@ -42,6 +42,7 @@
                 <td><strong>{{ p.name }}</strong></td>
                 <td class="num">{{ p.hp_matches }}</td>
                 <td class="num">{{ p.snd_matches }}</td>
+                <td class="num">{{ p.aliases }}</td>
                 <td>
                     <select class="select merge-dst-{{ p.id }} merge-select">
                         <option value="">—</option>

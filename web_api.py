@@ -570,26 +570,6 @@ async def admin_delete_alias(ign: str = Query(...)):
     return result
 
 
-# ── 미매칭(게스트/OCR 실패) 닉네임 관리 ──────────────────────────────
-@app.get("/admin/unmatched", response_class=HTMLResponse)
-async def admin_unmatched_page(request: Request, lang: str = Query("ko")):
-    """GPT 가 정규화하지 못해 players 에 신규 생성된 IGN(게스트/OCR실패) 모아보기."""
-    unmatched = db.list_unmatched_players()
-    roster = list(db.ROSTER_NAMES)
-    return render("admin_unmatched.html", lang=lang, unmatched=unmatched, roster=roster)
-
-
-@app.post("/admin/unmatched/merge")
-async def admin_merge_unmatched(payload: dict = Body(...)):
-    """게스트 player 를 정식 선수로 병합. {src_id, dst_player}."""
-    src_id = payload.get("src_id")
-    dst_player = (payload.get("dst_player") or "").strip()
-    if not src_id or not dst_player:
-        return {"ok": False, "message": "src_id 와 dst_player 가 필요합니다"}
-    result = db.merge_player(int(src_id), dst_player)
-    return result
-
-
 # ── 선수 관리 (삭제/병합) ────────────────────────────────────────────────
 @app.get("/admin/players", response_class=HTMLResponse)
 async def admin_players_page(request: Request, lang: str = Query("ko")):

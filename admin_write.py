@@ -21,16 +21,22 @@ def list_players_with_ids() -> list:
 
 
 def list_players_admin() -> list:
-    """선수 관리 페이지용 — id, 이름, HP/SND 매치 수 포함."""
+    """선수 관리 페이지용 — id, 이름, HP/SND 매치 수, alias 수 포함.
+
+    alias 수는 미매칭 탭 흡수에 따라 이곳으로 이관된 정보. 게스트/OCR 실패 IGN
+    도 여기서 정식 선수로 병합 가능 (db.merge_player 재사용).
+    """
     with db.get_conn() as conn:
         rows = conn.execute(
             """SELECT p.id, p.name,
                       (SELECT COUNT(*) FROM player_stats_hp WHERE player_id=p.id) hp_matches,
-                      (SELECT COUNT(*) FROM player_stats_snd WHERE player_id=p.id) snd_matches
+                      (SELECT COUNT(*) FROM player_stats_snd WHERE player_id=p.id) snd_matches,
+                      (SELECT COUNT(*) FROM aliases WHERE player_id=p.id) aliases
                FROM players p ORDER BY p.name"""
         ).fetchall()
         return [{"id": r["id"], "name": r["name"],
-                 "hp_matches": r["hp_matches"], "snd_matches": r["snd_matches"]} for r in rows]
+                 "hp_matches": r["hp_matches"], "snd_matches": r["snd_matches"],
+                 "aliases": r["aliases"]} for r in rows]
 
 
 def delete_player(player_id: int) -> bool:

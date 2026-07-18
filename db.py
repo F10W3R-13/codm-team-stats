@@ -542,49 +542,9 @@ def list_aliases(player_name: str = None, source: str = None) -> list:
                 for r in rows]
 
 
-# ── 미매칭(게스트/OCR 실패) 닉네임 관리 ──────────────────────────────
-# GPT가 정규화하지 못한 IGN은 resolve_player_id 가 신규 player 로 만들어버린다.
-# 이 함수는 "정식 6인 로스터가 아닌" player 행들을 모아본다.
-# ROSTER_NAMES 는 prompt.DEFAULT_ROSTER 와 동일 세트 — 단일 진실 공식.
-
-ROSTER_NAMES = ("Cartels", "unravel", "Kingz", "Shisui", "Maozyn", "Exile")
-
-
-def list_unmatched_players() -> list:
-    """정식 로스터(6인)가 아닌 player 행들. 게스트/용병/OCR 실패 IGN 후보.
-
-    반환: [{"id","name","matches","aliases"}]
-      - matches: 이 player 에 매핑된 매치 스탯 행 수 (HP+SND 합)
-      - aliases: 이 player 에 매핑된 alias 행 수
-    """
-    with get_conn() as conn:
-        roster_lower = tuple(n.lower() for n in ROSTER_NAMES)
-        rows = conn.execute(
-            """SELECT p.id id, p.name name
-               FROM players p
-               WHERE LOWER(p.name) NOT IN ({})
-               ORDER BY p.name""".format(
-                ",".join(["?"] * len(roster_lower))
-            ),
-            roster_lower,
-        ).fetchall()
-        result = []
-        for r in rows:
-            pid = r["id"]
-            hp = conn.execute(
-                "SELECT COUNT(*) c FROM player_stats_hp WHERE player_id = ?", (pid,)
-            ).fetchone()["c"]
-            snd = conn.execute(
-                "SELECT COUNT(*) c FROM player_stats_snd WHERE player_id = ?", (pid,)
-            ).fetchone()["c"]
-            al = conn.execute(
-                "SELECT COUNT(*) c FROM aliases WHERE player_id = ?", (pid,)
-            ).fetchone()["c"]
-            result.append({
-                "id": pid, "name": r["name"],
-                "matches": int(hp) + int(snd), "aliases": int(al),
-            })
-        return result
+# ── 선수 병합 (게스트 → 정식 선수, 또는 선수 → 선수) ──────────────────
+# 미매칭 닉네임 전용 뷰는 선수관리 탭(/admin/players)으로 통합되었다.
+# list_unmatched_players/ROSTER_NAMES 는 제거 — 동일 병합 엔진을 선수관리 탭에서 재사용.
 
 
 def merge_player(src_player_id: int, dst_player_name: str) -> dict:
