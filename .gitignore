@@ -64,3 +64,9 @@ transcript_samples/
 # 코칭 브레인 — Obsidian 개인 작업공간 상태 (지식은 커밋, 설정은 제외)
 coaching brain/.obsidian/workspace.json
 coaching brain/.obsidian/graph.json
+
+# PPT 빌드 산출물 (스크립트로 재생성 가능 — 산출물 자체는 커밋하지 않음)
+# make_pptx.py / make_pptx_roles.js 로 빌드
+coaching brain/*.pptx
+coaching brain/*.pdf
+coaching brain/slide-*.jpg
