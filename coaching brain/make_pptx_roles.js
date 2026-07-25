@@ -153,6 +153,79 @@ function slideClosing(body, sub) {
     return s;
 }
 
+// ===== Diagram primitives =====
+
+const LINEUP_COLOR = { SMG: HP, AR: SND };
+
+// Player node, centered at (cx, cy). opts: {cx, cy, w, h, name, role, lineup}
+function node(slide, o) {
+    const x = o.cx - o.w / 2;
+    const y = o.cy - o.h / 2;
+    const badge = LINEUP_COLOR[o.lineup] || TEXT;
+    // main card
+    rect(slide, { x, y, w: o.w, h: o.h, fill: SURFACE, line: badge, lineW: 1.5 });
+    // left badge strip (functional lineup marker)
+    rect(slide, { x, y, w: 0.08, h: o.h, fill: badge });
+    // name + role
+    text(slide, { x: x + 0.2, y: y + 0.12, w: o.w - 0.3, h: o.h * 0.45, text: o.name, size: 18, color: TEXT, bold: true, valign: "top", font: FONT_BODY });
+    if (o.role) text(slide, { x: x + 0.2, y: y + o.h * 0.5, w: o.w - 0.3, h: o.h * 0.45, text: o.role, size: 12, color: TEXT_2, valign: "top", font: FONT_BODY });
+}
+
+// Arrow between two points. opts: {x1, y1, x2, y2, kind, label}
+// kind: "cartels" | "kings" | "gap"
+function arrow(slide, o) {
+    const cfg = {
+        cartels: { color: ACCENT, width: 2.5, dashType: undefined,  labelColor: TEXT },
+        kings:   { color: MUTED,  width: 2,   dashType: "dash",      labelColor: MUTED },
+        gap:     { color: DANGER, width: 1.5, dashType: "dash",      labelColor: DANGER },
+    }[o.kind];
+    slide.addShape("line", {
+        x: o.x1, y: o.y1, w: o.x2 - o.x1, h: o.y2 - o.y1,
+        line: { color: cfg.color, width: cfg.width, dashType: cfg.dashType, endArrowType: "triangle" },
+    });
+    if (o.label) {
+        const mx = (o.x1 + o.x2) / 2;
+        const my = (o.y1 + o.y2) / 2;
+        // label background chip for readability
+        const lw = Math.min(4, 0.12 * o.label.length + 0.4);
+        rect(slide, { x: mx - lw / 2, y: my - 0.18, w: lw, h: 0.36, fill: BG });
+        text(slide, { x: mx - lw / 2, y: my - 0.18, w: lw, h: 0.36, text: o.label, size: 10, color: cfg.labelColor, bold: true, align: "center", valign: "middle", font: FONT_BODY });
+    }
+}
+
+// ===== Roster diagrams =====
+
+function slideRosterDiagramSMG() {
+    const s = pres.addSlide();
+    bgFill(s, BG);
+    text(s, { x: 0.7, y: 0.8, w: 12, h: 0.4, text: "SECTION 03 · SMG DUO", size: 12, color: MUTED, bold: true, font: FONT });
+    text(s, { x: 0.7, y: 1.2, w: 12, h: 0.9, text: "Two gunfighters, one calibrator.", size: 32, color: TEXT, bold: true, font: FONT_BODY });
+
+    // layout: unravel top-left, Shisui top-right, Cartels bottom-center
+    const NODE_W = 2.8, NODE_H = 1.3;
+    const unr = { cx: 3.6,  cy: 3.2 };
+    const shi = { cx: 9.7,  cy: 3.2 };
+    const car = { cx: 6.66, cy: 5.5 };
+    // pad arrow endpoints ~0.18" outside node edges so arrowhead triangles
+    // (drawn under the node fills) remain visible in clear space.
+    const PAD = 0.18;
+
+    // gap arrow (unravel <-> Shisui) — horizontal, endpoints pulled inside the gap
+    arrow(s, { x1: unr.cx + NODE_W/2 + PAD, y1: unr.cy, x2: shi.cx - NODE_W/2 - PAD, y2: shi.cy, kind: "gap", label: "TEMPO GAP — drift apart" });
+    // cartels support arrows — endpoints dropped below top-node bottom edges
+    arrow(s, { x1: car.cx - 0.6, y1: car.cy - NODE_H/2, x2: unr.cx + 0.4, y2: unr.cy + NODE_H/2 + PAD + 0.05, kind: "cartels", label: "support" });
+    arrow(s, { x1: car.cx + 0.6, y1: car.cy - NODE_H/2, x2: shi.cx - 0.4, y2: shi.cy + NODE_H/2 + PAD + 0.05, kind: "cartels", label: "support" });
+
+    // nodes (drawn last so they sit on top of arrows)
+    node(s, { cx: unr.cx, cy: unr.cy, w: NODE_W, h: NODE_H, name: "unravel", role: "Tempo stealer · 1vX", lineup: "SMG" });
+    node(s, { cx: shi.cx, cy: shi.cy, w: NODE_W, h: NODE_H, name: "Shisui",  role: "Clutch · Main SMG",   lineup: "SMG" });
+    node(s, { cx: car.cx, cy: car.cy, w: NODE_W, h: NODE_H, name: "Cartels", role: "Veteran · Calibrator", lineup: "SMG" });
+
+    // bottom note
+    text(s, { x: 0.7, y: 6.5, w: 11.9, h: 0.4, text: "Cartels doesn't pull them to a midpoint. He picks the side that needs him.", size: 14, color: TEXT_2, italic: true, align: "center", font: FONT_BODY });
+    return s;
+}
+
 // --- write + post-write fixup ---
 // pptxgenjs 4.x omits the slideMaster <Override> in [Content_Types].xml when the
 // deck has zero slides, which fails OOXML content-type validation (ECMA-376).
