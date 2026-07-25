@@ -168,7 +168,7 @@ def leaderboard(mode: str = "HP", metric: str = "avg_kd", limit: int = 10) -> li
 
     반환: [{name, matches, <metric 값>}, ...]
     """
-    valid_hp = {"avg_kd", "avg_k", "avg_dmg", "avg_score", "avg_obj"}
+    valid_hp = {"avg_kd", "avg_k", "avg_dmg", "avg_score", "avg_obj", "avg_ck"}
     valid_snd = {"avg_kd", "avg_k", "avg_d", "avg_a", "avg_score", "avg_adr", "avg_impact", "avg_fk", "avg_lww", "rds"}
 
     if mode == "HP":
@@ -180,6 +180,7 @@ def leaderboard(mode: str = "HP", metric: str = "avg_kd", limit: int = 10) -> li
             "avg_dmg": "AVG(total_damage)",
             "avg_score": "AVG(score)",
             "avg_obj": "AVG(obj_time)",
+            "avg_ck": "AVG(capture_kill)",
         }[metric]
         sql = f"""SELECT p.name,
                          COUNT(*) matches,
@@ -1226,6 +1227,7 @@ _COMPARE_HP = [
     ("avg_d", "avg_d", False),
     ("avg_dmg", "avg_total_dmg", True),
     ("avg_obj", "avg_obj", True),
+    ("avg_capture", "m_cap", True),
     ("avg_score", "avg_score", True),
     ("avg_impact", "avg_impact", True),
     ("dpd", "m_dpd", True),
