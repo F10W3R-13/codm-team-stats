@@ -28,7 +28,55 @@ pres.layout = "LAYOUT_WIDE";   // 13.333 x 7.5
 pres.author = "Coach";
 pres.title = "Role Alignment & Tactical Model";
 
-// (helpers added in Task 2)
+// ===== Helpers =====
+
+// Text box. opts: {x, y, w, h, text, size, color, bold, italic, align, valign, font, lineSpacingMultiple}
+function text(slide, o) {
+    const opts = {
+        x: o.x, y: o.y, w: o.w, h: o.h,
+        fontSize: o.size || 18,
+        color: o.color || TEXT,
+        bold: !!o.bold,
+        italic: !!o.italic,
+        align: o.align || "left",
+        valign: o.valign || "top",
+        fontFace: o.font || FONT_BODY,
+        margin: 0,
+        wrap: true,
+    };
+    if (o.lineSpacingMultiple) opts.lineSpacingMultiple = o.lineSpacingMultiple;
+    slide.addText(o.text, opts);
+}
+
+// Rectangle. opts: {x, y, w, h, fill, line, lineW, dashType, rectRadius}
+function rect(slide, o) {
+    const shapeOpts = {
+        x: o.x, y: o.y, w: o.w, h: o.h,
+        fill: { color: o.fill || SURFACE },
+        line: o.line ? { color: o.line, width: o.lineW || 1 } : undefined,
+        shadow: { type: "none" },
+    };
+    if (o.dashType) {
+        if (shapeOpts.line) shapeOpts.line.dashType = o.dashType;
+    }
+    if (o.rectRadius) shapeOpts.rectRadius = o.rectRadius;
+    slide.addShape(o.shape || "rect", shapeOpts);
+}
+
+// Horizontal line connector. opts: {x, y, w, color, width, dashType}
+function hline(slide, o) {
+    slide.addShape("line", {
+        x: o.x, y: o.y, w: o.w, h: 0,
+        line: { color: o.color || BORDER_STRONG, width: o.width || 1.5, dashType: o.dashType },
+    });
+}
+
+// Footer meta strip (Astryx style). idx = slide number (1-based body slide).
+function footer(slide, idx, label) {
+    text(slide, { x: 0.7, y: 7.0, w: 8, h: 0.3, text: label, size: 10, color: MUTED, font: FONT });
+    text(slide, { x: 11.5, y: 7.0, w: 1.5, h: 0.3, text: `${String(idx).padStart(2,"0")} / ${String(TOTAL_SLIDES).padStart(2,"0")}`, size: 10, color: MUTED, align: "right", font: FONT });
+}
+
 // (slides added in Tasks 3-8)
 
 // --- write + post-write fixup ---
