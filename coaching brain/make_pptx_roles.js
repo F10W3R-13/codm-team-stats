@@ -77,7 +77,81 @@ function footer(slide, idx, label) {
     text(slide, { x: 11.5, y: 7.0, w: 1.5, h: 0.3, text: `${String(idx).padStart(2,"0")} / ${String(TOTAL_SLIDES).padStart(2,"0")}`, size: 10, color: MUTED, align: "right", font: FONT });
 }
 
-// (slides added in Tasks 3-8)
+// ===== Slide builders =====
+
+function bgFill(slide, color) {
+    rect(slide, { x: 0, y: 0, w: SLIDE_W, h: SLIDE_H, fill: color });
+}
+
+function slideTitle() {
+    const s = pres.addSlide();
+    bgFill(s, BG);
+    // left accent bar (functional kicker divider, not decorative stripe)
+    rect(s, { x: 0.7, y: 1.1, w: 0.6, h: 0.04, fill: TEXT });
+    text(s, { x: 0.7, y: 1.3, w: 10, h: 0.4, text: "ROLE ALIGNMENT & TACTICAL MODEL", size: 12, color: MUTED, bold: true, font: FONT });
+    text(s, { x: 0.7, y: 2.6, w: 12, h: 2, text: "How the veteran core runs the team.", size: 60, color: TEXT, bold: true, font: FONT });
+    text(s, { x: 0.7, y: 4.4, w: 11, h: 0.6, text: "Three veterans, three different jobs — and what changes today.", size: 22, color: TEXT_2, font: FONT_BODY });
+    hline(s, { x: 0.7, y: 5.3, w: 11.9 });
+    text(s, { x: 0.7, y: 5.5, w: 8, h: 0.4, text: "Team Briefing  ·  English", size: 11, color: MUTED, font: FONT });
+    return s;
+}
+
+function slideDivider(num, title, subtitle) {
+    const s = pres.addSlide();
+    bgFill(s, BG);
+    text(s, { x: 0.7, y: 1.0, w: 6, h: 3.5, text: String(num).padStart(2, "0"), size: 180, color: BORDER, bold: true, font: FONT });
+    rect(s, { x: 0.7, y: 4.7, w: 0.6, h: 0.04, fill: TEXT });
+    text(s, { x: 0.7, y: 4.9, w: 6, h: 0.4, text: `SECTION ${String(num).padStart(2,"0")}`, size: 12, color: MUTED, bold: true, font: FONT });
+    text(s, { x: 0.7, y: 5.3, w: 12, h: 1.2, text: title, size: 44, color: TEXT, bold: true, font: FONT });
+    if (subtitle) text(s, { x: 0.7, y: 6.3, w: 12, h: 0.6, text: subtitle, size: 18, color: TEXT_2, italic: true, font: FONT_BODY });
+    return s;
+}
+
+function slideStatement(body, kicker) {
+    const s = pres.addSlide();
+    bgFill(s, BG);
+    if (kicker) text(s, { x: 0.7, y: 1.2, w: 12, h: 0.4, text: kicker.toUpperCase(), size: 12, color: MUTED, bold: true, font: FONT });
+    text(s, { x: 0.7, y: 2.4, w: 11.9, h: 3, text: body, size: 50, color: TEXT, bold: true, font: FONT_BODY, lineSpacingMultiple: 1.1 });
+    return s;
+}
+
+function slideQuote(quote, attribution) {
+    const s = pres.addSlide();
+    bgFill(s, SURFACE);
+    text(s, { x: 0.7, y: 0.6, w: 3, h: 2.5, text: "\u201C", size: 200, color: BORDER, bold: true, font: FONT });
+    text(s, { x: 1.5, y: 2.6, w: 10.5, h: 2.5, text: quote, size: 36, color: TEXT, bold: true, font: FONT_BODY, lineSpacingMultiple: 1.15 });
+    if (attribution) {
+        hline(s, { x: 1.5, y: 5.3, w: 0.8, color: BORDER_STRONG, width: 2 });
+        text(s, { x: 1.5, y: 5.5, w: 10, h: 0.4, text: attribution, size: 14, color: MUTED, italic: true, font: FONT_BODY });
+    }
+    return s;
+}
+
+function slideBullets(items, opts) {
+    const s = pres.addSlide();
+    bgFill(s, BG);
+    if (opts && opts.kicker) text(s, { x: 0.7, y: 0.8, w: 12, h: 0.4, text: opts.kicker.toUpperCase(), size: 12, color: MUTED, bold: true, font: FONT });
+    if (opts && opts.title) text(s, { x: 0.7, y: 1.2, w: 12, h: 0.9, text: opts.title, size: 36, color: TEXT, bold: true, font: FONT_BODY });
+    const top = 2.7;
+    const rowH = Math.min(1.2, (7.0 - top) / Math.max(items.length, 1));
+    items.forEach((it, i) => {
+        const y = top + rowH * i;
+        rect(s, { x: 0.7, y: y + 0.05, w: 0.08, h: Math.min(0.7, rowH - 0.1), fill: ACCENT });
+        text(s, { x: 1.0, y: y, w: 11.5, h: rowH * 0.45, text: it.head, size: 20, color: TEXT, bold: true, font: FONT_BODY });
+        if (it.sub) text(s, { x: 1.0, y: y + rowH * 0.42, w: 11.5, h: rowH * 0.5, text: it.sub, size: 14, color: TEXT_2, font: FONT_BODY });
+    });
+    return s;
+}
+
+function slideClosing(body, sub) {
+    const s = pres.addSlide();
+    bgFill(s, TEXT);   // inverted dark slide
+    rect(s, { x: 0.7, y: 1.2, w: 0.6, h: 0.04, fill: SURFACE });
+    text(s, { x: 0.7, y: 1.4, w: 6, h: 0.4, text: "CLOSING", size: 12, color: BORDER, bold: true, font: FONT });
+    text(s, { x: 0.7, y: 2.6, w: 12, h: 2.5, text: body, size: 64, color: SURFACE, bold: true, font: FONT_BODY, lineSpacingMultiple: 1.05 });
+    if (sub) text(s, { x: 0.7, y: 5.0, w: 11, h: 0.6, text: sub, size: 20, color: BORDER, font: FONT_BODY });
+    return s;
+}
 
 // --- write + post-write fixup ---
 // pptxgenjs 4.x omits the slideMaster <Override> in [Content_Types].xml when the
@@ -86,6 +160,7 @@ function footer(slide, idx, label) {
 // becomes a no-op. We patch the written file so the empty Task-1 deck validates.
 const fs = require("fs");
 const FILE_NAME = "역할정합서_PPT.pptx";
+
 const SLIDE_MASTER_OVERRIDE =
     '<Override PartName="/ppt/slideMasters/slideMaster1.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slideMaster+xml"/>';
 
