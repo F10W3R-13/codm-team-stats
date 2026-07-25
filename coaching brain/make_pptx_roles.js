@@ -21,7 +21,9 @@ const FONT_BODY = "Calibri";   // body/bullets/diagram labels (QA reliable)
 const SLIDE_W = 13.333;        // LAYOUT_WIDE
 const SLIDE_H = 7.5;
 
-const TOTAL_SLIDES = 30;
+// Total slide count is finalized after the deck content is built (see FOOTER PASS).
+// Declared with `let` so it can be set to pres._slides.length once all builders ran.
+let TOTAL_SLIDES = 30;
 
 const pres = new pptxgen();
 pres.layout = "LAYOUT_WIDE";   // 13.333 x 7.5
@@ -100,6 +102,7 @@ function slideTitle() {
 
 function slideDivider(num, title, subtitle) {
     const s = pres.addSlide();
+    (slideDivider._indices = slideDivider._indices || []).push(pres._slides.length - 1);
     bgFill(s, BG);
     text(s, { x: 0.7, y: 1.0, w: 6, h: 3.5, text: String(num).padStart(2, "0"), size: 180, color: BORDER, bold: true, font: FONT });
     rect(s, { x: 0.7, y: 4.7, w: 0.6, h: 0.04, fill: TEXT });
@@ -288,6 +291,132 @@ function slideRolecard(o) {
     }
     return s;
 }
+
+// ==================== DECK CONTENT ====================
+
+// --- Title (1) ---
+slideTitle();
+
+// --- Section 01: The call structure (3) ---
+slideDivider(1, "Three veterans, three different jobs.", "The call structure.");
+slideBullets([
+    { head: "Cartels", sub: "What the frontline wants. SMG press lead, 거점 압박 주도." },
+    { head: "Kings",   sub: "What our movement wants. Use downtime, dictate the macro." },
+    { head: "Shisui",  sub: "Playmaker & clutch tool — not a caller. (For reasons we all know.)" },
+], { title: "Who calls what.", kicker: "Section 01 · The call structure" });
+slideQuote("Not every veteran has to call. The wrong veteran calling is worse than no call.", "How we use experience");
+
+// --- Section 02: SMG lineup diagnosis (5) ---
+slideDivider(2, "Two elite gunfighters — and where they drift apart.", "SMG lineup.");
+slideRolecard({
+    name: "unravel", lineup: "SMG",
+    role: "Momentum builder, one-vs-many gunskill.",
+    responsibilities: ["Strong 1vX and reactive aim", "Tempo-stealer — wants to be one step ahead", "High capture kills as a result"],
+    identity: "Wants to be one step ahead — that's why capture kills are high."
+});
+slideBullets([
+    { head: "Strength", sub: "강한 일대다 건스킬, 반응속도, 좋은 모멘텀 빌더." },
+    { head: "Risk",     sub: "OVERPUSH. 셋업 쉽게 포기하고 추가 밸류를 찾으려 든다." },
+    { head: "Aggression", sub: "상대 템포를 빼려고 one step ahead → 거점 킬이 높다." },
+], { title: "unravel — what to expect.", kicker: "Section 02 · SMG diagnosis" });
+slideRolecard({
+    name: "Shisui", lineup: "SMG",
+    role: "Main SMG. Clutch & 1v1 — the one we rely on when it's tight.",
+    responsibilities: ["Clutch & face-to-face gunfight", "High-pressure reliance", "Gets lost when there's free space"],
+    identity: "Free space confuses him — he pulls himself into the hill. That's why obj time is high."
+});
+slideBullets([
+    { head: "Strength", sub: "우수한 클러치, 면대면 건파이트. 빡빡한 상황에서 의지할 메인 SMG." },
+    { head: "Risk",     sub: "여유공간이 남으면 길을 잃음 → 본인을 거점 안으로 불러들임 → 높은 obj 타임." },
+    { head: "Dynamics", sub: "좋은 SMG 듀오 — 그러나 살아있을 때든, 리스폰 미스매치 때든 둘이 자주 벌어진다." },
+], { title: "Shisui — and the duo's drift.", kicker: "Section 02 · SMG diagnosis" });
+
+// --- Section 03: SMG diagram (1) ---
+slideRosterDiagramSMG();
+
+// --- Section 04: Cartels' role (3) ---
+slideDivider(4, "Don't average them out. Reinforce the side that needs it.", "Cartels' job on SMG.");
+slideQuote("Their gunskill is real. The job isn't to slow them down — it's to cut the risk out of their high-risk, high-return plays.", "Cartels' real brief");
+slideBullets([
+    { head: "Don't", sub: "중간지점으로 끌어당기기 — 둘 다 희생시킨다." },
+    { head: "Do",    sub: "네 도움이 필요한 쪽을 돕는다. 프런트라인이 단단해진다." },
+    { head: "Result", sub: "Risk ↓, Return ↑ — 그들의 플레이메이킹 잠재력을 열어둔다." },
+], { title: "What reinforcing looks like.", kicker: "Section 04 · Cartels' job" });
+slideStatement("Maximize their return. Cut their risk.", "Section 04 · The veteran SMG job");
+
+// --- Section 05: AR lineup diagnosis (5) ---
+slideDivider(5, "Selfless by default — with one trap to avoid.", "AR lineup.");
+slideRolecard({
+    name: "Maozyn", lineup: "AR",
+    role: "Selfless AR (except P1). Hill-close, sacrifices the body.",
+    responsibilities: ["Hill-close positioning", "Throws his body for the team", "Flex AR gunfights — needs to be intuitive"],
+    identity: "Intuitive player — overthinking is the enemy."
+});
+slideBullets([
+    { head: "기본", sub: "P1 제외 hill에서 selfless. 거점과 가깝고 과감히 몸을 던진다." },
+    { head: "함정 ⚠", sub: "워머신만 쓰면 보이지 않는 위치에서 스나이프 시도 → 포지션 붕괴. 팀은 그대로인데 본인만 오퍼레이터 버튼 → 플랭크에 죽고 뒤에서 맞음." },
+    { head: "사인 ✓", sub: "퓨리파이어처럼 쓰라는 주문을 잘 지키고 있다. 계속하길 바람. reasoning을 알아야 게임 내에서도 응용 가능해서 다시 언급." },
+], { title: "Maozyn — the default, the trap, the sign.", kicker: "Section 05 · AR diagnosis" });
+slideRolecard({
+    name: "Kings", lineup: "AR",
+    role: "Veteran spine — when the calls are on.",
+    responsibilities: ["Mid-game anchor", "Damage positions", "Dictate in downtime (rotation / team wipe)"],
+    identity: "Call consistency is the gap — not skill."
+});
+slideBullets([
+    { head: "Good",  sub: "베테랑. 컨디션 좋을 때 확실한 허리." },
+    { head: "The problem", sub: "콜아웃의 갭이 크다 (이유 불문). 편차가 크다." },
+    { head: "Why it mattered", sub: "Point Major 중간 서브아웃의 이유. (exile도 루키+팔로워 성향이라 근본 해결은 아니었음.)" },
+], { title: "Kings — the gap is consistency, not skill.", kicker: "Section 05 · AR diagnosis" });
+
+// --- Section 06: AR diagram (1) ---
+slideRosterDiagramAR();
+
+// --- Section 07: AR in OBJ fights (2) ---
+slideDivider(7, "Hacienda P4, Takeoff P3 — solo AR doesn't help.", "AR cooperation in OBJ fights.");
+slideBullets([
+    { head: "Don't", sub: "OBJ 싸움 중 AR 단독행동 (Hacienda P4, Takeoff P3 등)." },
+    { head: "Do (거시)", sub: "Cartels 또는 Jason 등 shoutout call 좋은 SMG의 콜에 거시적 움직임 맞추기." },
+    { head: "Do (미시)", sub: "Maozyn 돕기 — 직감적으로 움직이게, overthinking 부담 줄이고 flex AR 건파이트에 집중." },
+    { head: "Why",  sub: "중요 순간에 떨어져 있으면 Maozyn이 헷갈린다: '내가 죽으면 SMG 도와줄 AR이 없잖아?'" },
+], { title: "OBJ fights — the rules.", kicker: "Section 07 · AR in OBJ" });
+
+// --- Section 08: Downtime dictate (3) ---
+slideDivider(8, "Rotation phase, team wipe — that's your window.", "Kings — use your downtime.");
+slideStatement("You're not the IGL. You're the IGL for 15 seconds at a time.", "Section 08 · When to take the wheel");
+slideBullets([
+    { head: "When", sub: "로테이션 phase, team wipe (우리가 다 잡았든 다 따였든) — 순간적 시간 여유." },
+    { head: "What", sub: "AR Marks로서 intense 건파이트가 없는 그 순간, 아군 움직임 dictate." },
+    { head: "Not",  sub: "매번 IGL이 되라는 게 아님 — 이 순간에만 잡으면 된다." },
+], { title: "The window — when and what.", kicker: "Section 08 · Downtime dictate" });
+
+// --- Section 09: Summary + closing (4) ---
+slideDivider(9, "One line each.", "If you remember nothing else.");
+slideBullets([
+    { head: "Cartels (SMG, veteran)", sub: "Support the side that needs you. Don't average them." },
+    { head: "Kings (AR, veteran)",    sub: "Use downtime to dictate. Close the call-consistency gap." },
+    { head: "unravel (SMG)",          sub: "Your job is the return. The team cuts the risk for you." },
+    { head: "Shisui (SMG)",           sub: "Be the clutch tool. We won't ask you to call." },
+    { head: "Maozyn (AR)",            sub: "Stay intuitive. Furypiercer, not Operator. Don't think alone in OBJ." },
+], { title: "Roster — one line each.", kicker: "Section 09" });
+slideStatement("What's the read? We map it out together.", "Next session · mapping workshop");
+
+// --- Closing ---
+slideClosing("Run the system.", "The veterans carry the calls. The gunfighters carry the rounds.");
+
+// ==================== FOOTER PASS ====================
+// Add footers to body slides (skip title [0], dividers, closing [last]).
+// Divider indices are recorded by slideDivider() at call time, so they stay
+// correct even if slide order/count changes.
+const DIVIDER_INDICES = new Set(slideDivider._indices || []);
+const slideArr = Array.from(pres._slides);
+TOTAL_SLIDES = slideArr.length;   // finalize the "X / N" denominator to the real count
+slideArr.forEach((sl, i) => {
+    if (i === 0) return;                       // title
+    if (i === slideArr.length - 1) return;     // closing
+    if (DIVIDER_INDICES.has(i)) return;        // divider
+    footer(sl, i + 1, "Role Alignment & Tactical Model");
+});
 
 // --- write + post-write fixup ---
 // pptxgenjs 4.x omits the slideMaster <Override> in [Content_Types].xml when the
