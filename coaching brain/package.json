@@ -1,0 +1,13 @@
+{
+  "name": "codm-coaching-ppt",
+  "version": "1.0.0",
+  "private": true,
+  "description": "PPT generator scripts for CODM team briefings (Astryx neutral tone).",
+  "scripts": {
+    "roles": "node make_pptx_roles.js"
+  },
+  "dependencies": {
+    "jszip": "3.10.1",
+    "pptxgenjs": "4.0.1"
+  }
+}
