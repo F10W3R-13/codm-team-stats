@@ -49,10 +49,12 @@ function text(slide, o) {
 }
 
 // Rectangle. opts: {x, y, w, h, fill, line, lineW, dashType, rectRadius}
+// fill === "none" → transparent (outline-only). Any other string → solid RGB.
 function rect(slide, o) {
+    const fillVal = o.fill === "none" ? { type: "none" } : { color: o.fill || SURFACE };
     const shapeOpts = {
         x: o.x, y: o.y, w: o.w, h: o.h,
-        fill: { color: o.fill || SURFACE },
+        fill: fillVal,
         line: o.line ? { color: o.line, width: o.lineW || 1 } : undefined,
         shadow: { type: "none" },
     };
@@ -223,6 +225,67 @@ function slideRosterDiagramSMG() {
 
     // bottom note
     text(s, { x: 0.7, y: 6.5, w: 11.9, h: 0.4, text: "Cartels doesn't pull them to a midpoint. He picks the side that needs him.", size: 14, color: TEXT_2, italic: true, align: "center", font: FONT_BODY });
+    return s;
+}
+
+function slideRosterDiagramAR() {
+    const s = pres.addSlide();
+    bgFill(s, BG);
+    text(s, { x: 0.7, y: 0.8, w: 12, h: 0.4, text: "SECTION 06 · AR DUO", size: 12, color: MUTED, bold: true, font: FONT });
+    text(s, { x: 0.7, y: 1.2, w: 12, h: 0.9, text: "Stay together when the OBJ fight starts.", size: 32, color: TEXT, bold: true, font: FONT_BODY });
+
+    const NODE_W = 2.8, NODE_H = 1.4;
+    const mao = { cx: 4.0, cy: 3.8 };
+    const kng = { cx: 9.3, cy: 3.8 };
+    // pad arrow endpoints ~0.18" outside node edges so arrowhead triangle (drawn
+    // under the node fills) stays visible in the gap. Same principle as SMG diagram.
+    const PAD = 0.18;
+
+    // "stay together" red dashed box wrapping both nodes
+    const boxX = mao.cx - NODE_W/2 - 0.4;
+    const boxY = mao.cy - NODE_H/2 - 0.4;
+    const boxW = (kng.cx + NODE_W/2) - (mao.cx - NODE_W/2) + 0.8;
+    const boxH = NODE_H + 0.8;
+    rect(s, { x: boxX, y: boxY, w: boxW, h: boxH, fill: "none" /*transparent*/, line: DANGER, lineW: 1.5, dashType: "dash" });
+    // box label above
+    text(s, { x: boxX, y: boxY - 0.35, w: boxW, h: 0.3, text: "STAY TOGETHER IN OBJ FIGHTS", size: 11, color: DANGER, bold: true, align: "center", font: FONT_BODY });
+
+    // kings -> maozyn help arrow (Kings on right, Maozyn on left; arrow goes right→left)
+    // x1 near Kings's left edge pulled into the gap, x2 near Maozyn's right edge pulled into the gap.
+    arrow(s, { x1: kng.cx - NODE_W/2 - PAD, y1: kng.cy, x2: mao.cx + NODE_W/2 + PAD, y2: mao.cy, kind: "kings", label: "help him fight clean" });
+
+    node(s, { cx: mao.cx, cy: mao.cy, w: NODE_W, h: NODE_H, name: "Maozyn", role: "Hill-close · Selfless AR", lineup: "AR" });
+    node(s, { cx: kng.cx, cy: kng.cy, w: NODE_W, h: NODE_H, name: "Kings",  role: "Spine · Dictate in downtime", lineup: "AR" });
+
+    text(s, { x: 0.7, y: 6.4, w: 11.9, h: 0.4, text: "You can split in rotation. Never split when the OBJ fight starts.", size: 14, color: TEXT_2, italic: true, align: "center", font: FONT_BODY });
+    return s;
+}
+
+// Player role card. opts: {name, lineup, role (one-liner), responsibilities[string], identity?}
+function slideRolecard(o) {
+    const s = pres.addSlide();
+    bgFill(s, BG);
+    const badge = LINEUP_COLOR[o.lineup] || TEXT;
+
+    // left: big name + badge
+    rect(s, { x: 0.7, y: 1.0, w: 0.08, h: 5.0, fill: badge });
+    text(s, { x: 1.0, y: 1.0, w: 4.5, h: 2.5, text: o.name, size: 56, color: TEXT, bold: true, font: FONT_BODY });
+    text(s, { x: 1.0, y: 3.4, w: 4.5, h: 0.4, text: `${o.lineup} ${o.lineup === "SMG" ? "· gunfighter" : "· anchor"}`, size: 13, color: badge, bold: true, font: FONT_BODY });
+
+    // right: role one-liner + responsibilities
+    text(s, { x: 6.0, y: 1.0, w: 6.6, h: 1.4, text: o.role, size: 26, color: TEXT, bold: true, font: FONT_BODY, lineSpacingMultiple: 1.1 });
+    const resp = o.responsibilities || [];
+    const top = 2.7;
+    const rowH = Math.min(0.95, (6.0 - top) / Math.max(resp.length, 1));
+    resp.forEach((r, i) => {
+        const y = top + rowH * i;
+        rect(s, { x: 6.0, y: y + 0.1, w: 0.06, h: Math.min(0.6, rowH - 0.15), fill: MUTED });
+        text(s, { x: 6.25, y: y, w: 6.4, h: rowH, text: r, size: 15, color: TEXT_2, valign: "top", font: FONT_BODY });
+    });
+    if (o.identity) {
+        hline(s, { x: 6.0, y: 6.2, w: 6.6, color: BORDER });
+        text(s, { x: 6.0, y: 6.35, w: 6.6, h: 0.5, text: o.identity, size: 13, color: MUTED, italic: true, font: FONT_BODY });
+    }
     return s;
 }
 
