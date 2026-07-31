@@ -22,21 +22,37 @@ def _match_team(team_igns: list, path: str):
     team_ids = set()
     unmatched = []
     for ign in team_igns:
-        # ① DB 직접 매칭 (alias/표준명)
+        # ① DB 직접 매칭 (alias/표준명/정규화)
         result = db.resolve_player(ign, path=path)
         if result:
             pid, tid = result
             resolved[ign] = {"player_id": pid, "team_id": tid, "ign": ign}
             team_ids.add(tid)
             continue
-        # ② 퍼지 매칭
+        # ② 퍼지 매칭 (임계값 0.75)
         match = matching.fuzzy_match(ign, candidates)
         if match:
             result = db.resolve_player(match, path=path)
             if result:
                 pid, tid = result
+                # IGN을 alias로 자동 등록 → 다음부턴 resolve 직접 매칭
+                db.insert_alias(ign, pid, path=path)
                 resolved[ign] = {"player_id": pid, "team_id": tid, "ign": ign,
                                  "standard_name": match}
+                team_ids.add(tid)
+                continue
+        # ③ 추측 매칭 (임계값 0.5) — 알파벳 일부만 맞아도 원본 닉네임 추측
+        # IGN을 해당 선수의 alias로 자동 등록 → 다음부턴 매칭됨
+        guess = matching.best_guess(ign, candidates)
+        if guess:
+            guess_name, ratio = guess
+            result = db.resolve_player(guess_name, path=path)
+            if result:
+                pid, tid = result
+                # IGN을 alias로 자동 등록 (다음부턴 resolve 직접 매칭)
+                db.insert_alias(ign, pid, path=path)
+                resolved[ign] = {"player_id": pid, "team_id": tid, "ign": ign,
+                                 "standard_name": guess_name, "guessed": True}
                 team_ids.add(tid)
                 continue
         unmatched.append(ign)

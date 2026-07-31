@@ -12,6 +12,7 @@
             --accent: #262626; --accent-weak: #f5f5f5; --on-accent: #ffffff;
             --success: #16a34a; --success-weak: #dcfce7;
             --danger: #dc2626; --danger-weak: #fee2e2;
+            --warning: #d97706; --warning-weak: #fef3c7;
             --hp: #f97316; --snd: #8b5cf6;
             --space-1: 4px; --space-2: 8px; --space-3: 12px; --space-4: 16px;
             --space-6: 24px; --space-8: 32px;
@@ -81,6 +82,9 @@
         .row-del { width:22px; height:22px; border:none; background:transparent; color: var(--muted); cursor:pointer; font-size:.85rem; border-radius: var(--radius-sm); }
         .row-del:hover { background: var(--danger-weak); color: var(--danger); }
         .add-row-btn { margin-top: var(--space-2); font-size:.85rem; padding: var(--space-1) var(--space-3); }
+        .guess-mark { font-size:.8rem; cursor:help; }
+        .row-guessed { background: var(--warning-weak); }
+        .row-guessed:hover { background: rgba(245,158,11,0.18); }
         .mvp-card { display: flex; gap: var(--space-3); flex-wrap: wrap; }
         .mvp-card .card { flex: 1; min-width: 180px; text-align: center; }
         .mvp-card .label { font-size: 0.8rem; color: var(--muted); }

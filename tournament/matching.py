@@ -68,3 +68,30 @@ def fuzzy_match(ign: str, candidates: list) -> str:
     if best:
         return norm_map[best[0]]
     return None
+
+
+def best_guess(ign: str, candidates: list, min_ratio: float = 0.6):
+    """fuzzy_match가 실패했을 때 가장 유사한 후보를 '추측'으로 반환.
+
+    임계값(0.5) 이상의 유사도를 가진 가장 가까운 후보와 그 비율을 반환.
+    알파벳이 일부만 맞아도(예: 오타, 부분 인식) 원본 닉네임을 추측해 매칭.
+    반환: (후보 표준명, 유사도) 또는 None (0.5 미만이면 아예 단념).
+    """
+    if not candidates:
+        return None
+    stripped = normalize(_strip_clan_prefix(ign))
+    norm_ign = normalize(ign)
+    norm_map = {normalize(c): c for c in candidates}
+    targets = list(norm_map.keys())
+    # stripped와 norm_ign 둘 다에서 가장 높은 유사도
+    ratios = difflib.SequenceMatcher(None, stripped, "").quick_ratio()  # warmup
+    best_t, best_r = None, 0.0
+    for t in targets:
+        r1 = difflib.SequenceMatcher(None, stripped, t).ratio()
+        r2 = difflib.SequenceMatcher(None, norm_ign, t).ratio()
+        r = max(r1, r2)
+        if r > best_r:
+            best_r, best_t = r, t
+    if best_t and best_r >= min_ratio:
+        return (norm_map[best_t], round(best_r, 2))
+    return None

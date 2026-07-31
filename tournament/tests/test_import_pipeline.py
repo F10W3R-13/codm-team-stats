@@ -73,23 +73,52 @@ def test_preview_identifies_teams_by_roster():
 
 
 def test_preview_collects_unmatched_igns():
-    """매칭 안 된 IGN은 unmatched 리스트로."""
+    """유사도 0.6 미만(추측 매칭도 불가)한 IGN은 unmatched로."""
     path = _fresh_db()
     try:
         t1 = db.insert_team("Alpha", path=path)
         t2 = db.insert_team("Bravo", path=path)
-        # Alpha엔 2명만 시드 → 3명은 unmatched
-        for n in ["Ace", "Sniper"]:
+        # Alpha의 후보와 전혀 안 닮은 이름 → 추측 매칭도 불가
+        for n in ["Zzzzz"]:
             db.insert_player(n, t1, path=path)
         for n in ["Blaze", "Storm", "Frost", "Thunder", "Shadow"]:
             db.insert_player(n, t2, path=path)
 
+        # mock 응답의 team_left(Ace/Sniper/King/Ghost/Wolf)는 Zzzzz와 안 닮음
         with patch("import_pipeline.analyze_two_screens",
                    return_value=_mock_gpt_response()):
             preview = import_pipeline.preview(b"\x00", b"\x00", path=path)
 
-        assert len(preview["unmatched"]) == 3  # King, Ghost, Wolf
-        assert "King" in preview["unmatched"]
+        # 4명(Ace/Sniper/King/Ghost/Wolf 중 Zzzzz와 매칭 안 되는 것들)은 unmatched
+        assert len(preview["unmatched"]) >= 4
+    finally:
+        os.unlink(path)
+
+
+def test_preview_guess_match_registers_alias():
+    """유사한 이름(OCR 변형)은 추측 매칭 → alias 자동 등록 → 다음부턴 직접 매칭."""
+    path = _fresh_db()
+    try:
+        t1 = db.insert_team("Alpha", path=path)
+        t2 = db.insert_team("Bravo", path=path)
+        # Sica를 시드 — GPT가 'S1ca'로 읽으면 추측 매칭 + alias 등록
+        for n in ["Ace", "Sica", "King", "Ghost", "Wolf"]:
+            db.insert_player(n, t1, path=path)
+        for n in ["Blaze", "Storm", "Frost", "Thunder", "Shadow"]:
+            db.insert_player(n, t2, path=path)
+
+        # mock: team_left의 첫 선수를 S1ca로 (Sica와 유사)
+        mock = _mock_gpt_response()
+        mock["team_left"][0]["name"] = "S1ca"
+        with patch("import_pipeline.analyze_two_screens", return_value=mock):
+            preview = import_pipeline.preview(b"\x00", b"\x00", path=path)
+
+        # S1ca가 Sica에 매칭되어 team_a에 들어가야 함 (unmatched 아님)
+        team_a_names = [p.get("ign") for p in preview["team_a"]]
+        assert "S1ca" in team_a_names
+        assert "S1ca" not in preview["unmatched"]
+        # alias에 자동 등록됨
+        assert db.resolve_player("S1ca", path=path) is not None
     finally:
         os.unlink(path)
 
