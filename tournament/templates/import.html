@@ -161,39 +161,105 @@ async function analyzeScreens() {
 
 let lastPreview = null;
 
+// 모드별 스탯 컬럼 정의 (헤더 표시명 → 데이터 필드명)
+const HP_COLS = [['K','k'],['D','d'],['A','a'],['딜','total_damage'],['OBJ','time'],['CK','capture_kill']];
+const SND_COLS = [['K','k'],['D','d'],['A','a'],['딜','total_damage'],['ADR','adr'],['FK','first_kill'],['LWW','lone_wolf_win']];
+
 function renderPreview(data) {
     const div = document.getElementById('preview');
     const content = document.getElementById('preview-content');
-    const modeBadge = data.mode === 'HP'
-        ? '<span class="badge badge--hp">HP</span>'
-        : '<span class="badge badge--snd">SND</span>';
-    const modeLabel = data.mode === 'HP' ? '하드포인트' : '서치&디스트로이';
+    const cols = data.mode === 'HP' ? HP_COLS : SND_COLS;
 
     content.innerHTML = `
-        <p>${modeBadge} <strong>${data.map || '맵 미상'}</strong></p>
-        <p style="font-size:1.2rem;"><strong>${data.team_a_name || '팀 미상'}</strong> ${data.team_left_score ?? '?'} : ${data.team_right_score ?? '?'} <strong>${data.team_b_name || '팀 미상'}</strong></p>
+        <div class="preview-meta">
+            <label>모드 <select id="edit-mode">
+                <option value="HP" ${data.mode==='HP'?'selected':''}>HP</option>
+                <option value="SND" ${data.mode==='SND'?'selected':''}>SND</option>
+            </select></label>
+            <label>맵 <input id="edit-map" value="${data.map || ''}" placeholder="맵"></label>
+            <label>날짜 <input id="edit-date" type="date"></label>
+        </div>
+        <div class="score-row">
+            <strong>${data.team_a_name || 'Team A'}</strong>
+            <input id="edit-score-a" type="number" value="${data.team_left_score ?? 0}" class="score-input">
+            <span>:</span>
+            <input id="edit-score-b" type="number" value="${data.team_right_score ?? 0}" class="score-input">
+            <strong>${data.team_b_name || 'Team B'}</strong>
+        </div>
         ${data.unmatched.length > 0 ? '<p class="text-muted">⚠️ 매칭 안 된 IGN ' + data.unmatched.length + '개: ' + data.unmatched.join(', ') + '</p>' : ''}
-        <div style="display:flex; gap:16px; margin-top:12px; flex-wrap:wrap;">
-            <div style="flex:1; min-width:240px;">
+        <div class="preview-teams">
+            <div>
                 <h3>${data.team_a_name || 'Team A'}</h3>
-                ${playerTable(data.team_a)}
+                ${playerTable(data.team_a, 'a', cols)}
             </div>
-            <div style="flex:1; min-width:240px;">
+            <div>
                 <h3>${data.team_b_name || 'Team B'}</h3>
-                ${playerTable(data.team_b)}
+                ${playerTable(data.team_b, 'b', cols)}
             </div>
-        </div>`;
+        </div>
+        <p class="text-muted" style="margin-top: var(--space-3);">✏️ 모든 숫자/이름을 직접 수정할 수 있습니다. 틀린 값은 고치고 저장하세요.</p>`;
     div.style.display = 'block';
 }
 
-function playerTable(players) {
-    if (!players || players.length === 0) return '<p class="text-muted">데이터 없음</p>';
-    const rows = players.map(p => `<tr><td>${p.standard_name || p.ign}</td><td>${p.k||0}</td><td>${p.d||0}</td><td>${p.total_damage||p.adr||0}</td></tr>`).join('');
-    return `<table><tr><th>이름</th><th>K</th><th>D</th><th>딜</th></tr>${rows}</table>`;
+function playerTable(players, side, cols) {
+    if (!players || players.length === 0) return '<p class="text-muted">데이터 없음 — 매칭 실패. 아래 빈 행에 수동 입력 가능:</p>' + emptyTable(side, cols);
+    const header = '<tr><th>이름</th>' + cols.map(c => `<th>${c[0]}</th>`).join('') + '</tr>';
+    const rows = players.map((p, i) => {
+        const name = p.standard_name || p.ign || '';
+        const cells = cols.map(c => {
+            const val = p[c[1]] ?? 0;
+            return `<td><input data-side="${side}" data-idx="${i}" data-field="${c[1]}" type="number" value="${val}" class="stat-input"></td>`;
+        }).join('');
+        return `<tr><td><input data-side="${side}" data-idx="${i}" data-field="name" value="${name}" class="name-input"></td>${cells}</tr>`;
+    }).join('');
+    return `<table>${header}${rows}</table>`;
+}
+
+function emptyTable(side, cols) {
+    const header = '<tr><th>이름</th>' + cols.map(c => `<th>${c[0]}</th>`).join('') + '</tr>';
+    let rows = '';
+    for (let i = 0; i < 5; i++) {
+        const cells = cols.map(c => `<td><input data-side="${side}" data-idx="${i}" data-field="${c[1]}" type="number" value="0" class="stat-input"></td>`).join('');
+        rows += `<tr><td><input data-side="${side}" data-idx="${i}" data-field="name" value="" placeholder="이름" class="name-input"></td>${cells}</tr>`;
+    }
+    return `<table>${header}${rows}</table>`;
+}
+
+// DOM 입력값을 lastPreview에 동기화 (저장 직전 호출)
+function syncEditsToPreview() {
+    lastPreview.mode = document.getElementById('edit-mode').value;
+    lastPreview.map = document.getElementById('edit-map').value || null;
+    lastPreview.match_date = document.getElementById('edit-date').value || null;
+    lastPreview.team_left_score = parseInt(document.getElementById('edit-score-a').value) || 0;
+    lastPreview.team_right_score = parseInt(document.getElementById('edit-score-b').value) || 0;
+
+    // 각 팀 선수 데이터 덮어쓰기
+    for (const side of ['a', 'b']) {
+        const key = 'team_' + side;
+        // 빈 팀(매칭 실패)이면 빈 배열에서 시작
+        if (!lastPreview[key]) lastPreview[key] = [];
+        const inputs = document.querySelectorAll(`[data-side="${side}"]`);
+        const maxIdx = Math.max(0, ...[...inputs].map(i => parseInt(i.dataset.idx)));
+        // 배열 크기 맞추기
+        while (lastPreview[key].length <= maxIdx) lastPreview[key].push({});
+        inputs.forEach(inp => {
+            const idx = parseInt(inp.dataset.idx);
+            const field = inp.dataset.field;
+            const val = inp.value;
+            if (field === 'name') {
+                lastPreview[key][idx].ign = val;
+                lastPreview[key][idx].standard_name = val;
+            } else {
+                lastPreview[key][idx][field] = val === '' ? 0 : parseFloat(val);
+            }
+        });
+    }
 }
 
 async function confirmMatch() {
     if (!lastPreview) return;
+    // 수정된 값 동기화
+    syncEditsToPreview();
     if (!lastPreview.team_a_id || !lastPreview.team_b_id) {
         alert('팀 식별 실패 — 매칭 안 된 IGN을 먼저 처리하세요.'); return;
     }

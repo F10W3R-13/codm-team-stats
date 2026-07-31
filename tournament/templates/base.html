@@ -68,6 +68,16 @@
         }
         .slot.filled .slot-clear { display:flex; }
         .slot-clear:hover { background: var(--danger); }
+        .preview-meta { display:flex; gap: var(--space-4); flex-wrap:wrap; margin-bottom: var(--space-3); align-items:center; }
+        .preview-meta label { display:flex; flex-direction:column; gap:2px; font-size:.8rem; color: var(--text-2); }
+        .preview-meta input, .preview-meta select { padding: var(--space-1) var(--space-2); border:1px solid var(--border-strong); border-radius: var(--radius-sm); font-size:.95rem; }
+        .score-row { display:flex; align-items:center; gap: var(--space-3); font-size:1.1rem; margin-bottom: var(--space-3); flex-wrap:wrap; }
+        .score-input { width:70px; padding: var(--space-1) var(--space-2); border:1px solid var(--border-strong); border-radius: var(--radius-sm); font-size:1.1rem; text-align:center; }
+        .preview-teams { display:flex; gap: var(--space-4); flex-wrap:wrap; }
+        .preview-teams > div { flex:1; min-width:280px; }
+        .stat-input { width:52px; padding:3px 4px; border:1px solid var(--border); border-radius: var(--radius-sm); font-size:.85rem; text-align:center; }
+        .stat-input:focus, .name-input:focus, .score-input:focus { border-color: var(--accent); outline:none; }
+        .name-input { padding:3px 6px; border:1px solid var(--border); border-radius: var(--radius-sm); font-size:.85rem; min-width:90px; }
         .mvp-card { display: flex; gap: var(--space-3); flex-wrap: wrap; }
         .mvp-card .card { flex: 1; min-width: 180px; text-align: center; }
         .mvp-card .label { font-size: 0.8rem; color: var(--muted); }
