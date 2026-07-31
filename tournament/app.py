@@ -15,6 +15,33 @@ import standings as standings_mod
 import awards
 import import_pipeline
 
+
+def _friendly_error(e: Exception) -> str:
+    """GPT/시스템 에러를 사용자 친화적 한글 메시지로 변환.
+
+    사용자가 영어 트레이스백이나 GPT 내부 에러를 보고 막히지 않도록.
+    """
+    msg = str(e)
+    # GPT API 에러 (OpenAI 라이브러리)
+    if "rate_limit" in msg.lower() or "rate limit" in msg.lower():
+        return "GPT 호출 한도 초과. 잠시 후 다시 시도해주세요."
+    if "timeout" in msg.lower() or "timed out" in msg.lower():
+        return "GPT 응답 시간 초과. 다시 시도해보세요. (계속되면 스크린샷 화질을 확인해주세요.)"
+    if "unsupported image" in msg.lower() or "image" in msg.lower() and "valid" in msg.lower():
+        return "스크린샷 파일이 손상되었거나 지원하지 않는 형식입니다. 다른 파일로 다시 올려주세요."
+    if "insufficient_quota" in msg.lower() or "billing" in msg.lower():
+        return "GPT API 사용량이 초과되었습니다. 관리자에게 문의하세요."
+    if "invalid_api_key" in msg.lower() or "authentication" in msg.lower():
+        return "GPT API 키 오류. .env 파일의 OPENAI_API_KEY를 확인하세요."
+    # JSON 파싱 실패 (GPT가 JSON 형식을 안 지킨 경우)
+    if "json" in msg.lower() and ("decode" in msg.lower() or "parse" in msg.lower()):
+        return "GPT 응답 파싱 실패. 다시 시도해보세요. (스크린샷이 너무 작거나 흐리면 발생할 수 있습니다.)"
+    # 팀 식별 실패
+    if "팀 식별" in msg:
+        return msg  # 이미 한글
+    # 그 외 — 원문을 그대로 보되 안내 추가
+    return f"오류가 발생했습니다. 다시 시도해보세요.\n({msg[:150]})"
+
 BASE_DIR = Path(__file__).parent
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 
@@ -58,7 +85,9 @@ def api_preview(file1: UploadFile = File(...), file2: UploadFile = File(...)):
         result.pop("_raw_right", None)
         return result
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        # 사용자 친화적 한글 에러 메시지로 변환 (영어 GPT 에러 차단)
+        msg = _friendly_error(e)
+        raise HTTPException(status_code=500, detail=msg)
 
 
 @app.post("/api/confirm")
@@ -74,7 +103,7 @@ async def api_confirm(request: Request):
         match_id = import_pipeline.confirm(body)
         return {"match_id": match_id, "ok": True}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=_friendly_error(e))
 
 
 @app.get("/standings", response_class=HTMLResponse)
@@ -110,7 +139,7 @@ async def api_delete_match(match_id: int):
         db.delete_match(match_id)
         return {"ok": True}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=_friendly_error(e))
 
 
 @app.get("/matches/{match_id}", response_class=HTMLResponse)
