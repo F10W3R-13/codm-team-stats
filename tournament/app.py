@@ -29,8 +29,7 @@ async def import_page(request: Request):
     """스크린샷 업로드 + 파싱 미리보기."""
     teams = db.list_teams()
     players_count = len(db.list_players())
-    return templates.TemplateResponse("import.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "import.html", {
         "teams_seeded": len(teams),
         "players_seeded": players_count,
     })
@@ -66,16 +65,16 @@ async def api_confirm(request: Request):
 async def standings_page(request: Request):
     table = standings_mod.compute()
     final = standings_mod.final_match()
-    return templates.TemplateResponse("standings.html", {
-        "request": request, "table": table, "final": final,
+    return templates.TemplateResponse(request, "standings.html", {
+        "table": table, "final": final,
     })
 
 
 @app.get("/players", response_class=HTMLResponse)
 async def players_page(request: Request):
     rankings = awards.player_rankings()
-    return templates.TemplateResponse("players.html", {
-        "request": request, "rankings": rankings,
+    return templates.TemplateResponse(request, "players.html", {
+        "rankings": rankings,
     })
 
 
@@ -103,8 +102,8 @@ async def match_page(match_id: int, request: Request):
 
     team_a = [s for s in stats if s["team_id"] == match["team_a_id"]]
     team_b = [s for s in stats if s["team_id"] == match["team_b_id"]]
-    return templates.TemplateResponse("match.html", {
-        "request": request, "match": match,
+    return templates.TemplateResponse(request, "match.html", {
+        "match": match,
         "team_a": team_a, "team_b": team_b,
     })
 
@@ -115,7 +114,7 @@ async def report_page(request: Request):
     final = standings_mod.final_match()
     mvps = awards.mvps()
     rankings = awards.player_rankings()[:10]  # 상위 10
-    return templates.TemplateResponse("report.html", {
-        "request": request, "table": table, "final": final,
+    return templates.TemplateResponse(request, "report.html", {
+        "table": table, "final": final,
         "mvps": mvps, "rankings": rankings,
     })
