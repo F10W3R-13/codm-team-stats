@@ -48,9 +48,9 @@ def analyze_two_screens(image_bytes_1: bytes, image_bytes_2: bytes) -> dict:
     completion = _get_client().chat.completions.create(
         model="gpt-4.1",
         temperature=0.0,
-        max_tokens=2048,
+        max_tokens=4096,
         response_format={"type": "json_object"},
-        timeout=60,
+        timeout=120,
         n=1,
         messages=[
             {"role": "user", "content": prompt_tournament.PROMPT},

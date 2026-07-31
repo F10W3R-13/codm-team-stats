@@ -118,22 +118,37 @@ def insert_alias(ign: str, player_id: int, path: str = None) -> None:
 
 def resolve_player(ign: str, path: str = None):
     """IGN → (player_id, team_id) 매핑. 표준명/별명 모두 검색.
-    매칭 실패 시 None 반환."""
+    매칭 실패 시 None 반환.
+
+    대소문자/클랜태그/특수문자/숫자접미사를 정규화하여 포괄적으로 매칭:
+    -MaDara- → madara, Madara → madara (일치)
+    Hashirama6974 → hashirama, Hashirama → hashirama (숫자접미사 제거 후 일치)
+    """
+    import re
+
+    def _norm(s):
+        # 소문자화 + 클랜태그/특수문자 제거 + 끝의 숫자 접미사 제거
+        s = s.lower().strip()
+        s = re.sub(r"\[.*?\]", "", s)       # 클랜태그
+        s = re.sub(r"[^a-z0-9가-힣]", "", s)  # 알파벳+숫자+한글만
+        s = re.sub(r"\d+$", "", s)           # 끝 숫자 접미사 (6974 등)
+        return s
+
+    norm_ign = _norm(ign)
     conn = get_conn(path)
     try:
-        # 1) players 표준명 직접 매칭
+        # 1) players 표준명 매칭 (정확 → 정규화)
         row = conn.execute(
-            """SELECT p.id, p.team_id FROM players p
-               WHERE p.name = ?""", (ign,)).fetchone()
+            """SELECT p.id, p.team_id, p.name FROM players p
+               WHERE p.name = ? OR LOWER(p.name) = ?""", (ign, norm_ign)).fetchone()
         if row:
             return (row["id"], row["team_id"])
-        # 2) aliases 매칭
-        row = conn.execute(
-            """SELECT a.player_id, p.team_id FROM aliases a
-               JOIN players p ON p.id = a.player_id
-               WHERE a.ign = ?""", (ign,)).fetchone()
-        if row:
-            return (row["player_id"], row["team_id"])
+        # 2) aliases 매칭 (정확 → 정규화)
+        for r in conn.execute(
+                """SELECT a.player_id, p.team_id, a.ign FROM aliases a
+                   JOIN players p ON p.id = a.player_id""").fetchall():
+            if _norm(r["ign"]) == norm_ign:
+                return (r["player_id"], r["team_id"])
         return None
     finally:
         conn.close()
