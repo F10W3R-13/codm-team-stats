@@ -240,3 +240,29 @@ def list_players(team_id: int = None, path: str = None) -> list:
             (team_id,)).fetchall()]
     finally:
         conn.close()
+
+
+def list_matches(path: str = None) -> list:
+    """모든 매치 목록 (팀명·점수 포함, 최신순)."""
+    conn = get_conn(path)
+    try:
+        return [dict(r) for r in conn.execute(
+            """SELECT m.*, ta.name AS team_a_name, tb.name AS team_b_name
+               FROM matches m
+               JOIN teams ta ON ta.id = m.team_a_id
+               JOIN teams tb ON tb.id = m.team_b_id
+               ORDER BY m.id DESC""").fetchall()]
+    finally:
+        conn.close()
+
+
+def delete_match(match_id: int, path: str = None) -> None:
+    """매치 + 연관 스탯 삭제 (HP/SND 양쪽)."""
+    conn = get_conn(path)
+    try:
+        conn.execute("DELETE FROM player_stats_hp WHERE match_id=?", (match_id,))
+        conn.execute("DELETE FROM player_stats_snd WHERE match_id=?", (match_id,))
+        conn.execute("DELETE FROM matches WHERE id=?", (match_id,))
+        conn.commit()
+    finally:
+        conn.close()

@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}매치 기록 — CODM 토너먼트{% endblock %}
+{% block content %}
+<h1>📋 매치 기록</h1>
+
+{% if matches %}
+<table>
+    <tr><th>#</th><th>모드</th><th>맵</th><th>스테이지</th><th>대결</th><th>스코어</th><th> </th></tr>
+    {% for m in matches %}
+    <tr>
+        <td><a href="/matches/{{ m.id }}">#{{ m.id }}</a></td>
+        <td>
+            {% if m.mode == 'HP' %}<span class="badge badge--hp">HP</span>
+            {% else %}<span class="badge badge--snd">SND</span>{% endif %}
+        </td>
+        <td>{{ m.map_name or '-' }}</td>
+        <td>
+            {% if m.stage == 'final' %}<span class="badge badge--final">결승</span>
+            {% else %}<span class="badge badge--rr">풀리그</span>{% endif %}
+        </td>
+        <td>{{ m.team_a_name }} vs {{ m.team_b_name }}</td>
+        <td><strong>{{ m.team_a_score }}</strong> : <strong>{{ m.team_b_score }}</strong></td>
+        <td><button class="row-del" onclick="deleteMatch({{ m.id }})" title="삭제">🗑 삭제</button></td>
+    </tr>
+    {% endfor %}
+</table>
+<p class="text-muted" style="margin-top: var(--space-3);">잘못 입력한 매치는 삭제 후 다시 등록하세요.</p>
+{% else %}
+<p class="text-muted">등록된 매치가 없습니다.</p>
+{% endif %}
+
+<script>
+async function deleteMatch(id) {
+    if (!confirm('매치 #' + id + '를 삭제합니다. 이 작업은 되돌릴 수 없습니다.')) return;
+    try {
+        const res = await fetch('/api/match/' + id + '/delete', { method: 'POST' });
+        const data = await res.json();
+        if (!res.ok) { alert('오류: ' + (data.detail || '삭제 실패')); return; }
+        location.reload();
+    } catch (e) { alert('오류: ' + e.message); }
+}
+</script>
+{% endblock %}

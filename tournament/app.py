@@ -88,6 +88,25 @@ async def players_page(request: Request):
     })
 
 
+@app.get("/matches", response_class=HTMLResponse)
+async def matches_list_page(request: Request):
+    """매치 목록 (삭제 가능)."""
+    matches = db.list_matches()
+    return templates.TemplateResponse(request, "matches.html", {
+        "request": request, "matches": matches,
+    })
+
+
+@app.post("/api/match/{match_id}/delete")
+async def api_delete_match(match_id: int):
+    """매치 삭제 (잘못 입력한 매치 정리용)."""
+    try:
+        db.delete_match(match_id)
+        return {"ok": True}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.get("/matches/{match_id}", response_class=HTMLResponse)
 async def match_page(match_id: int, request: Request):
     conn = db.get_conn()
