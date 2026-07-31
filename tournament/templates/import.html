@@ -216,13 +216,22 @@ function playerTable(players, side, cols) {
 function playerRow(side, idx, p, cols) {
     const name = (p && (p.standard_name || p.ign)) || '';
     const guessed = p && p.guessed;
-    const guessMark = guessed ? ' <span class="guess-mark" title="자동 추측 매칭 — 확인 필요">⚠️</span>' : '';
-    const nameTitle = guessed ? ' 자동 추측 매칭 (GPT가 비슷한 이름으로 추정). 틀리면 수정.' : '';
+    const unmatched = p && p.unmatched;
+    let rowClass = '', mark = '', title = '';
+    if (unmatched) {
+        rowClass = 'row-unmatched';
+        mark = ' <span class="unmatched-mark" title="매칭 안 됨 — 올바른 선수 이름으로 수정">❌</span>';
+        title = ' 매칭 안 됨. 올바른 선수 이름으로 고치면 자동 매칭.';
+    } else if (guessed) {
+        rowClass = 'row-guessed';
+        mark = ' <span class="guess-mark" title="자동 추측 매칭 — 확인 필요">⚠️</span>';
+        title = ' 자동 추측 매칭 (GPT가 비슷한 이름으로 추정). 틀리면 수정.';
+    }
     const cells = cols.map(c => {
         const val = (p && p[c[1]]) ?? 0;
         return `<td><input data-side="${side}" data-idx="${idx}" data-field="${c[1]}" type="number" value="${val}" class="stat-input"></td>`;
     }).join('');
-    return `<tr data-row="${side}-${idx}" ${guessed ? 'class="row-guessed"' : ''}><td><button class="row-del" onclick="delRow(this)" title="삭제">✕</button></td><td><input data-side="${side}" data-idx="${idx}" data-field="name" value="${name}" title="${nameTitle}" placeholder="이름" class="name-input">${guessMark}</td>${cells}</tr>`;
+    return `<tr data-row="${side}-${idx}" class="${rowClass}"><td><button class="row-del" onclick="delRow(this)" title="삭제">✕</button></td><td><input data-side="${side}" data-idx="${idx}" data-field="name" value="${name}" title="${title}" placeholder="이름" class="name-input">${mark}</td>${cells}</tr>`;
 }
 
 function emptyRows(side, cols, count) {

@@ -41,7 +41,7 @@ def _match_team(team_igns: list, path: str):
                                  "standard_name": match}
                 team_ids.add(tid)
                 continue
-        # ③ 추측 매칭 (임계값 0.5) — 알파벳 일부만 맞아도 원본 닉네임 추측
+        # ③ 추측 매칭 (임계값 0.6) — 알파벳 일부만 맞아도 원본 닉네임 추측
         # IGN을 해당 선수의 alias로 자동 등록 → 다음부턴 매칭됨
         guess = matching.best_guess(ign, candidates)
         if guess:
@@ -55,6 +55,9 @@ def _match_team(team_igns: list, path: str):
                                  "standard_name": guess_name, "guessed": True}
                 team_ids.add(tid)
                 continue
+        # ④ 매칭 전부 실패 → player_id=None으로 자리에 넣음 (미리보기에 5명 유지)
+        # 사용자가 미리보기에서 이름을 올바른 선수로 고쳐 저장하면 매칭됨.
+        resolved[ign] = {"player_id": None, "ign": ign, "unmatched": True}
         unmatched.append(ign)
 
     # 전원 같은 팀이면 team_id 확정
