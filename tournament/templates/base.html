@@ -45,6 +45,29 @@
         .btn--ghost { background: transparent; color: var(--text); border: 1px solid var(--border-strong); }
         .upload-area { border: 2px dashed var(--border-strong); border-radius: var(--radius); padding: var(--space-8); text-align: center; background: var(--card); }
         .upload-area input[type=file] { margin: var(--space-3) 0; }
+        .slots { display:flex; gap: var(--space-4); justify-content:center; margin: var(--space-4) 0; flex-wrap:wrap; }
+        .slot {
+            width: 220px; height: 200px; border: 2px dashed var(--border-strong);
+            border-radius: var(--radius); position: relative; cursor: pointer;
+            background: var(--card-2); overflow: hidden; display:flex; align-items:center; justify-content:center;
+            transition: border-color .15s, background .15s;
+        }
+        .slot:hover { border-color: var(--accent); }
+        .slot.dragover { border-color: var(--hp); background: rgba(249,115,22,0.08); }
+        .slot.filled { border-style: solid; border-color: var(--success); cursor: default; }
+        .slot-empty { text-align:center; color: var(--muted); display:flex; flex-direction:column; gap: var(--space-2); }
+        .slot-label { font-weight: var(--fw-semibold); color: var(--text-2); font-size: .95rem; line-height:1.3; }
+        .slot-hint { font-size: .75rem; }
+        .slot-img { width:100%; height:100%; object-fit:cover; display:none; }
+        .slot.filled .slot-img { display:block; }
+        .slot.filled .slot-empty { display:none; }
+        .slot-clear {
+            position:absolute; top:6px; right:6px; width:24px; height:24px; border-radius:50%;
+            border:none; background: rgba(0,0,0,.6); color:#fff; cursor:pointer; font-size:.8rem; display:none;
+            align-items:center; justify-content:center; line-height:1;
+        }
+        .slot.filled .slot-clear { display:flex; }
+        .slot-clear:hover { background: var(--danger); }
         .mvp-card { display: flex; gap: var(--space-3); flex-wrap: wrap; }
         .mvp-card .card { flex: 1; min-width: 180px; text-align: center; }
         .mvp-card .label { font-size: 0.8rem; color: var(--muted); }

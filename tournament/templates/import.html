@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}매치 등록 — CODM 토너먼트{% endblock %}
+{% block title %}매치 등록 — CODM 토너넌트{% endblock %}
 {% block content %}
 <h1>📸 매치 등록</h1>
 
@@ -14,12 +14,30 @@
 </div>
 {% endif %}
 
-<div class="upload-area">
+<div class="upload-area" id="upload-area">
     <h2>스크린샷 2장 업로드</h2>
-    <p class="text-muted">기본 탭(stats) + 디테일 탭(detail) 각 1장씩</p>
-    <input type="file" id="file1" accept="image/*">
-    <input type="file" id="file2" accept="image/*">
-    <br>
+    <p class="text-muted">기본 탭(stats) + 디테일 탭(detail) 각 1장씩 · 파일 선택 / 드래그&amp;드롭 / Ctrl+V 붙여넣기 모두 가능</p>
+
+    <div class="slots">
+        <div class="slot" id="slot-0" data-slot="0">
+            <div class="slot-empty">
+                <span class="slot-label">① 기본 탭<br>(stats)</span>
+                <span class="slot-hint">클릭 · 드롭 · 붙여넣기</span>
+            </div>
+            <img class="slot-img" alt="">
+            <button class="slot-clear" title="삭제" onclick="clearSlot(event, 0)">✕</button>
+        </div>
+        <div class="slot" id="slot-1" data-slot="1">
+            <div class="slot-empty">
+                <span class="slot-label">② 디테일 탭<br>(detail)</span>
+                <span class="slot-hint">클릭 · 드롭 · 붙여넣기</span>
+            </div>
+            <img class="slot-img" alt="">
+            <button class="slot-clear" title="삭제" onclick="clearSlot(event, 1)">✕</button>
+        </div>
+    </div>
+
+    <input type="file" id="hidden-file-input" accept="image/*" style="display:none;">
     <button class="btn" id="analyze-btn" onclick="analyzeScreens()">분석 시작</button>
 </div>
 
@@ -30,20 +48,106 @@
 </div>
 
 <script>
-let lastPreview = null;
+// 슬롯 상태 (File 객체 보관)
+let slots = [null, null];
+let pendingSlot = null;  // 파일 선택으로 채울 슬롯
 
+// ── 슬롯 채우기 / 비우기 ────────────────────────────────────────────
+function setSlot(i, file) {
+    if (!file || !file.type.startsWith('image/')) return false;
+    slots[i] = file;
+    const slot = document.getElementById('slot-' + i);
+    const img = slot.querySelector('.slot-img');
+    const url = URL.createObjectURL(file);
+    img.src = url;
+    slot.classList.add('filled');
+    return true;
+}
+
+function clearSlot(e, i) {
+    if (e) e.stopPropagation();
+    slots[i] = null;
+    const slot = document.getElementById('slot-' + i);
+    slot.querySelector('.slot-img').src = '';
+    slot.classList.remove('filled');
+}
+
+// 빈 슬롯 중 첫 번째 반환 (없으면 null)
+function firstEmpty() {
+    return slots[0] === null ? 0 : (slots[1] === null ? 1 : null);
+}
+
+// ── 입력 1: 클릭 → 파일 선택 ────────────────────────────────────────
+document.querySelectorAll('.slot').forEach(slot => {
+    slot.addEventListener('click', () => {
+        const i = parseInt(slot.dataset.slot);
+        if (slots[i] !== null) return;  // 이미 채워진 슬롯은 클릭 무시 (✕로만 삭제)
+        pendingSlot = i;
+        document.getElementById('hidden-file-input').click();
+    });
+});
+
+document.getElementById('hidden-file-input').addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (file) setSlot(pendingSlot ?? firstEmpty() ?? 0, file);
+    e.target.value = '';  // 같은 파일 재선택 가능하도록 리셋
+    pendingSlot = null;
+});
+
+// ── 입력 2: 드래그 앤 드롭 ──────────────────────────────────────────
+let dragSlot = null;
+
+document.querySelectorAll('.slot').forEach(slot => {
+    slot.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        slot.classList.add('dragover');
+        dragSlot = parseInt(slot.dataset.slot);
+    });
+    slot.addEventListener('dragleave', () => slot.classList.remove('dragover'));
+    slot.addEventListener('drop', (e) => {
+        e.preventDefault();
+        slot.classList.remove('dragover');
+        const file = e.dataTransfer.files[0];
+        if (file) setSlot(dragSlot, file);
+    });
+});
+
+// 업로드 영역 전체에 드롭 (슬롯 밖에 떨어뜨려도 첫 빈 슬롯으로)
+document.getElementById('upload-area').addEventListener('dragover', (e) => e.preventDefault());
+document.getElementById('upload-area').addEventListener('drop', (e) => {
+    if (e.target.closest('.slot')) return;  // 슬롯에 직접 드롭한 건 위에서 처리
+    e.preventDefault();
+    const files = [...e.dataTransfer.files].filter(f => f.type.startsWith('image/'));
+    files.forEach(f => {
+        const i = firstEmpty();
+        if (i !== null) setSlot(i, f);
+    });
+});
+
+// ── 입력 3: 클립보드 붙여넣기 (Ctrl+V) ──────────────────────────────
+document.addEventListener('paste', (e) => {
+    const items = e.clipboardData.items;
+    const images = [];
+    for (const it of items) {
+        if (it.type.startsWith('image/')) images.push(it.getAsFile());
+    }
+    images.forEach(img => {
+        const i = firstEmpty();
+        if (i !== null) setSlot(i, img);
+    });
+});
+
+// ── 분석 ────────────────────────────────────────────────────────────
 async function analyzeScreens() {
-    const f1 = document.getElementById('file1').files[0];
-    const f2 = document.getElementById('file2').files[0];
-    if (!f1 || !f2) { alert('파일 2장 모두 선택하세요'); return; }
+    if (!slots[0] || !slots[1]) { alert('스크린샷 2장 모두 넣어주세요'); return; }
 
     const btn = document.getElementById('analyze-btn');
     btn.textContent = '분석 중... (GPT 비전 호출)';
     btn.disabled = true;
 
     const fd = new FormData();
-    fd.append('file1', f1);
-    fd.append('file2', f2);
+    fd.append('file1', slots[0]);
+    fd.append('file2', slots[1]);
 
     try {
         const res = await fetch('/api/preview', { method: 'POST', body: fd });
@@ -55,25 +159,26 @@ async function analyzeScreens() {
     finally { btn.textContent = '분석 시작'; btn.disabled = false; }
 }
 
+let lastPreview = null;
+
 function renderPreview(data) {
     const div = document.getElementById('preview');
     const content = document.getElementById('preview-content');
     const modeBadge = data.mode === 'HP'
         ? '<span class="badge badge--hp">HP</span>'
         : '<span class="badge badge--snd">SND</span>';
-    const stageBadge = data.unmatched.length === 0
-        ? '' : '<span class="text-muted">(매칭 안 된 IGN {{ ' + data.unmatched.length + ' }}개 — 저장 후 /admin에서 보정)</span>';
+    const modeLabel = data.mode === 'HP' ? '하드포인트' : '서치&디스트로이';
 
     content.innerHTML = `
         <p>${modeBadge} <strong>${data.map || '맵 미상'}</strong></p>
-        <p><strong>${data.team_a_name || '팀 미상'}</strong> ${data.team_left_score} : ${data.team_right_score} <strong>${data.team_b_name || '팀 미상'}</strong></p>
-        ${data.unmatched.length > 0 ? '<p class="text-muted">매칭 안 된 IGN: ' + data.unmatched.join(', ') + '</p>' : ''}
-        <div style="display:flex; gap:16px; margin-top:12px;">
-            <div style="flex:1;">
+        <p style="font-size:1.2rem;"><strong>${data.team_a_name || '팀 미상'}</strong> ${data.team_left_score ?? '?'} : ${data.team_right_score ?? '?'} <strong>${data.team_b_name || '팀 미상'}</strong></p>
+        ${data.unmatched.length > 0 ? '<p class="text-muted">⚠️ 매칭 안 된 IGN ' + data.unmatched.length + '개: ' + data.unmatched.join(', ') + '</p>' : ''}
+        <div style="display:flex; gap:16px; margin-top:12px; flex-wrap:wrap;">
+            <div style="flex:1; min-width:240px;">
                 <h3>${data.team_a_name || 'Team A'}</h3>
                 ${playerTable(data.team_a)}
             </div>
-            <div style="flex:1;">
+            <div style="flex:1; min-width:240px;">
                 <h3>${data.team_b_name || 'Team B'}</h3>
                 ${playerTable(data.team_b)}
             </div>
@@ -102,7 +207,11 @@ async function confirmMatch() {
         const data = await res.json();
         if (!res.ok) { alert('오류: ' + (data.detail || '저장 실패')); return; }
         alert('매치 저장 완료 (ID: ' + data.match_id + ')');
-        location.reload();
+        // 슬롯·미리보기 리셋
+        clearSlot(null, 0);
+        clearSlot(null, 1);
+        document.getElementById('preview').style.display = 'none';
+        lastPreview = null;
     } catch (e) { alert('오류: ' + e.message); }
     finally { btn.textContent = '이대로 저장'; btn.disabled = false; }
 }
