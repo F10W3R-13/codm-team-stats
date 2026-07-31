@@ -100,6 +100,8 @@ def confirm(preview_data: dict, path: str = None) -> int:
     """미리보기 확정 → 매치 INSERT + stats INSERT. match_id 반환.
 
     team_a_id/team_b_id가 None이면 (팀 식별 실패) raise.
+    player_id가 없는 선수(수동 추가 등)는 name으로 DB 조회 후,
+    못 찾으면 해당 팀에 신규 선수로 등록한다.
     """
     team_a_id = preview_data["team_a_id"]
     team_b_id = preview_data["team_b_id"]
@@ -125,15 +127,40 @@ def confirm(preview_data: dict, path: str = None) -> int:
     return match_id
 
 
+def _resolve_player_id(player, team_id, path):
+    """선수의 player_id 해결. 우선순위:
+    ① 기존 player_id ② name/ign으로 DB 조회 ③ 신규 선수 등록.
+    빈 이름이면 None (스킵).
+    """
+    if player.get("player_id"):
+        return player["player_id"]
+    name = (player.get("standard_name") or player.get("ign") or "").strip()
+    if not name:
+        return None
+    # DB에서 이름으로 조회 (alias/표준명/정규화 매칭)
+    resolved = db.resolve_player(name, path=path)
+    if resolved:
+        pid = resolved[0]
+    else:
+        # DB에 없으면 해당 팀에 신규 선수 등록
+        pid = db.insert_player(name, team_id, path=path)
+        db.insert_alias(name, pid, path=path)
+    # alias 자동 학습 (다음부턴 매칭됨)
+    ign = player.get("ign")
+    if ign and ign != name:
+        db.insert_alias(ign, pid, path=path)
+    return pid
+
+
 def _insert_stat(mode, match_id, player, team_id, path):
     """모드별로 HP/SND 스탯 INSERT.
 
-    player_id가 없는 선수(매칭 실패 후 수동 입력 등)는 건너뜀 —
-    팀 식별은 되었지만 개별 선수 매칭이 안 된 경우.
+    player_id 자동 해결: 없으면 name으로 DB 조회/신규 등록.
+    빈 이름 선수는 스킵.
     """
-    pid = player.get("player_id")
+    pid = _resolve_player_id(player, team_id, path)
     if not pid:
-        return  # DB에 넣을 선수 ID 없음 — 스킵
+        return  # 이름 없는 빈 행 — 스킵
     if mode == "HP":
         db.insert_player_stats_hp(
             match_id, pid, team_id,
@@ -148,7 +175,3 @@ def _insert_stat(mode, match_id, player, team_id, path):
             assists=player.get("a", 0), damage=player.get("total_damage", 0),
             adr=player.get("adr", 0), first_kill=player.get("first_kill", 0),
             lone_wolf_win=player.get("lone_wolf_win", 0), path=path)
-    # alias 자동 학습 (다음부턴 매칭됨)
-    ign = player.get("ign")
-    if ign and ign != player.get("standard_name"):
-        db.insert_alias(ign, pid, path=path)

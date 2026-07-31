@@ -191,38 +191,61 @@ function renderPreview(data) {
             <div>
                 <h3>${data.team_a_name || 'Team A'}</h3>
                 ${playerTable(data.team_a, 'a', cols)}
+                <button class="btn btn--ghost add-row-btn" onclick="addRow('a')">+ 선수 추가</button>
             </div>
             <div>
                 <h3>${data.team_b_name || 'Team B'}</h3>
                 ${playerTable(data.team_b, 'b', cols)}
+                <button class="btn btn--ghost add-row-btn" onclick="addRow('b')">+ 선수 추가</button>
             </div>
         </div>
-        <p class="text-muted" style="margin-top: var(--space-3);">✏️ 모든 숫자/이름을 직접 수정할 수 있습니다. 틀린 값은 고치고 저장하세요.</p>`;
+        <p class="text-muted" style="margin-top: var(--space-3);">✏️ 모든 숫자/이름을 직접 수정할 수 있습니다. 누락된 선수는 "+ 선수 추가"로 넣고, 틀린 값은 고치고 저장하세요.</p>`;
     div.style.display = 'block';
 }
 
 function playerTable(players, side, cols) {
-    if (!players || players.length === 0) return '<p class="text-muted">데이터 없음 — 매칭 실패. 아래 빈 행에 수동 입력 가능:</p>' + emptyTable(side, cols);
-    const header = '<tr><th>이름</th>' + cols.map(c => `<th>${c[0]}</th>`).join('') + '</tr>';
-    const rows = players.map((p, i) => {
-        const name = p.standard_name || p.ign || '';
-        const cells = cols.map(c => {
-            const val = p[c[1]] ?? 0;
-            return `<td><input data-side="${side}" data-idx="${i}" data-field="${c[1]}" type="number" value="${val}" class="stat-input"></td>`;
-        }).join('');
-        return `<tr><td><input data-side="${side}" data-idx="${i}" data-field="name" value="${name}" class="name-input"></td>${cells}</tr>`;
-    }).join('');
-    return `<table>${header}${rows}</table>`;
+    const header = '<tr><th></th><th>이름</th>' + cols.map(c => `<th>${c[0]}</th>`).join('') + '</tr>';
+    if (!players || players.length === 0) {
+        // 빈 팀 — 5개 빈 행
+        return `<table id="table-${side}">${header}${emptyRows(side, cols, 5)}</table>`;
+    }
+    const rows = players.map((p, i) => playerRow(side, i, p, cols)).join('');
+    return `<table id="table-${side}">${header}${rows}</table>`;
 }
 
-function emptyTable(side, cols) {
-    const header = '<tr><th>이름</th>' + cols.map(c => `<th>${c[0]}</th>`).join('') + '</tr>';
+function playerRow(side, idx, p, cols) {
+    const name = (p && (p.standard_name || p.ign)) || '';
+    const cells = cols.map(c => {
+        const val = (p && p[c[1]]) ?? 0;
+        return `<td><input data-side="${side}" data-idx="${idx}" data-field="${c[1]}" type="number" value="${val}" class="stat-input"></td>`;
+    }).join('');
+    return `<tr data-row="${side}-${idx}"><td><button class="row-del" onclick="delRow(this)" title="삭제">✕</button></td><td><input data-side="${side}" data-idx="${idx}" data-field="name" value="${name}" placeholder="이름" class="name-input"></td>${cells}</tr>`;
+}
+
+function emptyRows(side, cols, count) {
     let rows = '';
-    for (let i = 0; i < 5; i++) {
-        const cells = cols.map(c => `<td><input data-side="${side}" data-idx="${i}" data-field="${c[1]}" type="number" value="0" class="stat-input"></td>`).join('');
-        rows += `<tr><td><input data-side="${side}" data-idx="${i}" data-field="name" value="" placeholder="이름" class="name-input"></td>${cells}</tr>`;
-    }
-    return `<table>${header}${rows}</table>`;
+    for (let i = 0; i < count; i++) rows += playerRow(side, i, null, cols);
+    return rows;
+}
+
+function addRow(side) {
+    const mode = document.getElementById('edit-mode').value;
+    const cols = mode === 'HP' ? HP_COLS : SND_COLS;
+    const table = document.getElementById('table-' + side);
+    if (!table) return;
+    // 기존 최대 idx + 1
+    const existing = table.querySelectorAll(`[data-side="${side}"][data-field="name"]`);
+    const maxIdx = existing.length ? Math.max(...[...existing].map(e => parseInt(e.dataset.idx))) : -1;
+    const newIdx = maxIdx + 1;
+    const tbody = table.querySelector('tbody') || table;
+    const tr = document.createElement('tbody');
+    tr.innerHTML = playerRow(side, newIdx, null, cols);
+    table.appendChild(tr.firstElementChild);
+}
+
+function delRow(btn) {
+    const tr = btn.closest('tr');
+    if (tr) tr.remove();
 }
 
 // DOM 입력값을 lastPreview에 동기화 (저장 직전 호출)
@@ -233,26 +256,34 @@ function syncEditsToPreview() {
     lastPreview.team_left_score = parseInt(document.getElementById('edit-score-a').value) || 0;
     lastPreview.team_right_score = parseInt(document.getElementById('edit-score-b').value) || 0;
 
-    // 각 팀 선수 데이터 덮어쓰기
+    // 각 팀 선수 데이터를 행 기반으로 재구성 (삭제/추가 후 idx 불연속 대응)
     for (const side of ['a', 'b']) {
         const key = 'team_' + side;
-        // 빈 팀(매칭 실패)이면 빈 배열에서 시작
-        if (!lastPreview[key]) lastPreview[key] = [];
-        const inputs = document.querySelectorAll(`[data-side="${side}"]`);
-        const maxIdx = Math.max(0, ...[...inputs].map(i => parseInt(i.dataset.idx)));
-        // 배열 크기 맞추기
-        while (lastPreview[key].length <= maxIdx) lastPreview[key].push({});
-        inputs.forEach(inp => {
-            const idx = parseInt(inp.dataset.idx);
-            const field = inp.dataset.field;
-            const val = inp.value;
-            if (field === 'name') {
-                lastPreview[key][idx].ign = val;
-                lastPreview[key][idx].standard_name = val;
-            } else {
-                lastPreview[key][idx][field] = val === '' ? 0 : parseFloat(val);
-            }
+        // 현재 DOM의 모든 고유 idx를 행 순서대로 수집
+        const nameInputs = [...document.querySelectorAll(`[data-side="${side}"][data-field="name"]`)];
+        const teamId = lastPreview['team_' + side + '_id'];
+        const rebuilt = [];
+        nameInputs.forEach(inp => {
+            const idx = inp.dataset.idx;
+            const row = {};
+            // player_id 보존 (기존 매칭된 선수)
+            const existing = (lastPreview[key] || []).find((p, i) => String(i) === idx);
+            if (existing && existing.player_id) row.player_id = existing.player_id;
+            // 행의 모든 입력값 수집
+            document.querySelectorAll(`[data-side="${side}"][data-idx="${idx}"]`).forEach(f => {
+                const field = f.dataset.field;
+                const val = f.value;
+                if (field === 'name') {
+                    row.ign = val;
+                    row.standard_name = val;
+                } else {
+                    row[field] = val === '' ? 0 : parseFloat(val);
+                }
+            });
+            rebuilt.push(row);
         });
+        // 빈 이름 행(이름 미입력) 제거
+        lastPreview[key] = rebuilt.filter(r => (r.ign || '').trim() !== '');
     }
 }
 
