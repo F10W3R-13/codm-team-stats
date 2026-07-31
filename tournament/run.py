@@ -14,8 +14,10 @@
 (시드는 웹앱이 떠 있는 동안 다른 터미널에서 python seed.py 로 언제든 가능.)
 """
 import os
+import socket
 import sys
 import threading
+import time
 import webbrowser
 
 from dotenv import load_dotenv
@@ -63,19 +65,31 @@ if not teams:
 else:
     print(f"✅ 시드 완료: 팀 {len(teams)}개 · 선수 {len(players)}명")
 
-# ── 4단계: 브라우저 자동 오픈 (서버 뜨기 직전 예약) ────────────────
 PORT = 8001
 URL = f"http://localhost:{PORT}"
 
 
-def _open_browser():
-    """1.5초 후 브라우저 오픈 (서버가 뜰 시간 확보)."""
-    threading.Timer(1.5, lambda: webbrowser.open(URL)).start()
+def _open_browser_when_ready():
+    """서버가 실제로 요청을 받을 준비가 된 뒤 브라우저 오픈.
+
+    고정 타이머(예: 1.5초) 대신 폴링으로 서버 기동을 확인한다.
+    느린 환경에서 서버 기동이 지연되면 고정 타이머는 브라우저가 먼저 열려
+    '연결 거부' 페이지를 띄우는 경쟁 조건이 발생한다.
+    폴링은 서버가 소켓을 열었는지 직접 확인하므로 이를 제거한다.
+    """
+    for _ in range(50):  # 최대 ~10초 대기 (0.2초 × 50)
+        try:
+            with socket.create_connection(("127.0.0.1", PORT), timeout=0.3):
+                webbrowser.open(URL)
+                return
+        except OSError:
+            time.sleep(0.2)
+    # 10초래도 안 뜨면 포기 (사용자가 수동으로 열게 안내만 남김)
 
 
-_open_browser()
-print(f"🌐 브라우저를 엽니다: {URL}")
-print("   (안 열리면 직접 주소창에 입력)")
+threading.Thread(target=_open_browser_when_ready, daemon=True).start()
+print(f"🌐 브라우저를 자동으로 엽니다: {URL}")
+print("   (서버가 준비되면 열림. 안 열리면 직접 주소창에 입력)")
 print()
 print("━━━ 서버 시작 (종료하려면 Ctrl+C) ━━━")
 print()
