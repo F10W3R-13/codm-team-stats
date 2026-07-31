@@ -41,12 +41,12 @@ SEED = [
         ("xsn1x",   "4uNi.xsn1x"),
     ]),
     ("YetoTense", [
-        ("OrochiM4RU", "OrochiM4RU"),
-        ("Madara",     "Madara"),
-        ("Itachi",     "Itachi"),
-        ("Hashirama",  "Hashirama"),
-        ("Hiruzen",    "Hiruzen"),
-        ("Guri",       "Guri狸"),
+        ("소액",   "OrochiM4RU"),   # 본명 소액 (IGN OrochiM4RU)
+        ("상준",   "Madara"),       # 본명 상준
+        ("해파리", "Itachi"),       # 본명 해파리
+        ("자갈치", "Hashirama"),    # 본명 자갈치
+        ("리그렛", "Hiruzen"),      # 본명 리그렛
+        ("민구리", "Guri狸"),       # 본명 민구리
     ]),
 ]
 
