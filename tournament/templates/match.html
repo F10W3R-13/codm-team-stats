@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}매치 #{{ match.id }} — CODM 토너먼트{% endblock %}
+{% block content %}
+<h1>매치 #{{ match.id }}</h1>
+<div class="card">
+    <p>
+        {% if match.mode == 'HP' %}<span class="badge badge--hp">HP</span>{% else %}<span class="badge badge--snd">SND</span>{% endif %}
+        <strong>{{ match.map_name or '맵 미상' }}</strong>
+        {% if match.stage == 'final' %}<span class="badge badge--final">결승</span>{% else %}<span class="badge badge--rr">풀리그</span>{% endif %}
+    </p>
+    <p style="font-size:1.3rem; margin-top: var(--space-2);">
+        <strong>{{ match.team_a_name }}</strong> {{ match.team_a_score }} : {{ match.team_b_score }} <strong>{{ match.team_b_name }}</strong>
+    </p>
+</div>
+
+<div style="display:flex; gap: var(--space-4);">
+    <div style="flex:1;">
+        <h2>{{ match.team_a_name }}</h2>
+        {{ stat_table(team_a, match.mode) }}
+    </div>
+    <div style="flex:1;">
+        <h2>{{ match.team_b_name }}</h2>
+        {{ stat_table(team_b, match.mode) }}
+    </div>
+</div>
+{% endblock %}
+
+{% macro stat_table(players, mode) %}
+<table>
+    {% if mode == 'HP' %}
+    <tr><th>선수</th><th>K</th><th>D</th><th>A</th><th>딜</th><th>OBJ</th><th>CK</th></tr>
+    {% for p in players %}
+    <tr><td><strong>{{ p.player_name }}</strong></td><td>{{ p.kills }}</td><td>{{ p.deaths }}</td><td>{{ p.assists }}</td><td>{{ p.damage }}</td><td>{{ p.obj_time }}</td><td>{{ p.capture_kill }}</td></tr>
+    {% endfor %}
+    {% else %}
+    <tr><th>선수</th><th>K</th><th>D</th><th>A</th><th>딜</th><th>ADR</th><th>FK</th><th>LWW</th></tr>
+    {% for p in players %}
+    <tr><td><strong>{{ p.player_name }}</strong></td><td>{{ p.kills }}</td><td>{{ p.deaths }}</td><td>{{ p.assists }}</td><td>{{ p.damage }}</td><td>{{ p.adr }}</td><td>{{ p.first_kill }}</td><td>{{ p.lone_wolf_win }}</td></tr>
+    {% endfor %}
+    {% endif %}
+</table>
+{% endmacro %}

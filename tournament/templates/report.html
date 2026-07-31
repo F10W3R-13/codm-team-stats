@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}최종 리포트 — CODM 토너먼트{% endblock %}
+{% block content %}
+<h1>🏆 최종 리포트</h1>
+
+{% if final %}
+<div class="card" style="text-align:center; border-color: var(--hp);">
+    <h2>🥇 우승</h2>
+    <p style="font-size:1.8rem; font-weight:700; color: var(--hp);">{{ final.winner_name }}</p>
+    <p class="text-muted">결승: {{ final.team_a_name }} {{ final.team_a_score }} : {{ final.team_b_score }} {{ final.team_b_name }}</p>
+</div>
+{% endif %}
+
+{% if mvps.mvp %}
+<h2>🏅 개인상</h2>
+<div class="mvp-card">
+    <div class="card"><div class="label">MVP</div><div class="name">{{ mvps.mvp.name }}</div><div class="value">{{ mvps.mvp.team_name }} · 점수 {{ mvps.mvp.mvp_score }}</div></div>
+    <div class="card"><div class="label">최다 킬</div><div class="name">{{ mvps.top_kills.name }}</div><div class="value">{{ mvps.top_kills.total_kills }} 킬</div></div>
+    <div class="card"><div class="label">최고 K/D</div><div class="name">{{ mvps.top_kd.name }}</div><div class="value">K/D {{ mvps.top_kd.kd }}</div></div>
+    <div class="card"><div class="label">딜러</div><div class="name">{{ mvps.top_damage.name }}</div><div class="value">{{ mvps.top_damage.total_damage }} 딜</div></div>
+    <div class="card"><div class="label">광탈왕</div><div class="name">{{ mvps.most_deaths.name }}</div><div class="value">{{ mvps.most_deaths.total_deaths }} 데스</div></div>
+</div>
+{% endif %}
+
+<h2>📊 최종 팀 순위</h2>
+<table>
+    <tr><th>#</th><th>팀</th><th>승</th><th>패</th><th>승점</th></tr>
+    {% for r in table %}
+    <tr>
+        <td class="rank {% if loop.index == 1 %}rank-1{% elif loop.index == 2 %}rank-2{% elif loop.index == 3 %}rank-3{% endif %}">{{ loop.index }}</td>
+        <td><strong>{{ r.team_name }}</strong></td>
+        <td>{{ r.wins }}</td><td>{{ r.losses }}</td><td><strong>{{ r.points }}</strong></td>
+    </tr>
+    {% endfor %}
+</table>
+
+<h2>🎮 선수 순위 (Top 10)</h2>
+<table>
+    <tr><th>#</th><th>선수</th><th>팀</th><th>K/D</th><th class="text-hp">ZCS</th><th class="text-snd">RDS</th><th>MVP</th></tr>
+    {% for r in rankings %}
+    <tr>
+        <td class="rank {% if loop.index == 1 %}rank-1{% elif loop.index == 2 %}rank-2{% elif loop.index == 3 %}rank-3{% endif %}">{{ loop.index }}</td>
+        <td><strong>{{ r.name }}</strong></td><td>{{ r.team_name }}</td><td>{{ r.kd }}</td>
+        <td class="text-hp">{{ r.avg_zcs }}</td><td class="text-snd">{{ r.avg_rds }}</td><td><strong>{{ r.mvp_score }}</strong></td>
+    </tr>
+    {% endfor %}
+</table>
+{% endblock %}

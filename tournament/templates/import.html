@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+{% block title %}매치 등록 — CODM 토너먼트{% endblock %}
+{% block content %}
+<h1>📸 매치 등록</h1>
+
+{% if teams_seeded == 0 %}
+<div class="card" style="border-color: var(--danger);">
+    <strong>⚠️ 팀/명단이 시드되지 않았습니다.</strong>
+    <p class="text-muted">먼저 <code>python seed.py</code>로 팀·명단을 등록하세요. (현재 팀 {{ teams_seeded }}개, 선수 {{ players_seeded }}명)</p>
+</div>
+{% else %}
+<div class="card" style="border-color: var(--success);">
+    ✅ 시드 완료: 팀 {{ teams_seeded }}개 · 선수 {{ players_seeded }}명
+</div>
+{% endif %}
+
+<div class="upload-area">
+    <h2>스크린샷 2장 업로드</h2>
+    <p class="text-muted">기본 탭(stats) + 디테일 탭(detail) 각 1장씩</p>
+    <input type="file" id="file1" accept="image/*">
+    <input type="file" id="file2" accept="image/*">
+    <br>
+    <button class="btn" id="analyze-btn" onclick="analyzeScreens()">분석 시작</button>
+</div>
+
+<div id="preview" style="display:none;" class="card">
+    <h2>파싱 결과 미리보기</h2>
+    <div id="preview-content"></div>
+    <button class="btn" id="confirm-btn" onclick="confirmMatch()" style="margin-top: var(--space-3);">이대로 저장</button>
+</div>
+
+<script>
+let lastPreview = null;
+
+async function analyzeScreens() {
+    const f1 = document.getElementById('file1').files[0];
+    const f2 = document.getElementById('file2').files[0];
+    if (!f1 || !f2) { alert('파일 2장 모두 선택하세요'); return; }
+
+    const btn = document.getElementById('analyze-btn');
+    btn.textContent = '분석 중... (GPT 비전 호출)';
+    btn.disabled = true;
+
+    const fd = new FormData();
+    fd.append('file1', f1);
+    fd.append('file2', f2);
+
+    try {
+        const res = await fetch('/api/preview', { method: 'POST', body: fd });
+        const data = await res.json();
+        if (!res.ok) { alert('오류: ' + (data.detail || '분석 실패')); return; }
+        lastPreview = data;
+        renderPreview(data);
+    } catch (e) { alert('오류: ' + e.message); }
+    finally { btn.textContent = '분석 시작'; btn.disabled = false; }
+}
+
+function renderPreview(data) {
+    const div = document.getElementById('preview');
+    const content = document.getElementById('preview-content');
+    const modeBadge = data.mode === 'HP'
+        ? '<span class="badge badge--hp">HP</span>'
+        : '<span class="badge badge--snd">SND</span>';
+    const stageBadge = data.unmatched.length === 0
+        ? '' : '<span class="text-muted">(매칭 안 된 IGN {{ ' + data.unmatched.length + ' }}개 — 저장 후 /admin에서 보정)</span>';
+
+    content.innerHTML = `
+        <p>${modeBadge} <strong>${data.map || '맵 미상'}</strong></p>
+        <p><strong>${data.team_a_name || '팀 미상'}</strong> ${data.team_left_score} : ${data.team_right_score} <strong>${data.team_b_name || '팀 미상'}</strong></p>
+        ${data.unmatched.length > 0 ? '<p class="text-muted">매칭 안 된 IGN: ' + data.unmatched.join(', ') + '</p>' : ''}
+        <div style="display:flex; gap:16px; margin-top:12px;">
+            <div style="flex:1;">
+                <h3>${data.team_a_name || 'Team A'}</h3>
+                ${playerTable(data.team_a)}
+            </div>
+            <div style="flex:1;">
+                <h3>${data.team_b_name || 'Team B'}</h3>
+                ${playerTable(data.team_b)}
+            </div>
+        </div>`;
+    div.style.display = 'block';
+}
+
+function playerTable(players) {
+    if (!players || players.length === 0) return '<p class="text-muted">데이터 없음</p>';
+    const rows = players.map(p => `<tr><td>${p.standard_name || p.ign}</td><td>${p.k||0}</td><td>${p.d||0}</td><td>${p.total_damage||p.adr||0}</td></tr>`).join('');
+    return `<table><tr><th>이름</th><th>K</th><th>D</th><th>딜</th></tr>${rows}</table>`;
+}
+
+async function confirmMatch() {
+    if (!lastPreview) return;
+    if (!lastPreview.team_a_id || !lastPreview.team_b_id) {
+        alert('팀 식별 실패 — 매칭 안 된 IGN을 먼저 처리하세요.'); return;
+    }
+    const btn = document.getElementById('confirm-btn');
+    btn.textContent = '저장 중...'; btn.disabled = true;
+    try {
+        const res = await fetch('/api/confirm', {
+            method: 'POST', headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(lastPreview)
+        });
+        const data = await res.json();
+        if (!res.ok) { alert('오류: ' + (data.detail || '저장 실패')); return; }
+        alert('매치 저장 완료 (ID: ' + data.match_id + ')');
+        location.reload();
+    } catch (e) { alert('오류: ' + e.message); }
+    finally { btn.textContent = '이대로 저장'; btn.disabled = false; }
+}
+</script>
+{% endblock %}
