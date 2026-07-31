@@ -9,9 +9,15 @@ import base64
 import json
 import os
 
+from dotenv import load_dotenv
 from openai import OpenAI
 
+import _path_setup  # noqa: F401  (부모 디렉토리를 sys.path에 추가)
 import prompt_tournament
+
+# 부모 디렉토리의 .env 에서 OPENAI_API_KEY 자동 로드.
+# (부모 bot.py:18-21 패턴과 동일 — 별도 export 없이 .env 만 있으면 동작.)
+load_dotenv(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".env"))
 
 # 클라이언트는 실제 호출 시점에 생성 (import 시점엔 API 키가 없을 수 있음 —
 # 테스트에서 analyze_two_screens 을 mock 할 때 모듈 import 단계가 실패하지 않도록).
