@@ -198,7 +198,7 @@ def insert_player_stats_snd(match_id, player_id, team_id, *,
             """INSERT OR IGNORE INTO player_stats_snd
                (match_id, player_id, team_id, kills, deaths, assists,
                 damage, adr, first_kill, lone_wolf_win)
-               VALUES(?,?,?,?,?,?,?,?,?)""",
+               VALUES(?,?,?,?,?,?,?,?,?,?)""",
             (match_id, player_id, team_id, kills, deaths, assists,
              damage, adr, first_kill, lone_wolf_win))
         conn.commit()
