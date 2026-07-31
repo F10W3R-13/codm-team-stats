@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}팀 순위 — CODM 토너먼트{% endblock %}
+{% block content %}
+<h1>📊 팀 순위 (풀리그)</h1>
+
+{% if table %}
+<table>
+    <tr><th>#</th><th>팀</th><th>경기</th><th>승</th><th>패</th><th>득점</th><th>실점</th><th>득실</th><th>승점</th></tr>
+    {% for r in table %}
+    <tr>
+        <td class="rank {% if loop.index == 1 %}rank-1{% elif loop.index == 2 %}rank-2{% elif loop.index == 3 %}rank-3{% endif %}">{{ loop.index }}</td>
+        <td><strong>{{ r.team_name }}</strong></td>
+        <td>{{ r.played }}</td>
+        <td>{{ r.wins }}</td>
+        <td>{{ r.losses }}</td>
+        <td>{{ r.score_for }}</td>
+        <td>{{ r.score_against }}</td>
+        <td>{{ '%+d'|format(r.diff) }}</td>
+        <td><strong>{{ r.points }}</strong></td>
+    </tr>
+    {% endfor %}
+</table>
+
+{% if final %}
+<h2>🏆 결승전</h2>
+<div class="card" style="text-align:center;">
+    <p><strong>{{ final.team_a_name }}</strong> {{ final.team_a_score }} : {{ final.team_b_score }} <strong>{{ final.team_b_name }}</strong></p>
+    <p style="margin-top: var(--space-2);">🥇 <strong>우승: {{ final.winner_name }}</strong></p>
+</div>
+{% else %}
+<p class="text-muted">결승전 아직 없음 (11번째 매치 등록 시 자동 인식)</p>
+{% endif %}
+
+{% else %}
+<p class="text-muted">등록된 매치가 없습니다.</p>
+{% endif %}
+{% endblock %}

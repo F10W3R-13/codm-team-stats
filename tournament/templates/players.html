@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}선수 순위 — CODM 토너먼트{% endblock %}
+{% block content %}
+<h1>🎮 선수 순위</h1>
+
+{% if rankings %}
+<table>
+    <tr><th>#</th><th>선수</th><th>팀</th><th>K/D</th><th>킬</th><th>데스</th><th>딜</th><th class="text-hp">avg ZCS</th><th class="text-snd">avg RDS</th><th><strong>MVP</strong></th></tr>
+    {% for r in rankings %}
+    <tr>
+        <td class="rank {% if loop.index == 1 %}rank-1{% elif loop.index == 2 %}rank-2{% elif loop.index == 3 %}rank-3{% endif %}">{{ loop.index }}</td>
+        <td><strong>{{ r.name }}</strong></td>
+        <td>{{ r.team_name }}</td>
+        <td>{{ r.kd }}</td>
+        <td>{{ r.total_kills }}</td>
+        <td>{{ r.total_deaths }}</td>
+        <td>{{ r.total_damage }}</td>
+        <td class="text-hp">{{ r.avg_zcs }}</td>
+        <td class="text-snd">{{ r.avg_rds }}</td>
+        <td><strong>{{ r.mvp_score }}</strong></td>
+    </tr>
+    {% endfor %}
+</table>
+{% else %}
+<p class="text-muted">등록된 선수 스탯이 없습니다.</p>
+{% endif %}
+{% endblock %}
