@@ -56,10 +56,14 @@ def api_preview(file1: UploadFile = File(...), file2: UploadFile = File(...)):
 
 
 @app.post("/api/confirm")
-def api_confirm(request: Request):
-    """미리보기 확정 → 매치 저장."""
-    import json
-    body = json.loads(request._body.decode())
+async def api_confirm(request: Request):
+    """미리보기 확정 → 매치 저장.
+
+    async def: 본문을 읽으려면 await request.json() 필요.
+    import_pipeline.confirm은 DB 쓰기만 (GPT 호출 없음)이라 짧은 블로킹이라
+    이벤트 루프에 영향 없음 — /api/preview와 달리 async 유지해도 OK.
+    """
+    body = await request.json()
     try:
         match_id = import_pipeline.confirm(body)
         return {"match_id": match_id, "ok": True}

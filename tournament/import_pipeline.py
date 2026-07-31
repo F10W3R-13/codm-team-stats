@@ -126,8 +126,14 @@ def confirm(preview_data: dict, path: str = None) -> int:
 
 
 def _insert_stat(mode, match_id, player, team_id, path):
-    """모드별로 HP/SND 스탯 INSERT."""
-    pid = player["player_id"]
+    """모드별로 HP/SND 스탯 INSERT.
+
+    player_id가 없는 선수(매칭 실패 후 수동 입력 등)는 건너뜀 —
+    팀 식별은 되었지만 개별 선수 매칭이 안 된 경우.
+    """
+    pid = player.get("player_id")
+    if not pid:
+        return  # DB에 넣을 선수 ID 없음 — 스킵
     if mode == "HP":
         db.insert_player_stats_hp(
             match_id, pid, team_id,
