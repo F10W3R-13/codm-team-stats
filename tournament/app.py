@@ -118,8 +118,10 @@ async def standings_page(request: Request):
 @app.get("/players", response_class=HTMLResponse)
 async def players_page(request: Request):
     rankings = awards.player_rankings()
+    hp = awards.hp_rankings()
+    snd = awards.snd_rankings()
     return templates.TemplateResponse(request, "players.html", {
-        "rankings": rankings,
+        "rankings": rankings, "hp": hp, "snd": snd,
     })
 
 

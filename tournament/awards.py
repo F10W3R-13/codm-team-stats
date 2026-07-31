@@ -83,3 +83,92 @@ def mvps(path: str = None) -> dict:
         "most_deaths": max(rankings, key=lambda r: r["total_deaths"]),
         "top_damage": max(rankings, key=lambda r: r["total_damage"]),
     }
+
+
+def _avg(vals):
+    """None/빈 리스트 안전 평균."""
+    nums = [v for v in vals if v is not None]
+    return round(sum(nums) / len(nums), 2) if nums else 0.0
+
+
+def _sum(vals):
+    """None 안전 합산."""
+    return sum(v or 0 for v in vals)
+
+
+def hp_rankings(path: str = None) -> list:
+    """HP 매치만 집계한 선수 상세 순위 (모든 HP 지표). ZCS 순."""
+    conn = db.get_conn(path)
+    try:
+        players = [dict(r) for r in conn.execute(
+            """SELECT p.id, p.name, t.name AS team_name
+               FROM players p JOIN teams t ON t.id = p.team_id""").fetchall()]
+        rows = [dict(r) for r in conn.execute("SELECT * FROM player_stats_hp").fetchall()]
+    finally:
+        conn.close()
+
+    agg = {p["id"]: {**p, "rows": []} for p in players}
+    for r in rows:
+        if r["player_id"] in agg:
+            agg[r["player_id"]]["rows"].append(r)
+
+    result = []
+    for a in agg.values():
+        rs = a["rows"]
+        if not rs:
+            continue  # HP 매치 없는 선수 제외
+        result.append({
+            "player_id": a["id"], "name": a["name"], "team_name": a["team_name"],
+            "matches": len(rs),
+            "kills": _sum([r["kills"] for r in rs]),
+            "deaths": _sum([r["deaths"] for r in rs]),
+            "assists": _sum([r["assists"] for r in rs]),
+            "damage": _sum([r["damage"] for r in rs]),
+            "obj_time": _sum([r["obj_time"] for r in rs]),
+            "capture_kill": _sum([r["capture_kill"] for r in rs]),
+            "avg_zcs": _avg([compute_zcs(r["obj_time"] or 0, r["capture_kill"] or 0,
+                                         r["kills"] or 0, r["deaths"] or 0) for r in rs]),
+            "kd": round(_sum([r["kills"] for r in rs]) / max(1, _sum([r["deaths"] for r in rs])), 2),
+        })
+    result.sort(key=lambda r: (-r["avg_zcs"], -r["kills"], r["name"]))
+    return result
+
+
+def snd_rankings(path: str = None) -> list:
+    """SND 매치만 집계한 선수 상세 순위 (모든 SND 지표). RDS 순."""
+    conn = db.get_conn(path)
+    try:
+        players = [dict(r) for r in conn.execute(
+            """SELECT p.id, p.name, t.name AS team_name
+               FROM players p JOIN teams t ON t.id = p.team_id""").fetchall()]
+        rows = [dict(r) for r in conn.execute("SELECT * FROM player_stats_snd").fetchall()]
+    finally:
+        conn.close()
+
+    agg = {p["id"]: {**p, "rows": []} for p in players}
+    for r in rows:
+        if r["player_id"] in agg:
+            agg[r["player_id"]]["rows"].append(r)
+
+    result = []
+    for a in agg.values():
+        rs = a["rows"]
+        if not rs:
+            continue  # SND 매치 없는 선수 제외
+        result.append({
+            "player_id": a["id"], "name": a["name"], "team_name": a["team_name"],
+            "matches": len(rs),
+            "kills": _sum([r["kills"] for r in rs]),
+            "deaths": _sum([r["deaths"] for r in rs]),
+            "assists": _sum([r["assists"] for r in rs]),
+            "damage": _sum([r["damage"] for r in rs]),
+            "adr": _avg([r["adr"] for r in rs]),
+            "first_kill": _sum([r["first_kill"] for r in rs]),
+            "lone_wolf_win": _sum([r["lone_wolf_win"] for r in rs]),
+            "avg_rds": _avg([compute_rds(r["kills"] or 0, r["assists"] or 0,
+                                         r["first_kill"] or 0, r["lone_wolf_win"] or 0,
+                                         r["adr"] or 0, r["deaths"] or 0) for r in rs]),
+            "kd": round(_sum([r["kills"] for r in rs]) / max(1, _sum([r["deaths"] for r in rs])), 2),
+        })
+    result.sort(key=lambda r: (-r["avg_rds"], -r["kills"], r["name"]))
+    return result

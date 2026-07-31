@@ -3,20 +3,30 @@
 {% block content %}
 <h1>🎮 선수 순위</h1>
 
+<div class="tab-bar">
+    <button class="tab-btn active" onclick="switchTab('all', this)">📊 통합 (MVP)</button>
+    <button class="tab-btn" onclick="switchTab('hp', this)">🔥 하드포인트</button>
+    <button class="tab-btn" onclick="switchTab('snd', this)">🎯 수색섬멸</button>
+</div>
+
+{# ── 통합 탭 ── #}
+<div class="tab-panel" id="tab-all">
 {% if rankings %}
 <table>
-    <tr><th>#</th><th>선수</th><th>팀</th><th>K/D</th><th>킬</th><th>데스</th><th>딜</th><th class="text-hp">avg ZCS</th><th class="text-snd">avg RDS</th><th><strong>MVP</strong></th></tr>
+    <tr><th>#</th><th>선수</th><th>팀</th><th>HP</th><th>SND</th><th>K</th><th>D</th><th>K/D</th><th>딜</th><th class="text-hp">avg ZCS</th><th class="text-snd">avg RDS</th><th><strong>MVP</strong></th></tr>
     {% for r in rankings %}
     <tr>
         <td class="rank {% if loop.index == 1 %}rank-1{% elif loop.index == 2 %}rank-2{% elif loop.index == 3 %}rank-3{% endif %}">{{ loop.index }}</td>
         <td><strong>{{ r.name }}</strong></td>
         <td>{{ r.team_name }}</td>
-        <td>{{ r.kd }}</td>
+        <td class="text-muted">{{ r.hp_matches }}</td>
+        <td class="text-muted">{{ r.snd_matches }}</td>
         <td>{{ r.total_kills }}</td>
         <td>{{ r.total_deaths }}</td>
+        <td>{{ r.kd }}</td>
         <td>{{ r.total_damage }}</td>
-        <td class="text-hp">{{ r.avg_zcs }}</td>
-        <td class="text-snd">{{ r.avg_rds }}</td>
+        <td class="text-hp"><strong>{{ r.avg_zcs }}</strong></td>
+        <td class="text-snd"><strong>{{ r.avg_rds }}</strong></td>
         <td><strong>{{ r.mvp_score }}</strong></td>
     </tr>
     {% endfor %}
@@ -24,4 +34,78 @@
 {% else %}
 <p class="text-muted">등록된 선수 스탯이 없습니다.</p>
 {% endif %}
+</div>
+
+{# ── 하드포인트 탭 ── #}
+<div class="tab-panel" id="tab-hp" style="display:none;">
+{% if hp %}
+<table>
+    <tr><th>#</th><th>선수</th><th>팀</th><th>경기</th><th>K</th><th>D</th><th>A</th><th>K/D</th><th>딜</th><th>OBJ</th><th>CK</th><th class="text-hp">avg ZCS</th></tr>
+    {% for r in hp %}
+    <tr>
+        <td class="rank {% if loop.index == 1 %}rank-1{% elif loop.index == 2 %}rank-2{% elif loop.index == 3 %}rank-3{% endif %}">{{ loop.index }}</td>
+        <td><strong>{{ r.name }}</strong></td>
+        <td>{{ r.team_name }}</td>
+        <td class="text-muted">{{ r.matches }}</td>
+        <td>{{ r.kills }}</td>
+        <td>{{ r.deaths }}</td>
+        <td>{{ r.assists }}</td>
+        <td>{{ r.kd }}</td>
+        <td>{{ r.damage }}</td>
+        <td>{{ r.obj_time }}</td>
+        <td>{{ r.capture_kill }}</td>
+        <td class="text-hp"><strong>{{ r.avg_zcs }}</strong></td>
+    </tr>
+    {% endfor %}
+</table>
+{% else %}
+<p class="text-muted">하드포인트 매치 기록이 없습니다.</p>
+{% endif %}
+</div>
+
+{# ── 수색섬멸 탭 ── #}
+<div class="tab-panel" id="tab-snd" style="display:none;">
+{% if snd %}
+<table>
+    <tr><th>#</th><th>선수</th><th>팀</th><th>경기</th><th>K</th><th>D</th><th>A</th><th>K/D</th><th>딜</th><th>ADR</th><th>FK</th><th>LWW</th><th class="text-snd">avg RDS</th></tr>
+    {% for r in snd %}
+    <tr>
+        <td class="rank {% if loop.index == 1 %}rank-1{% elif loop.index == 2 %}rank-2{% elif loop.index == 3 %}rank-3{% endif %}">{{ loop.index }}</td>
+        <td><strong>{{ r.name }}</strong></td>
+        <td>{{ r.team_name }}</td>
+        <td class="text-muted">{{ r.matches }}</td>
+        <td>{{ r.kills }}</td>
+        <td>{{ r.deaths }}</td>
+        <td>{{ r.assists }}</td>
+        <td>{{ r.kd }}</td>
+        <td>{{ r.damage }}</td>
+        <td>{{ r.adr }}</td>
+        <td>{{ r.first_kill }}</td>
+        <td>{{ r.lone_wolf_win }}</td>
+        <td class="text-snd"><strong>{{ r.avg_rds }}</strong></td>
+    </tr>
+    {% endfor %}
+</table>
+{% else %}
+<p class="text-muted">수색섬멸 매치 기록이 없습니다.</p>
+{% endif %}
+</div>
+
+<style>
+.tab-bar { display:flex; gap: var(--space-2); margin-bottom: var(--space-4); }
+.tab-btn { padding: var(--space-2) var(--space-4); border:1px solid var(--border-strong); background: var(--card); border-radius: var(--radius-sm) var(--radius-sm) 0 0; cursor:pointer; font-size:.9rem; color: var(--text-2); }
+.tab-btn.active { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+.tab-panel { animation: fadeIn .15s; }
+@keyframes fadeIn { from { opacity:0; } to { opacity:1; } }
+table { font-size:.88rem; }
+</style>
+
+<script>
+function switchTab(name, btn) {
+    document.querySelectorAll('.tab-panel').forEach(p => p.style.display = 'none');
+    document.getElementById('tab-' + name).style.display = 'block';
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+}
+</script>
 {% endblock %}
