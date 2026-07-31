@@ -1,0 +1,5 @@
+tournament.db
+tournament.db-journal
+__pycache__/
+*.pyc
+uploads/
