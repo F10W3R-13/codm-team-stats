@@ -848,6 +848,8 @@ def map_player_stats(map_name: str, mode: str = "HP", min_matches: int = 2) -> l
                         ROUND(AVG(s.kd_ratio),2) avg_kd,
                         ROUND(AVG(s.kills),1) avg_k,
                         ROUND(AVG(s.adr),0) avg_adr,
+                        ROUND(AVG(s.first_kill),1) avg_fk,
+                        ROUND(AVG(s.lone_wolf_win),1) avg_lww,
                         ROUND(AVG(MAX(0, 4.1*s.kills + 3.5*s.assists + 14*s.first_kill + 20*s.lone_wolf_win + 0.12*s.adr - 5*s.deaths)),1) avg_rds
                  FROM player_stats_snd s
                  JOIN matches m ON m.id=s.match_id

@@ -108,9 +108,13 @@
                 <th class="num" data-mobile-hide>{{ t.m_kills }}</th>
                 <th class="num" data-mobile-hide>{{ t.m_dmg }}</th>
                 <th class="num" data-mobile-hide>{{ t.m_obj }}</th>
+                <th class="num" data-mobile-hide>{{ t.m_cap }}</th>
                 {% else %}
-                <th class="num">{% if data.mode == 'SND' %}{{ t.rds_label }}{% else %}{{ t.zcs_label }}{% endif %}</th>
+                <th class="num">{{ t.rds_label }}</th>
                 <th class="num">{{ t.m_kills }}</th>
+                <th class="num" data-mobile-hide>{{ t.avg_adr }}</th>
+                <th class="num" data-mobile-hide>{{ t.fk }}</th>
+                <th class="num" data-mobile-hide>{{ t.lww }}</th>
                 {% endif %}
             </tr>
         </thead>
@@ -125,9 +129,13 @@
                 <td class="num" data-mobile-hide>{{ p.avg_k }}</td>
                 <td class="num" data-mobile-hide>{{ p.avg_dmg }}</td>
                 <td class="num" data-mobile-hide>{{ p.avg_obj }}</td>
+                <td class="num" data-mobile-hide>{{ p.avg_capture or '-' }}</td>
                 {% else %}
-                <td class="num"><strong class="{% if data.mode == 'SND' %}rds-strong{% else %}zcs-strong{% endif %}">{% if data.mode == 'SND' %}{{ p.avg_rds or '-' }}{% else %}{{ p.avg_zcs or '-' }}{% endif %}</strong></td>
+                <td class="num"><strong class="rds-strong">{{ p.avg_rds or '-' }}</strong></td>
                 <td class="num">{{ p.avg_k }}</td>
+                <td class="num" data-mobile-hide>{{ p.avg_adr or '-' }}</td>
+                <td class="num" data-mobile-hide>{{ p.avg_fk or '-' }}</td>
+                <td class="num" data-mobile-hide>{{ p.avg_lww or '-' }}</td>
                 {% endif %}
             </tr>
             {% endfor %}
