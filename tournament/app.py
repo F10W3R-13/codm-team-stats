@@ -36,11 +36,16 @@ async def import_page(request: Request):
 
 
 @app.post("/api/preview")
-async def api_preview(file1: UploadFile = File(...), file2: UploadFile = File(...)):
-    """스크린샷 2장 → GPT 파싱 미리보기 (저장 전)."""
+def api_preview(file1: UploadFile = File(...), file2: UploadFile = File(...)):
+    """스크린샷 2장 → GPT 파싱 미리보기 (저장 전).
+
+    동기 def로 선언 → FastAPI가 스레드풀에서 실행.
+    GPT 비전 호출(10~60초 동기 블로킹)이 async 이벤트 루프를
+    얼리지 않도록 async def 대신 일반 def를 쓴다.
+    """
     try:
-        img1 = await file1.read()
-        img2 = await file2.read()
+        img1 = file1.file.read()
+        img2 = file2.file.read()
         result = import_pipeline.preview(img1, img2)
         # _raw 필드는 JSON 응답에서 제거
         result.pop("_raw_left", None)
@@ -51,9 +56,10 @@ async def api_preview(file1: UploadFile = File(...), file2: UploadFile = File(..
 
 
 @app.post("/api/confirm")
-async def api_confirm(request: Request):
+def api_confirm(request: Request):
     """미리보기 확정 → 매치 저장."""
-    body = await request.json()
+    import json
+    body = json.loads(request._body.decode())
     try:
         match_id = import_pipeline.confirm(body)
         return {"match_id": match_id, "ok": True}
