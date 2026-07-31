@@ -13,7 +13,17 @@ from openai import OpenAI
 
 import prompt_tournament
 
-_client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
+# 클라이언트는 실제 호출 시점에 생성 (import 시점엔 API 키가 없을 수 있음 —
+# 테스트에서 analyze_two_screens 을 mock 할 때 모듈 import 단계가 실패하지 않도록).
+_client = None
+
+
+def _get_client():
+    """OPENAI_API_KEY 가 설정된 실제 호출 시점에 클라이언트 생성 (lazy)."""
+    global _client
+    if _client is None:
+        _client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
+    return _client
 
 
 def _to_data_url(image_bytes: bytes) -> str:
@@ -29,7 +39,7 @@ def analyze_two_screens(image_bytes_1: bytes, image_bytes_2: bytes) -> dict:
                team_left: [선수×5], team_right: [선수×5]}
     예외: GPT 호출 실패 / JSON 파싱 실패 시 raise.
     """
-    completion = _client.chat.completions.create(
+    completion = _get_client().chat.completions.create(
         model="gpt-4.1",
         temperature=0.0,
         max_tokens=2048,
