@@ -52,10 +52,28 @@ SEED = [
 
 
 def main():
-    db.init_db()
-    # 기존 데이터 리셋 (재실행 시 중복 방지)
+    import sys
     import sqlite3
+    db.init_db()
     conn = sqlite3.connect(db.DEFAULT_PATH)
+
+    # 안전장치: 이미 매치 데이터가 있으면 초기화 중단 (데이터 보호)
+    match_count = conn.execute("SELECT COUNT(*) FROM matches").fetchone()[0]
+    if match_count > 0:
+        force = "--force" in sys.argv
+        if not force:
+            conn.close()
+            print("=" * 60)
+            print(f"⚠️  이미 {match_count}개의 매치가 기록되어 있습니다!")
+            print("   매치 데이터가 전부 날아갑니다. 정말 초기화하려면:")
+            print("   python seed_tournament.py --force")
+            print()
+            print("   선수만 추가/교체하려면 admin(매치 기록 페이지)이나")
+            print("   수동 DB 편집을 사용하세요.")
+            print("=" * 60)
+            sys.exit(1)
+        print(f"⚠️  --force: {match_count}개 매치 포함 전체 초기화 진행\n")
+
     conn.executescript("""
         DELETE FROM player_stats_hp;
         DELETE FROM player_stats_snd;
