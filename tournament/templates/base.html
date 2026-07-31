@@ -74,8 +74,9 @@
         .preview-meta input, .preview-meta select { padding: var(--space-1) var(--space-2); border:1px solid var(--border-strong); border-radius: var(--radius-sm); font-size:.95rem; }
         .score-row { display:flex; align-items:center; gap: var(--space-3); font-size:1.1rem; margin-bottom: var(--space-3); flex-wrap:wrap; }
         .score-input { width:70px; padding: var(--space-1) var(--space-2); border:1px solid var(--border-strong); border-radius: var(--radius-sm); font-size:1.1rem; text-align:center; }
-        .preview-teams { display:flex; gap: var(--space-4); flex-wrap:wrap; }
-        .preview-teams > div { flex:1; min-width:280px; }
+        .preview-teams { display:flex; flex-direction:column; gap: var(--space-6); }
+        .preview-teams > div { width:100%; }
+        .preview-teams table { width:100%; }
         .stat-input { width:52px; padding:3px 4px; border:1px solid var(--border); border-radius: var(--radius-sm); font-size:.85rem; text-align:center; }
         .stat-input:focus, .name-input:focus, .score-input:focus { border-color: var(--accent); outline:none; }
         .name-input { padding:3px 6px; border:1px solid var(--border); border-radius: var(--radius-sm); font-size:.85rem; min-width:90px; }
