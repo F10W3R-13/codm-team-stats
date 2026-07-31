@@ -137,6 +137,15 @@ document.addEventListener('paste', (e) => {
     });
 });
 
+// ── 팀 목록 (드롭다운용, 페이지 로드 시 1회 fetch) ──────────────────
+let ALL_TEAMS = [];
+(async () => {
+    try {
+        const res = await fetch('/api/teams');
+        ALL_TEAMS = await res.json();
+    } catch (e) { console.warn('팀 목록 로드 실패', e); }
+})();
+
 // ── 분석 ────────────────────────────────────────────────────────────
 async function analyzeScreens() {
     if (!slots[0] || !slots[1]) { alert('스크린샷 2장 모두 넣어주세요'); return; }
@@ -170,9 +179,18 @@ function renderPreview(data) {
     const content = document.getElementById('preview-content');
     const cols = data.mode === 'HP' ? HP_COLS : SND_COLS;
 
+    // 팀 드롭다운 옵션 생성 (전역 ALL_TEAMS 사용)
+    const teamOpts = (sel) => ALL_TEAMS.map(t =>
+        `<option value="${t.id}" ${String(t.id)===String(sel)?'selected':''}>${t.name}</option>`
+    ).join('');
+    const teamA_ok = data.team_a_id !== null && data.team_a_id !== undefined;
+    const teamB_ok = data.team_b_id !== null && data.team_b_id !== undefined;
+    const aClass = teamA_ok ? '' : 'select-warning';
+    const bClass = teamB_ok ? '' : 'select-warning';
+
     content.innerHTML = `
         <div class="preview-meta">
-            <label>모드 <select id="edit-mode">
+            <label>모드 <select id="edit-mode" onchange="onModeChange()">
                 <option value="HP" ${data.mode==='HP'?'selected':''}>HP</option>
                 <option value="SND" ${data.mode==='SND'?'selected':''}>SND</option>
             </select></label>
@@ -180,27 +198,65 @@ function renderPreview(data) {
             <label>날짜 <input id="edit-date" type="date"></label>
         </div>
         <div class="score-row">
-            <strong>${data.team_a_name || 'Team A'}</strong>
+            <select id="edit-team-a" class="${aClass}" title="Team A 선택 (자동 식별 안 되면 직접 고르세요)">
+                <option value="">— 팀 A 선택 —</option>${teamOpts(data.team_a_id)}
+            </select>
             <input id="edit-score-a" type="number" value="${data.team_left_score ?? 0}" class="score-input">
             <span>:</span>
             <input id="edit-score-b" type="number" value="${data.team_right_score ?? 0}" class="score-input">
-            <strong>${data.team_b_name || 'Team B'}</strong>
+            <select id="edit-team-b" class="${bClass}" title="Team B 선택 (자동 식별 안 되면 직접 고르세요)">
+                <option value="">— 팀 B 선택 —</option>${teamOpts(data.team_b_id)}
+            </select>
         </div>
-        ${data.unmatched.length > 0 ? '<p class="text-muted">⚠️ 매칭 안 된 IGN ' + data.unmatched.length + '개: ' + data.unmatched.join(', ') + '</p>' : ''}
+        ${(!teamA_ok || !teamB_ok) ? '<p class="text-danger">⚠️ 팀 자동 식별 실패 — 위 드롭다운에서 양 팀을 직접 선택하세요. 이름도 고치고 저장하면 됩니다.</p>' : ''}
+        ${data.unmatched.length > 0 ? '<p class="text-muted">⚠️ 매칭 안 된 IGN ' + data.unmatched.length + '개: ' + data.unmatched.join(', ') + ' (빨간 행의 이름을 고치면 자동 매칭)</p>' : ''}
         <div class="preview-teams">
             <div>
-                <h3>${data.team_a_name || 'Team A'}</h3>
+                <h3 id="h3-team-a">${data.team_a_name || 'Team A'}</h3>
                 ${playerTable(data.team_a, 'a', cols)}
                 <button class="btn btn--ghost add-row-btn" onclick="addRow('a')">+ 선수 추가</button>
             </div>
             <div>
-                <h3>${data.team_b_name || 'Team B'}</h3>
+                <h3 id="h3-team-b">${data.team_b_name || 'Team B'}</h3>
                 ${playerTable(data.team_b, 'b', cols)}
                 <button class="btn btn--ghost add-row-btn" onclick="addRow('b')">+ 선수 추가</button>
             </div>
         </div>
-        <p class="text-muted" style="margin-top: var(--space-3);">✏️ 모든 숫자/이름을 직접 수정할 수 있습니다. 누락된 선수는 "+ 선수 추가"로 넣고, 틀린 값은 고치고 저장하세요.</p>`;
+        <p class="text-muted" style="margin-top: var(--space-3);">✏️ 모든 숫자/이름/팀을 직접 수정할 수 있습니다. 팀 식별 실패 시 드롭다운에서 고르고, 누락 선수는 추가하고, 틀린 값은 고치고 저장하세요.</p>`;
+    // 팀 선택 변경 시 제목 갱신
+    document.getElementById('edit-team-a').addEventListener('change', e => {
+        const t = ALL_TEAMS.find(t => String(t.id) === e.target.value);
+        document.getElementById('h3-team-a').textContent = t ? t.name : 'Team A';
+    });
+    document.getElementById('edit-team-b').addEventListener('change', e => {
+        const t = ALL_TEAMS.find(t => String(t.id) === e.target.value);
+        document.getElementById('h3-team-b').textContent = t ? t.name : 'Team B';
+    });
     div.style.display = 'block';
+}
+
+// 모드 변경 시 컬럼 재구성
+function onModeChange() {
+    const mode = document.getElementById('edit-mode').value;
+    const cols = mode === 'HP' ? HP_COLS : SND_COLS;
+    // 기존 team_a/team_b 데이터를 input에서 다시 읽어 테이블 재생성
+    for (const side of ['a', 'b']) {
+        const table = document.getElementById('table-' + side);
+        if (!table) continue;
+        const inputs = [...document.querySelectorAll(`[data-side="${side}"][data-field="name"]`)];
+        const players = inputs.map(inp => {
+            const idx = inp.dataset.idx;
+            const p = {};
+            document.querySelectorAll(`[data-side="${side}"][data-idx="${idx}"]`).forEach(f => {
+                if (f.dataset.field === 'name') { p.ign = f.value; p.standard_name = f.value; }
+                else p[f.dataset.field] = parseFloat(f.value) || 0;
+            });
+            return p;
+        });
+        const header = '<tr><th></th><th>이름</th>' + cols.map(c => `<th>${c[0]}</th>`).join('') + '</tr>';
+        const rows = players.map((p, i) => playerRow(side, i, p, cols)).join('');
+        table.innerHTML = header + rows;
+    }
 }
 
 function playerTable(players, side, cols) {
@@ -267,6 +323,19 @@ function syncEditsToPreview() {
     lastPreview.match_date = document.getElementById('edit-date').value || null;
     lastPreview.team_left_score = parseInt(document.getElementById('edit-score-a').value) || 0;
     lastPreview.team_right_score = parseInt(document.getElementById('edit-score-b').value) || 0;
+    // 팀 드롭다운에서 직접 선택한 team_id 반영 (자동 식별 실패 시 사용자가 고름)
+    const selA = document.getElementById('edit-team-a');
+    const selB = document.getElementById('edit-team-b');
+    if (selA && selA.value) {
+        lastPreview.team_a_id = parseInt(selA.value);
+        const t = ALL_TEAMS.find(t => String(t.id) === selA.value);
+        lastPreview.team_a_name = t ? t.name : null;
+    }
+    if (selB && selB.value) {
+        lastPreview.team_b_id = parseInt(selB.value);
+        const t = ALL_TEAMS.find(t => String(t.id) === selB.value);
+        lastPreview.team_b_name = t ? t.name : null;
+    }
 
     // 각 팀 선수 데이터를 행 기반으로 재구성 (삭제/추가 후 idx 불연속 대응)
     for (const side of ['a', 'b']) {
@@ -304,7 +373,8 @@ async function confirmMatch() {
     // 수정된 값 동기화
     syncEditsToPreview();
     if (!lastPreview.team_a_id || !lastPreview.team_b_id) {
-        alert('팀 식별 실패 — 매칭 안 된 IGN을 먼저 처리하세요.'); return;
+        alert('⚠️ 양 팀을 모두 선택해야 합니다.\n\n위 드롭다운에서 Team A, Team B를 직접 고르세요.\n(AI가 팀을 자동 인식하지 못했습니다.)');
+        return;  // 미리보기 유지 — 고치고 다시 저장 가능
     }
     const btn = document.getElementById('confirm-btn');
     btn.textContent = '저장 중...'; btn.disabled = true;
@@ -314,7 +384,11 @@ async function confirmMatch() {
             body: JSON.stringify(lastPreview)
         });
         const data = await res.json();
-        if (!res.ok) { alert('오류: ' + (data.detail || '저장 실패')); return; }
+        if (!res.ok) {
+            // 저장 실패해도 미리보기 유지 — 고치고 다시 저장 가능
+            alert('저장 실패: ' + (data.detail || '알 수 없는 오류') + '\n\n값을 수정하고 다시 저장해보세요.');
+            return;
+        }
         alert('매치 저장 완료 (ID: ' + data.match_id + ')');
         // 슬롯·미리보기 리셋
         clearSlot(null, 0);

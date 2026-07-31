@@ -38,13 +38,24 @@ def _to_data_url(image_bytes: bytes) -> str:
     return f"data:image/jpeg;base64,{b64}"
 
 
-def analyze_two_screens(image_bytes_1: bytes, image_bytes_2: bytes) -> dict:
+def analyze_two_screens(image_bytes_1: bytes, image_bytes_2: bytes,
+                        team_hint: str = None) -> dict:
     """GPT 비전으로 2장 스크린샷 분석 → 양쪽 10명 스탯 dict.
 
+    team_hint: 팀명/명단 힌트 텍스트 (GPT가 팀 식별에 활용).
+        예: "이 대회의 팀들: Team Fabriz(Karpe,Sica,Bang...), YetoTense(Madara,Itachi...)"
+        GPT가 'Fz.Karpe'를 보면 어떤 팀인지, 어느 쪽에 모여 있는지 더 정확히 인식.
     반환 구조: {mode, map, team_left_score, team_right_score,
                team_left: [선수×5], team_right: [선수×5]}
     예외: GPT 호출 실패 / JSON 파싱 실패 시 raise.
     """
+    prompt = prompt_tournament.PROMPT
+    if team_hint:
+        prompt = prompt + "\n\n[참고 — 이 대회의 팀 명단]\n" + team_hint + "\n" + (
+            "위 명단을 참고해 스크린샷의 선수들이 어느 팀에 속하는지 파악하세요. "
+            "비슷한 이름(예: 'Fz.Karpe' vs 'Karpe')은 같은 선수로 인식하고, "
+            "같은 팀 선수들이 한쪽에 모여 있는지 확인해 team_left/team_right를 구성하세요.\n"
+        )
     completion = _get_client().chat.completions.create(
         model="gpt-4.1",
         temperature=0.0,
@@ -53,7 +64,7 @@ def analyze_two_screens(image_bytes_1: bytes, image_bytes_2: bytes) -> dict:
         timeout=120,
         n=1,
         messages=[
-            {"role": "user", "content": prompt_tournament.PROMPT},
+            {"role": "user", "content": prompt},
             {"role": "user", "content": [
                 {"type": "image_url",
                  "image_url": {"url": _to_data_url(image_bytes_1), "detail": "auto"}}]},

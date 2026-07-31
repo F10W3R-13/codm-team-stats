@@ -24,6 +24,12 @@ app = FastAPI(title="CODM Tournament Analyzer")
 db.init_db()
 
 
+@app.get("/api/teams")
+def api_teams():
+    """팀 목록 (드롭다운용)."""
+    return db.list_teams()
+
+
 @app.get("/", response_class=HTMLResponse)
 async def import_page(request: Request):
     """스크린샷 업로드 + 파싱 미리보기."""

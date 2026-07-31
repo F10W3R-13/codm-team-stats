@@ -9,6 +9,26 @@ import db
 import stage
 
 
+def _build_team_hint(path: str = None) -> str:
+    """DB에서 팀별 명단을 읽어 GPT 힌트 텍스트 생성.
+
+    예: "Team Fabriz (Fz.Karpe, Fz.Sica, Fz.Bang, ...), YetoTense (Madara, Itachi, ...)"
+    GPT가 팀 인식과 선수 매칭에 활용.
+    """
+    try:
+        teams = db.list_teams(path=path)
+        if not teams:
+            return ""
+        lines = []
+        for t in teams:
+            players = db.list_players(t["id"], path=path)
+            names = ", ".join(p["name"] for p in players)
+            lines.append(f"- {t['name']}: {names}")
+        return "이 대회에 참가한 팀과 선수:\n" + "\n".join(lines)
+    except Exception:
+        return ""  # DB 문제 시 힌트 없이 진행 (실패 안전)
+
+
 def _match_team(team_igns: list, path: str):
     """5 IGN 리스트 → (team_id, [{...선수}], [unmatched_ign]).
 
@@ -72,7 +92,9 @@ def preview(image_bytes_1: bytes, image_bytes_2: bytes, path: str = None) -> dic
           team_a_name, team_b_name, team_a_id, team_b_id,
           team_a: [매핑된 선수+스탯], team_b: [...], unmatched: [ign]}
     """
-    gpt = analyze_two_screens(image_bytes_1, image_bytes_2)
+    # GPT에게 팀 명단 힌트 제공 → 팀 인식 정확도 향상
+    team_hint = _build_team_hint(path)
+    gpt = analyze_two_screens(image_bytes_1, image_bytes_2, team_hint=team_hint)
     mode = gpt.get("mode", "")
     map_name = gpt.get("map")
     left = gpt.get("team_left", [])
