@@ -32,20 +32,18 @@ def _duels(path: str = None) -> dict:
 def _duel_result(matches: list, t1: int, t2: int):
     """한 팀 대결의 세트 스코어 계산.
 
-    각 세트(HP/SND/Control)의 승자를 판정 → t1 세트승, t2 세트승.
-    같은 모드가 여러 개면 첫째만(중복 입력 정리용).
+    CODM 대회 세트 순서: HP → SND → CTL → HP → SND → CTL ... (Bo3/Bo5/Bo7).
+    같은 모드가 여러 번 나오는 게 정상 (순환 구조).
+    매치를 id순(=세트 순서)으로 전부 유효하게 처리 → 다승 판정.
     반환: (t1_sets_won, t2_sets_won, mode_results)
     """
-    seen_modes = set()
     t1_wins = 0
     t2_wins = 0
-    mode_results = []  # [{mode, t1_score, t2_score, winner}]
+    mode_results = []  # [{mode, t1_score, t2_score, winner, match_id}]
 
-    for m in matches:
+    # id순 정렬 (세트 순서 보장)
+    for m in sorted(matches, key=lambda x: x["id"]):
         mode = m["mode"]
-        if mode in seen_modes:
-            continue  # 중복 모드 스킵 (입력 오류 정리)
-        seen_modes.add(mode)
 
         # t1, t2 기준으로 점수 정규화
         if m["team_a_id"] == t1:
@@ -62,6 +60,7 @@ def _duel_result(matches: list, t1: int, t2: int):
             t2_wins += 1
         mode_results.append({
             "mode": mode, "t1_score": s1, "t2_score": s2, "winner": winner,
+            "match_id": m["id"],
         })
 
     return t1_wins, t2_wins, mode_results
@@ -98,38 +97,21 @@ def compute(path: str = None) -> list:
         table[t2]["sets_won"] += t2_sets
         table[t2]["sets_lost"] += t1_sets
 
-        # Control 세트가 있어야 3세트 완료. 현재는 HP/SND만 있으면 2세트 → 미완료 가능.
-        total_sets = t1_sets + t2_sets
-        if total_sets >= 3:
-            # 완료된 대결 — 세트 다승으로 승패
-            table[t1]["played"] += 1
-            table[t2]["played"] += 1
-            table[t1]["duels_completed"] += 1
-            table[t2]["duels_completed"] += 1
+        # Bo5: 한 팀이 3승(과반수) 먼저 따면 확정 완료. 아니면 진행 중.
+        table[t1]["played"] += 1
+        table[t2]["played"] += 1
+        if t1_sets >= 3 or t2_sets >= 3:
+            # 완료된 대결
             if t1_sets > t2_sets:
                 table[t1]["wins"] += 1
                 table[t2]["losses"] += 1
             elif t2_sets > t1_sets:
                 table[t2]["wins"] += 1
                 table[t1]["losses"] += 1
-            else:
-                table[t1]["draws"] += 1
-                table[t2]["draws"] += 1
         else:
-            # 미완료 (3세트 미만, 보통 Control 미입력)
-            # 임시: 세트 다승으로 승패 가정하지만 미완료 표시
-            table[t1]["played"] += 1
-            table[t2]["played"] += 1
-            if t1_sets > t2_sets:
-                table[t1]["wins"] += 1
-                table[t2]["losses"] += 1
-            elif t2_sets > t1_sets:
-                table[t2]["wins"] += 1
-                table[t1]["losses"] += 1
-            else:
-                # 1-1 동점 (Control 미정) → 미완료, 승패 미반영
-                table[t1]["duels_pending"] += 1
-                table[t2]["duels_pending"] += 1
+            # 진행 중 (3승 미만) — 임시로 다승 다인 팀을 리드로 표시하지만 승패 미반영
+            table[t1]["duels_pending"] += 1
+            table[t2]["duels_pending"] += 1
 
     for row in table.values():
         row["sets_diff"] = row["sets_won"] - row["sets_lost"]
@@ -167,7 +149,7 @@ def duel_details(path: str = None) -> list:
             "t1_sets": t1_sets,
             "t2_sets": t2_sets,
             "modes": mode_results,
-            "completed": total >= 3,
+            "completed": t1_sets >= 3 or t2_sets >= 3,  # Bo5: 3승 시 확정
             "winner": winner,
         })
     return results
