@@ -9,7 +9,7 @@
     <button class="tab-btn" onclick="switchTab('snd', this)">🎯 수색섬멸 <span class="text-muted">(매치당 평균)</span></button>
 </div>
 
-{# ── 통합 탭 ── #}
+{# ── 통합 탭 (기존 정적) ── #}
 <div class="tab-panel" id="tab-all">
 {% if rankings %}
 <table>
@@ -36,55 +36,94 @@
 {% endif %}
 </div>
 
-{# ── 하드포인트 탭 ── #}
+{# ── 하드포인트 탭 (정렬+export) ── #}
 <div class="tab-panel" id="tab-hp" style="display:none;">
 {% if hp %}
-<table>
-    <tr><th>#</th><th>선수</th><th>팀</th><th>경기</th><th>K</th><th>D</th><th>A</th><th>K/D</th><th>딜</th><th>OBJ</th><th>CK</th><th class="text-hp">avg ZCS</th></tr>
+<div class="table-tools">
+    <button class="btn btn--ghost" onclick="exportCSV('hp-table', '하드포인트_선수순위.csv')">📥 CSV 다운로드</button>
+    <span class="text-muted">열 제목을 클릭하면 그 기준으로 정렬됩니다 (데스는 낮을수록 좋음)</span>
+</div>
+<table id="hp-table" class="sortable">
+    <thead><tr>
+        <th data-key="idx" data-type="num" onclick="sortBy('hp-table', this)">#</th>
+        <th data-key="name" data-type="str" onclick="sortBy('hp-table', this)">선수</th>
+        <th data-key="team" data-type="str" onclick="sortBy('hp-table', this)">팀</th>
+        <th data-key="matches" data-type="num" onclick="sortBy('hp-table', this)">경기</th>
+        <th data-key="kills" data-type="num" onclick="sortBy('hp-table', this)">K</th>
+        <th data-key="deaths" data-type="num" data-asc="true" onclick="sortBy('hp-table', this)">D</th>
+        <th data-key="assists" data-type="num" onclick="sortBy('hp-table', this)">A</th>
+        <th data-key="kd" data-type="num" onclick="sortBy('hp-table', this)">K/D</th>
+        <th data-key="damage" data-type="num" onclick="sortBy('hp-table', this)">딜</th>
+        <th data-key="obj_time" data-type="num" onclick="sortBy('hp-table', this)">OBJ</th>
+        <th data-key="capture_kill" data-type="num" onclick="sortBy('hp-table', this)">CK</th>
+        <th data-key="avg_zcs" data-type="num" data-default="true" onclick="sortBy('hp-table', this)" class="text-hp">avg ZCS</th>
+    </tr></thead>
+    <tbody>
     {% for r in hp %}
     <tr>
-        <td class="rank {% if loop.index == 1 %}rank-1{% elif loop.index == 2 %}rank-2{% elif loop.index == 3 %}rank-3{% endif %}">{{ loop.index }}</td>
-        <td><strong>{{ r.name }}</strong></td>
-        <td>{{ r.team_name }}</td>
-        <td class="text-muted">{{ r.matches }}</td>
-        <td>{{ r.kills }}</td>
-        <td>{{ r.deaths }}</td>
-        <td>{{ r.assists }}</td>
-        <td>{{ r.kd }}</td>
-        <td>{{ r.damage }}</td>
-        <td>{{ r.obj_time }}</td>
-        <td>{{ r.capture_kill }}</td>
-        <td class="text-hp"><strong>{{ r.avg_zcs }}</strong></td>
+        <td data-val="{{ loop.index }}">{{ loop.index }}</td>
+        <td data-val="{{ r.name }}"><strong>{{ r.name }}</strong></td>
+        <td data-val="{{ r.team_name }}">{{ r.team_name }}</td>
+        <td data-val="{{ r.matches }}">{{ r.matches }}</td>
+        <td data-val="{{ r.kills }}">{{ r.kills }}</td>
+        <td data-val="{{ r.deaths }}">{{ r.deaths }}</td>
+        <td data-val="{{ r.assists }}">{{ r.assists }}</td>
+        <td data-val="{{ r.kd }}">{{ r.kd }}</td>
+        <td data-val="{{ r.damage }}">{{ r.damage }}</td>
+        <td data-val="{{ r.obj_time }}">{{ r.obj_time }}</td>
+        <td data-val="{{ r.capture_kill }}">{{ r.capture_kill }}</td>
+        <td data-val="{{ r.avg_zcs }}" class="text-hp"><strong>{{ r.avg_zcs }}</strong></td>
     </tr>
     {% endfor %}
+    </tbody>
 </table>
 {% else %}
 <p class="text-muted">하드포인트 매치 기록이 없습니다.</p>
 {% endif %}
 </div>
 
-{# ── 수색섬멸 탭 ── #}
+{# ── 수색섬멸 탭 (정렬+export) ── #}
 <div class="tab-panel" id="tab-snd" style="display:none;">
 {% if snd %}
-<table>
-    <tr><th>#</th><th>선수</th><th>팀</th><th>경기</th><th>K</th><th>D</th><th>A</th><th>K/D</th><th>딜</th><th>ADR</th><th>FK</th><th>LWW</th><th class="text-snd">avg RDS</th></tr>
+<div class="table-tools">
+    <button class="btn btn--ghost" onclick="exportCSV('snd-table', '수색섬멸_선수순위.csv')">📥 CSV 다운로드</button>
+    <span class="text-muted">열 제목을 클릭하면 그 기준으로 정렬됩니다 (데스는 낮을수록 좋음)</span>
+</div>
+<table id="snd-table" class="sortable">
+    <thead><tr>
+        <th data-key="idx" data-type="num" onclick="sortBy('snd-table', this)">#</th>
+        <th data-key="name" data-type="str" onclick="sortBy('snd-table', this)">선수</th>
+        <th data-key="team" data-type="str" onclick="sortBy('snd-table', this)">팀</th>
+        <th data-key="matches" data-type="num" onclick="sortBy('snd-table', this)">경기</th>
+        <th data-key="kills" data-type="num" onclick="sortBy('snd-table', this)">K</th>
+        <th data-key="deaths" data-type="num" data-asc="true" onclick="sortBy('snd-table', this)">D</th>
+        <th data-key="assists" data-type="num" onclick="sortBy('snd-table', this)">A</th>
+        <th data-key="kd" data-type="num" onclick="sortBy('snd-table', this)">K/D</th>
+        <th data-key="damage" data-type="num" onclick="sortBy('snd-table', this)">딜</th>
+        <th data-key="adr" data-type="num" onclick="sortBy('snd-table', this)">ADR</th>
+        <th data-key="first_kill" data-type="num" onclick="sortBy('snd-table', this)">FK</th>
+        <th data-key="lone_wolf_win" data-type="num" onclick="sortBy('snd-table', this)">LWW</th>
+        <th data-key="avg_rds" data-type="num" data-default="true" onclick="sortBy('snd-table', this)" class="text-snd">avg RDS</th>
+    </tr></thead>
+    <tbody>
     {% for r in snd %}
     <tr>
-        <td class="rank {% if loop.index == 1 %}rank-1{% elif loop.index == 2 %}rank-2{% elif loop.index == 3 %}rank-3{% endif %}">{{ loop.index }}</td>
-        <td><strong>{{ r.name }}</strong></td>
-        <td>{{ r.team_name }}</td>
-        <td class="text-muted">{{ r.matches }}</td>
-        <td>{{ r.kills }}</td>
-        <td>{{ r.deaths }}</td>
-        <td>{{ r.assists }}</td>
-        <td>{{ r.kd }}</td>
-        <td>{{ r.damage }}</td>
-        <td>{{ r.adr }}</td>
-        <td>{{ r.first_kill }}</td>
-        <td>{{ r.lone_wolf_win }}</td>
-        <td class="text-snd"><strong>{{ r.avg_rds }}</strong></td>
+        <td data-val="{{ loop.index }}">{{ loop.index }}</td>
+        <td data-val="{{ r.name }}"><strong>{{ r.name }}</strong></td>
+        <td data-val="{{ r.team_name }}">{{ r.team_name }}</td>
+        <td data-val="{{ r.matches }}">{{ r.matches }}</td>
+        <td data-val="{{ r.kills }}">{{ r.kills }}</td>
+        <td data-val="{{ r.deaths }}">{{ r.deaths }}</td>
+        <td data-val="{{ r.assists }}">{{ r.assists }}</td>
+        <td data-val="{{ r.kd }}">{{ r.kd }}</td>
+        <td data-val="{{ r.damage }}">{{ r.damage }}</td>
+        <td data-val="{{ r.adr }}">{{ r.adr }}</td>
+        <td data-val="{{ r.first_kill }}">{{ r.first_kill }}</td>
+        <td data-val="{{ r.lone_wolf_win }}">{{ r.lone_wolf_win }}</td>
+        <td data-val="{{ r.avg_rds }}" class="text-snd"><strong>{{ r.avg_rds }}</strong></td>
     </tr>
     {% endfor %}
+    </tbody>
 </table>
 {% else %}
 <p class="text-muted">수색섬멸 매치 기록이 없습니다.</p>
@@ -98,6 +137,11 @@
 .tab-panel { animation: fadeIn .15s; }
 @keyframes fadeIn { from { opacity:0; } to { opacity:1; } }
 table { font-size:.88rem; }
+.sortable th { cursor:pointer; user-select:none; }
+.sortable th:hover { background: var(--accent-weak); }
+.sortable th.sorted-asc::after { content: ' ▲'; font-size:.7rem; }
+.sortable th.sorted-desc::after { content: ' ▼'; font-size:.7rem; }
+.table-tools { display:flex; align-items:center; gap: var(--space-3); margin-bottom: var(--space-3); flex-wrap:wrap; }
 </style>
 
 <script>
@@ -107,5 +151,83 @@ function switchTab(name, btn) {
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
 }
+
+// 열별 정렬 — 클릭한 헤더 기준으로 tbody 행 재배치
+const sortState = {};  // tableId → {key, asc}
+function sortBy(tableId, th) {
+    const table = document.getElementById(tableId);
+    const tbody = table.querySelector('tbody');
+    const headers = [...table.querySelectorAll('th')];
+    const colIdx = headers.indexOf(th);
+    const type = th.dataset.type;
+    const key = th.dataset.key;
+
+    // 정렬 방향 결정 (기본 내림차순, 데스는 오름차순 기본, 두번째 클릭 시 토글)
+    const isDeath = th.dataset.asc === 'true';
+    let asc;
+    const prev = sortState[tableId];
+    if (prev && prev.key === key) {
+        asc = !prev.asc;
+    } else {
+        asc = isDeath ? true : false;  // 데스는 낮을수록 좋음(오름차순), 나머진 높을수록(내림차순)
+    }
+    sortState[tableId] = { key, asc };
+
+    // 헤더 정렬 표시 갱신
+    headers.forEach(h => h.classList.remove('sorted-asc', 'sorted-desc'));
+    th.classList.add(asc ? 'sorted-asc' : 'sorted-desc');
+
+    // 행 정렬
+    const rows = [...tbody.querySelectorAll('tr')];
+    rows.sort((a, b) => {
+        const av = a.children[colIdx].dataset.val;
+        const bv = b.children[colIdx].dataset.val;
+        let cmp;
+        if (type === 'num') {
+            cmp = (parseFloat(av) || 0) - (parseFloat(bv) || 0);
+        } else {
+            cmp = String(av).localeCompare(String(bv), 'ko');
+        }
+        return asc ? cmp : -cmp;
+    });
+    // 순위(#) 재번호 + 행 색 갱신
+    rows.forEach((row, i) => {
+        const rankCell = row.children[0];
+        rankCell.textContent = i + 1;
+        rankCell.className = 'rank' + (i === 0 ? ' rank-1' : i === 1 ? ' rank-2' : i === 2 ? ' rank-3' : '');
+        tbody.appendChild(row);
+    });
+}
+
+// CSV export — 표에서 직접 추출
+function exportCSV(tableId, filename) {
+    const table = document.getElementById(tableId);
+    if (!table) return;
+    const rows = [...table.querySelectorAll('tr')];
+    const csv = rows.map(row => {
+        const cells = [...row.querySelectorAll('th, td')];
+        return cells.map(c => {
+            let v = c.dataset.val !== undefined ? c.dataset.val : c.textContent.trim();
+            v = String(v).replace(/"/g, '""');
+            return /[",\n]/.test(v) ? `"${v}"` : v;
+        }).join(',');
+    }).join('\n');
+    // BOM 추가 (Excel 한글 깨짐 방지)
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+}
+
+// 페이지 로드 시 기본 정렬 적용 (ZCS/RDS 내림차순)
+window.addEventListener('DOMContentLoaded', () => {
+    const hpDefault = document.querySelector('#hp-table th[data-default="true"]');
+    if (hpDefault) { sortBy('hp-table', hpDefault); sortBy('hp-table', hpDefault); }  // 두번 클릭해 내림차순 확정
+    const sndDefault = document.querySelector('#snd-table th[data-default="true"]');
+    if (sndDefault) { sortBy('snd-table', sndDefault); sortBy('snd-table', sndDefault); }
+});
 </script>
 {% endblock %}
