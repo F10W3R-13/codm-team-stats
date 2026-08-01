@@ -46,6 +46,8 @@ def _match_team(team_igns: list, path: str):
         result = db.resolve_player(ign, path=path)
         if result:
             pid, tid = result
+            # 정확 매칭은 틀릴 리 없으므로 alias 자동 등록 (다음부턴 더 빠르게 매칭)
+            db.insert_alias(ign, pid, path=path)
             resolved[ign] = {"player_id": pid, "team_id": tid, "ign": ign}
             team_ids.add(tid)
             continue
@@ -55,22 +57,20 @@ def _match_team(team_igns: list, path: str):
             result = db.resolve_player(match, path=path)
             if result:
                 pid, tid = result
-                # IGN을 alias로 자동 등록 → 다음부턴 resolve 직접 매칭
-                db.insert_alias(ign, pid, path=path)
+                # alias 자동 등록은 안 함 (틀릴 수 있음).
+                # 사용자가 미리보기에서 확인하고 저장할 때만 등록됨 (_resolve_player_id).
                 resolved[ign] = {"player_id": pid, "team_id": tid, "ign": ign,
                                  "standard_name": match}
                 team_ids.add(tid)
                 continue
         # ③ 추측 매칭 (임계값 0.6) — 알파벳 일부만 맞아도 원본 닉네임 추측
-        # IGN을 해당 선수의 alias로 자동 등록 → 다음부턴 매칭됨
+        # alias 자동 등록은 안 함 (틀릴 가능성 높음). guessed 표시만.
         guess = matching.best_guess(ign, candidates)
         if guess:
             guess_name, ratio = guess
             result = db.resolve_player(guess_name, path=path)
             if result:
                 pid, tid = result
-                # IGN을 alias로 자동 등록 (다음부턴 resolve 직접 매칭)
-                db.insert_alias(ign, pid, path=path)
                 resolved[ign] = {"player_id": pid, "team_id": tid, "ign": ign,
                                  "standard_name": guess_name, "guessed": True}
                 team_ids.add(tid)
@@ -172,22 +172,24 @@ def _resolve_player_id(player, team_id, path):
     """선수의 player_id 해결. 우선순위:
     ① 기존 player_id ② name/ign으로 DB 조회 ③ 신규 선수 등록.
     빈 이름이면 None (스킵).
+    저장 시점이므로 사용자가 미리보기에서 확인한 이름을 alias로 등록 (안전).
     """
-    if player.get("player_id"):
-        return player["player_id"]
-    name = (player.get("standard_name") or player.get("ign") or "").strip()
-    if not name:
-        return None
-    # DB에서 이름으로 조회 (alias/표준명/정규화 매칭)
-    resolved = db.resolve_player(name, path=path)
-    if resolved:
-        pid = resolved[0]
-    else:
-        # DB에 없으면 해당 팀에 신규 선수 등록
-        pid = db.insert_player(name, team_id, path=path)
-        db.insert_alias(name, pid, path=path)
-    # alias 자동 학습 (다음부턴 매칭됨)
-    ign = player.get("ign")
+    pid = player.get("player_id")
+    ign = (player.get("ign") or "").strip()
+    name = (player.get("standard_name") or ign).strip()
+    if not pid:
+        if not name:
+            return None
+        # DB에서 이름으로 조회 (alias/표준명/정규화 매칭)
+        resolved = db.resolve_player(name, path=path)
+        if resolved:
+            pid = resolved[0]
+        else:
+            # DB에 없으면 해당 팀에 신규 선수 등록
+            pid = db.insert_player(name, team_id, path=path)
+            db.insert_alias(name, pid, path=path)
+    # 저장 시점 alias 등록 (사용자가 확인한 이름 — 추측 매칭 포함 안전).
+    # IGN과 표준명이 다르면 IGN을 alias로 등록 → 다음부턴 직접 매칭.
     if ign and ign != name:
         db.insert_alias(ign, pid, path=path)
     return pid

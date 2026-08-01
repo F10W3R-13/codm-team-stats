@@ -95,19 +95,22 @@ def test_preview_collects_unmatched_igns():
         os.unlink(path)
 
 
-def test_preview_guess_match_registers_alias():
-    """유사한 이름(OCR 변형)은 추측 매칭 → alias 자동 등록 → 다음부턴 직접 매칭."""
+def test_preview_guess_match_defers_alias_to_confirm():
+    """추측 매칭은 미리보기엔 들어가지만 alias는 저장(confirm) 전까지 등록 안 됨.
+
+    잘못된 추측이 영구 alias로 굳어지는 것을 방지.
+    저장 시점(_resolve_player_id)에 사용자가 확인한 이름으로 alias 등록.
+    """
     path = _fresh_db()
     try:
         t1 = db.insert_team("Alpha", path=path)
         t2 = db.insert_team("Bravo", path=path)
-        # Sica를 시드 — GPT가 'S1ca'로 읽으면 추측 매칭 + alias 등록
         for n in ["Ace", "Sica", "King", "Ghost", "Wolf"]:
             db.insert_player(n, t1, path=path)
         for n in ["Blaze", "Storm", "Frost", "Thunder", "Shadow"]:
             db.insert_player(n, t2, path=path)
 
-        # mock: team_left의 첫 선수를 S1ca로 (Sica와 유사)
+        # mock: team_left의 첫 선수를 S1ca로 (Sica와 유사 → 추측 매칭)
         mock = _mock_gpt_response()
         mock["team_left"][0]["name"] = "S1ca"
         with patch("import_pipeline.analyze_two_screens", return_value=mock):
@@ -117,7 +120,13 @@ def test_preview_guess_match_registers_alias():
         team_a_names = [p.get("ign") for p in preview["team_a"]]
         assert "S1ca" in team_a_names
         assert "S1ca" not in preview["unmatched"]
-        # alias에 자동 등록됨
+        # ★ 미리보기 단계에서는 alias 등록 안 됨 (틀린 추측 방지)
+        assert db.resolve_player("S1ca", path=path) is None
+
+        # 저장(confirm) 후에야 alias 등록됨
+        preview["team_a_id"] = t1
+        preview["team_b_id"] = t2
+        import_pipeline.confirm(preview, path=path)
         assert db.resolve_player("S1ca", path=path) is not None
     finally:
         os.unlink(path)
