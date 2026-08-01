@@ -152,15 +152,33 @@ function switchTab(name, btn) {
     btn.classList.add('active');
 }
 
-// 열별 정렬 — 클릭한 헤더 기준으로 tbody 행 재배치
+// 열별 정렬 — 클릭한 헤더 기준으로 tbody 행 재배치 + 해당 열을 맨 앞(첫 스탯 열)으로 이동
 const sortState = {};  // tableId → {key, asc}
 function sortBy(tableId, th) {
     const table = document.getElementById(tableId);
+    const thead = table.querySelector('thead tr');
     const tbody = table.querySelector('tbody');
-    const headers = [...table.querySelectorAll('th')];
-    const colIdx = headers.indexOf(th);
+    let headers = [...table.querySelectorAll('th')];
+    let colIdx = headers.indexOf(th);
     const type = th.dataset.type;
     const key = th.dataset.key;
+
+    // ── 열 이동: 클릭한 열을 첫 번째 스탯 열 위치로 (번호/선수/팀/경기는 고정) ──
+    // 고정 열 개수 파악: data-key가 idx/name/team/matches인 열은 고정
+    const FIXED = new Set(['idx', 'name', 'team', 'matches']);
+    const firstStatIdx = headers.findIndex(h => !FIXED.has(h.dataset.key));
+    if (firstStatIdx !== -1 && colIdx > firstStatIdx && !FIXED.has(key)) {
+        // 헤더 이동
+        thead.insertBefore(th, headers[firstStatIdx]);
+        // 각 행의 셀 이동
+        tbody.querySelectorAll('tr').forEach(row => {
+            const cell = row.children[colIdx];
+            row.insertBefore(cell, row.children[firstStatIdx]);
+        });
+        // 이동 후 헤더/colIdx 갱신
+        headers = [...table.querySelectorAll('th')];
+        colIdx = headers.indexOf(th);
+    }
 
     // 정렬 방향 결정 (기본 내림차순, 데스는 오름차순 기본, 두번째 클릭 시 토글)
     const isDeath = th.dataset.asc === 'true';
