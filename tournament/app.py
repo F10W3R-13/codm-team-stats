@@ -106,6 +106,41 @@ async def api_confirm(request: Request):
         raise HTTPException(status_code=500, detail=_friendly_error(e))
 
 
+@app.post("/api/control")
+async def api_control(request: Request):
+    """Control 세트 점수 수동 입력 (스크린샷 없이 팀+점수만).
+
+    스탠딩에 즉시 반영됨 (mode='CTL' 매치로 저장).
+    같은 팀 대결에 이미 CTL이 있으면 덮어쓰기 (기존 CTL 매치 삭제 후 재입력).
+    """
+    body = await request.json()
+    t1, t2 = body.get("team_a_id"), body.get("team_b_id")
+    s1, s2 = body.get("team_a_score"), body.get("team_b_score")
+    if not t1 or not t2 or s1 is None or s2 is None:
+        raise HTTPException(status_code=400, detail="팀/점수 누락")
+    try:
+        conn = db.get_conn()
+        try:
+            a, b = min(t1, t2), max(t1, t2)
+            # 같은 팀 대결의 기존 CTL 매치 삭제 (1팀대결 1CTL 원칙)
+            conn.execute(
+                """DELETE FROM matches WHERE mode='CTL'
+                   AND ((team_a_id=? AND team_b_id=?) OR (team_a_id=? AND team_b_id=?))""",
+                (a, b, b, a))
+            # 새 CTL 매치 입력
+            conn.execute(
+                """INSERT INTO matches(mode, map_name, match_date, stage,
+                       team_a_id, team_b_id, team_a_score, team_b_score)
+                   VALUES('CTL', NULL, ?, 'round_robin', ?, ?, ?, ?)""",
+                (body.get("match_date"), t1, t2, s1, s2))
+            conn.commit()
+        finally:
+            conn.close()
+        return {"ok": True}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=_friendly_error(e))
+
+
 @app.get("/standings", response_class=HTMLResponse)
 async def standings_page(request: Request):
     table = standings_mod.compute()

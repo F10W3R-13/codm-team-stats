@@ -160,6 +160,8 @@ def duel_details(path: str = None) -> list:
         winner = (team_map[t1] if t1_sets > t2_sets else
                   team_map[t2] if t2_sets > t1_sets else None)
         results.append({
+            "t1_id": t1,
+            "t2_id": t2,
             "t1_name": team_map.get(t1, "?"),
             "t2_name": team_map.get(t2, "?"),
             "t1_sets": t1_sets,

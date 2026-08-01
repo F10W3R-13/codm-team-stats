@@ -42,16 +42,41 @@
         <td class="text-muted">
             {% if snd %}{{ snd.t1_score }}-{{ snd.t2_score }}{% else %}-{% endif %}
         </td>
-        <td class="text-muted">
-            {% if ctl %}{{ ctl.t1_score }}-{{ ctl.t2_score }}{% else %}<span class="text-muted">미정</span>{% endif %}
+        <td>
+            {% if ctl %}
+                <strong>{{ ctl.t1_score }}-{{ ctl.t2_score }}</strong>
+            {% else %}
+                <input type="number" id="ctl-a-{{ d.t1_id }}-{{ d.t2_id }}" placeholder="{{ d.t1_name[:3] }}" class="ctl-input" title="{{ d.t1_name }} 점수">
+                :
+                <input type="number" id="ctl-b-{{ d.t1_id }}-{{ d.t2_id }}" placeholder="{{ d.t2_name[:3] }}" class="ctl-input" title="{{ d.t2_name }} 점수">
+                <button class="btn btn--ghost ctl-btn" onclick="saveControl({{ d.t1_id }}, {{ d.t2_id }})">저장</button>
+            {% endif %}
         </td>
         <td>
-            {% if d.completed %}✅ {{ d.winner }}{% else %}⏳ {{ d.winner }} 리드 (Control 미정){% endif %}
+            {% if d.completed %}✅ {{ d.winner }} 승{% else %}⏳ {% if d.winner %}{{ d.winner }} 리드 (Control 미정){% else %}동점 (Control 미정){% endif %}{% endif %}
         </td>
     </tr>
     {% endfor %}
 </table>
+<p class="text-muted">Control 점수를 입력하고 저장하면 스탠딩에 즉시 반영됩니다. (한 팀 대결당 Control 1세트, 재입력 시 덮어쓰기)</p>
 {% endif %}
+
+<script>
+async function saveControl(t1, t2) {
+    const s1 = document.getElementById('ctl-a-' + t1 + '-' + t2).value;
+    const s2 = document.getElementById('ctl-b-' + t1 + '-' + t2).value;
+    if (s1 === '' || s2 === '') { alert('양쪽 점수를 모두 입력하세요'); return; }
+    try {
+        const res = await fetch('/api/control', {
+            method: 'POST', headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({team_a_id: t1, team_b_id: t2, team_a_score: parseInt(s1), team_b_score: parseInt(s2)})
+        });
+        const data = await res.json();
+        if (!res.ok) { alert('오류: ' + (data.detail || '저장 실패')); return; }
+        location.reload();  // 스탠딩 갱신
+    } catch (e) { alert('오류: ' + e.message); }
+}
+</script>
 
 {% else %}
 <p class="text-muted">등록된 매치가 없습니다.</p>
