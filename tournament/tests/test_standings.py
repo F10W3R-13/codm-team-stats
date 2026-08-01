@@ -73,16 +73,54 @@ def test_standings_excludes_final_from_round_robin():
         os.unlink(path)
 
 
-def test_final_match_returns_stage_final():
+def test_final_match_returns_none_until_implemented():
+    """결승 Bo7 구조 미구현 → final_match는 None 반환 (추후 구현 시 확장)."""
     path = _fresh_db()
     try:
         t1, t2 = _seed_teams(path, "Alpha", "Bravo")
         db.insert_match("HP", "RR", "2026-08-01", t1, t2, 250, 200,
                         "round_robin", path=path)
-        final_id = db.insert_match("HP", "Final", "2026-08-02", t2, t1,
-                                   250, 240, "final", path=path)
+        db.insert_match("HP", "Final", "2026-08-02", t2, t1,
+                        250, 240, "final", path=path)
         fm = standings.final_match(path=path)
-        assert fm["match_id"] == final_id
-        assert fm["winner_name"] == "Bravo"  # team_a (Bravo) 250 > 240
+        assert fm is None  # Bo7 결승 구조 구현 전까지 None
+    finally:
+        os.unlink(path)
+
+
+def test_duel_set_score():
+    """팀 대결 세트 스코어: HP/SND 각 승자 → 세트 다승."""
+    path = _fresh_db()
+    try:
+        t1, t2 = _seed_teams(path, "Alpha", "Bravo")
+        # Alpha HP 승 (250-200), Bravo SND 승 (5-9) → 1-1
+        db.insert_match("HP", "M", "2026-08-01", t1, t2, 250, 200, "round_robin", path=path)
+        db.insert_match("SND", "M", "2026-08-01", t1, t2, 5, 9, "round_robin", path=path)
+        duels = standings.duel_details(path=path)
+        assert len(duels) == 1
+        d = duels[0]
+        assert d["t1_sets"] == 1  # Alpha HP 승
+        assert d["t2_sets"] == 1  # Bravo SND 승
+        assert d["winner"] is None  # 1-1 동점
+        assert not d["completed"]  # Control 없어서 미완료
+    finally:
+        os.unlink(path)
+
+
+def test_duel_completed_with_control():
+    """3세트(HP+SND+CTL) 있으면 완료된 대결."""
+    path = _fresh_db()
+    try:
+        t1, t2 = _seed_teams(path, "Alpha", "Bravo")
+        # Alpha 2-1 승 (HP, CTL 승 / SND 패)
+        db.insert_match("HP", "M", "d", t1, t2, 250, 200, "round_robin", path=path)
+        db.insert_match("SND", "M", "d", t1, t2, 5, 9, "round_robin", path=path)
+        db.insert_match("CTL", "M", "d", t1, t2, 3, 1, "round_robin", path=path)
+        duels = standings.duel_details(path=path)
+        d = duels[0]
+        assert d["t1_sets"] == 2
+        assert d["t2_sets"] == 1
+        assert d["winner"] == "Alpha"
+        assert d["completed"]
     finally:
         os.unlink(path)

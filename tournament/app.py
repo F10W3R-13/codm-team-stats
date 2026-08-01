@@ -109,9 +109,10 @@ async def api_confirm(request: Request):
 @app.get("/standings", response_class=HTMLResponse)
 async def standings_page(request: Request):
     table = standings_mod.compute()
+    duels = standings_mod.duel_details()
     final = standings_mod.final_match()
     return templates.TemplateResponse(request, "standings.html", {
-        "table": table, "final": final,
+        "request": request, "table": table, "duels": duels, "final": final,
     })
 
 
@@ -142,6 +143,12 @@ async def api_delete_match(match_id: int):
         return {"ok": True}
     except Exception as e:
         raise HTTPException(status_code=500, detail=_friendly_error(e))
+
+
+@app.get("/metrics", response_class=HTMLResponse)
+async def metrics_page(request: Request):
+    """ZCS/RDS 커스텀 지표 설명 페이지."""
+    return templates.TemplateResponse(request, "metrics.html", {"request": request})
 
 
 @app.get("/matches/{match_id}", response_class=HTMLResponse)
