@@ -283,3 +283,24 @@ def delete_match(match_id: int, path: str = None) -> None:
         conn.commit()
     finally:
         conn.close()
+
+
+def update_match(match_id: int, *, team_a_id=None, team_b_id=None,
+                 team_a_score=None, team_b_score=None, mode=None,
+                 stage=None, path: str = None) -> None:
+    """매치 메타 수정 (팀/점수/모드/스테이지). None 아닌 필드만 갱신."""
+    conn = get_conn(path)
+    try:
+        sets = {}
+        for k, v in [("team_a_id", team_a_id), ("team_b_id", team_b_id),
+                     ("team_a_score", team_a_score), ("team_b_score", team_b_score),
+                     ("mode", mode), ("stage", stage)]:
+            if v is not None:
+                sets[k] = v
+        if sets:
+            cols = ", ".join(f"{k}=?" for k in sets)
+            conn.execute(f"UPDATE matches SET {cols} WHERE id=?",
+                         (*sets.values(), match_id))
+            conn.commit()
+    finally:
+        conn.close()

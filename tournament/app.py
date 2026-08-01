@@ -180,6 +180,22 @@ async def api_delete_match(match_id: int):
         raise HTTPException(status_code=500, detail=_friendly_error(e))
 
 
+@app.post("/api/match/{match_id}/update")
+async def api_update_match(match_id: int, request: Request):
+    """매치 점수/팀/모드 수정 (잘못 입력된 점수 정정용)."""
+    body = await request.json()
+    try:
+        db.update_match(match_id,
+                        team_a_id=body.get("team_a_id"),
+                        team_b_id=body.get("team_b_id"),
+                        team_a_score=body.get("team_a_score"),
+                        team_b_score=body.get("team_b_score"),
+                        mode=body.get("mode"))
+        return {"ok": True}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=_friendly_error(e))
+
+
 @app.get("/metrics", response_class=HTMLResponse)
 async def metrics_page(request: Request):
     """ZCS/RDS 커스텀 지표 설명 페이지."""

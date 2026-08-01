@@ -4,14 +4,17 @@
 <h1>📋 매치 기록</h1>
 
 {% if matches %}
+<p class="text-muted">점수가 잘못 입력된 매치는 직접 수정하거나 삭제 후 재등록하세요. 점수를 고치면 스탠딩에 즉시 반영됩니다.</p>
 <table>
-    <tr><th>#</th><th>모드</th><th>맵</th><th>스테이지</th><th>대결</th><th>스코어</th><th> </th></tr>
+    <tr><th>#</th><th>모드</th><th>맵</th><th>스테이지</th><th>대결</th><th>스코어</th><th>관리</th></tr>
     {% for m in matches %}
-    <tr>
+    <tr id="row-{{ m.id }}">
         <td><a href="/matches/{{ m.id }}">#{{ m.id }}</a></td>
         <td>
             {% if m.mode == 'HP' %}<span class="badge badge--hp">HP</span>
-            {% else %}<span class="badge badge--snd">SND</span>{% endif %}
+            {% elif m.mode == 'SND' %}<span class="badge badge--snd">SND</span>
+            {% elif m.mode == 'CTL' %}<span class="badge badge--rr">CTL</span>
+            {% else %}{{ m.mode }}{% endif %}
         </td>
         <td>{{ m.map_name or '-' }}</td>
         <td>
@@ -19,17 +22,49 @@
             {% else %}<span class="badge badge--rr">풀리그</span>{% endif %}
         </td>
         <td>{{ m.team_a_name }} vs {{ m.team_b_name }}</td>
-        <td><strong>{{ m.team_a_score }}</strong> : <strong>{{ m.team_b_score }}</strong></td>
-        <td><button class="row-del" onclick="deleteMatch({{ m.id }})" title="삭제">🗑 삭제</button></td>
+        <td class="score-cell">
+            <input type="number" class="match-score-input" id="score-a-{{ m.id }}" value="{{ m.team_a_score }}" title="{{ m.team_a_name }} 점수">
+            <span>:</span>
+            <input type="number" class="match-score-input" id="score-b-{{ m.id }}" value="{{ m.team_b_score }}" title="{{ m.team_b_name }} 점수">
+        </td>
+        <td class="manage-cell">
+            <button class="btn btn--ghost match-save-btn" onclick="saveMatch({{ m.id }})">저장</button>
+            <button class="row-del" onclick="deleteMatch({{ m.id }})" title="삭제">🗑</button>
+        </td>
     </tr>
     {% endfor %}
 </table>
-<p class="text-muted" style="margin-top: var(--space-3);">잘못 입력한 매치는 삭제 후 다시 등록하세요.</p>
 {% else %}
 <p class="text-muted">등록된 매치가 없습니다.</p>
 {% endif %}
 
+<style>
+.match-score-input { width:60px; padding:2px 4px; border:1px solid var(--border); border-radius: var(--radius-sm); font-size:.85rem; text-align:center; }
+.match-score-input:focus { border-color: var(--accent); outline:none; }
+.match-save-btn { font-size:.75rem; padding:2px 8px; }
+.score-cell { white-space:nowrap; }
+.manage-cell { white-space:nowrap; }
+</style>
+
 <script>
+async function saveMatch(id) {
+    const sa = document.getElementById('score-a-' + id).value;
+    const sb = document.getElementById('score-b-' + id).value;
+    try {
+        const res = await fetch('/api/match/' + id + '/update', {
+            method: 'POST', headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({team_a_score: parseInt(sa), team_b_score: parseInt(sb)})
+        });
+        const data = await res.json();
+        if (!res.ok) { alert('오류: ' + (data.detail || '저장 실패')); return; }
+        // 저장 성공 표시
+        const btn = event.target;
+        const orig = btn.textContent;
+        btn.textContent = '✓'; btn.style.color = 'var(--success)';
+        setTimeout(() => { btn.textContent = orig; btn.style.color = ''; }, 1500);
+    } catch (e) { alert('오류: ' + e.message); }
+}
+
 async function deleteMatch(id) {
     if (!confirm('매치 #' + id + '를 삭제합니다. 이 작업은 되돌릴 수 없습니다.')) return;
     try {
