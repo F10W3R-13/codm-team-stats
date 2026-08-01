@@ -53,7 +53,13 @@
             {% endif %}
         </td>
         <td>
-            {% if d.completed %}✅ {{ d.winner }} 승{% else %}⏳ {% if d.winner %}{{ d.winner }} 리드 (Control 미정){% else %}동점 (Control 미정){% endif %}{% endif %}
+            {% if d.completed %}
+                ✅ {{ d.winner }} 승 ({{ d.t1_sets }}-{{ d.t2_sets }})
+            {% elif ctl %}
+                ⏳ {% if d.winner %}{{ d.winner }} 리드 ({{ d.t1_sets }}-{{ d.t2_sets }}, 추가 세트 미정){% else %}동점 ({{ d.t1_sets }}-{{ d.t2_sets }}, 추가 세트 미정){% endif %}
+            {% else %}
+                ⏳ {% if d.winner %}{{ d.winner }} 리드 (Control 미정){% else %}동점 (Control 미정){% endif %}
+            {% endif %}
         </td>
     </tr>
     {% endfor %}
