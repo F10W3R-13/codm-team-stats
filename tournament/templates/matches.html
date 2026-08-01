@@ -28,7 +28,7 @@
             <input type="number" class="match-score-input" id="score-b-{{ m.id }}" value="{{ m.team_b_score }}" title="{{ m.team_b_name }} 점수">
         </td>
         <td class="manage-cell">
-            <button class="btn btn--ghost match-save-btn" onclick="saveMatch({{ m.id }})">저장</button>
+            <button class="btn btn--ghost match-save-btn" onclick="saveMatch({{ m.id }}, event)">저장</button>
             <button class="row-del" onclick="deleteMatch({{ m.id }})" title="삭제">🗑</button>
         </td>
     </tr>
@@ -47,7 +47,7 @@
 </style>
 
 <script>
-async function saveMatch(id) {
+async function saveMatch(id, evt) {
     const sa = document.getElementById('score-a-' + id).value;
     const sb = document.getElementById('score-b-' + id).value;
     try {
@@ -58,7 +58,7 @@ async function saveMatch(id) {
         const data = await res.json();
         if (!res.ok) { alert('오류: ' + (data.detail || '저장 실패')); return; }
         // 저장 성공 표시
-        const btn = event.target;
+        const btn = evt.target;
         const orig = btn.textContent;
         btn.textContent = '✓'; btn.style.color = 'var(--success)';
         setTimeout(() => { btn.textContent = orig; btn.style.color = ''; }, 1500);
