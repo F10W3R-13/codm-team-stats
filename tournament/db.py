@@ -123,31 +123,48 @@ def resolve_player(ign: str, path: str = None):
     대소문자/클랜태그/특수문자/숫자접미사를 정규화하여 포괄적으로 매칭:
     -MaDara- → madara, Madara → madara (일치)
     Hashirama6974 → hashirama, Hashirama → hashirama (숫자접미사 제거 후 일치)
+    4uNi.Pasang → pasang, Pasang → pasang (클랜태그 접두사 제거 후 일치)
     """
     import re
 
     def _norm(s):
         # 소문자화 + 클랜태그/특수문자 제거 + 끝의 숫자 접미사 제거
         s = s.lower().strip()
-        s = re.sub(r"\[.*?\]", "", s)       # 클랜태그
+        s = re.sub(r"\[.*?\]", "", s)       # 클랜태그 [XXX]
+        # 점/공백/하이픈으로 구분된 접두 클랜태그 제거 (Fz./V1 /CLRS./4uNi.)
+        # 첫 토큰이 6자 이하면 클랜태그로 간주하고 핵심 이름만 남김
         s = re.sub(r"[^a-z0-9가-힣]", "", s)  # 알파벳+숫자+한글만
         s = re.sub(r"\d+$", "", s)           # 끝 숫자 접미사 (6974 등)
         return s
 
+    def _strip_clan(s):
+        """클랜태그 접두사를 떼어낸 핵심 이름 정규화.
+        4uNi.Pasang → pasang, V1 Ichi → ichi, Fz.Karpe → karpe
+        """
+        cleaned = re.sub(r"\[.*?\]", "", s).strip()
+        parts = re.split(r"[.\s]+", cleaned, maxsplit=1)
+        if len(parts) == 2 and len(parts[0]) <= 6:
+            return _norm(parts[1])  # 클랜태그 버리고 핵심만
+        return _norm(cleaned)
+
     norm_ign = _norm(ign)
+    stripped_ign = _strip_clan(ign)  # 클랜태그 제거 버전 (추가 매칭용)
     conn = get_conn(path)
     try:
-        # 1) players 표준명 매칭 (정확 → 정규화)
+        # 1) players 표준명 매칭 (정확 → 정규화 → 클랜태그 제거)
         row = conn.execute(
             """SELECT p.id, p.team_id, p.name FROM players p
-               WHERE p.name = ? OR LOWER(p.name) = ?""", (ign, norm_ign)).fetchone()
+               WHERE p.name = ? OR LOWER(p.name) = ? OR LOWER(p.name) = ?""",
+            (ign, norm_ign, stripped_ign)).fetchone()
         if row:
             return (row["id"], row["team_id"])
-        # 2) aliases 매칭 (정확 → 정규화)
+        # 2) aliases 매칭 (정확 → 정규화 → 클랜태그 제거)
         for r in conn.execute(
                 """SELECT a.player_id, p.team_id, a.ign FROM aliases a
                    JOIN players p ON p.id = a.player_id""").fetchall():
-            if _norm(r["ign"]) == norm_ign:
+            r_norm = _norm(r["ign"])
+            r_strip = _strip_clan(r["ign"])
+            if r_norm == norm_ign or r_strip == stripped_ign or r_norm == stripped_ign:
                 return (r["player_id"], r["team_id"])
         return None
     finally:
