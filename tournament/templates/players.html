@@ -41,7 +41,8 @@
 {% if hp %}
 <div class="table-tools">
     <button class="btn btn--ghost" onclick="exportCSV('hp-table', '하드포인트_선수순위.csv')">📥 CSV 다운로드</button>
-    <span class="text-muted">열 제목을 클릭하면 그 기준으로 정렬됩니다 (데스는 낮을수록 좋음)</span>
+    <label class="filter-toggle"><input type="checkbox" checked onchange="toggleMinMatches('hp-table', this)"> 2경기 이상만</label>
+    <span class="text-muted">열 제목을 클릭하면 그 기준으로 정렬 + 맨 앞 이동</span>
 </div>
 <table id="hp-table" class="sortable">
     <thead><tr>
@@ -87,7 +88,8 @@
 {% if snd %}
 <div class="table-tools">
     <button class="btn btn--ghost" onclick="exportCSV('snd-table', '수색섬멸_선수순위.csv')">📥 CSV 다운로드</button>
-    <span class="text-muted">열 제목을 클릭하면 그 기준으로 정렬됩니다 (데스는 낮을수록 좋음)</span>
+    <label class="filter-toggle"><input type="checkbox" checked onchange="toggleMinMatches('snd-table', this)"> 2경기 이상만</label>
+    <span class="text-muted">열 제목을 클릭하면 그 기준으로 정렬 + 맨 앞 이동</span>
 </div>
 <table id="snd-table" class="sortable">
     <thead><tr>
@@ -142,6 +144,8 @@ table { font-size:.88rem; }
 .sortable th.sorted-asc::after { content: ' ▲'; font-size:.7rem; }
 .sortable th.sorted-desc::after { content: ' ▼'; font-size:.7rem; }
 .table-tools { display:flex; align-items:center; gap: var(--space-3); margin-bottom: var(--space-3); flex-wrap:wrap; }
+.filter-toggle { display:flex; align-items:center; gap:4px; font-size:.85rem; color: var(--text-2); cursor:pointer; user-select:none; }
+.filter-toggle input { cursor:pointer; }
 </style>
 
 <script>
@@ -240,12 +244,44 @@ function exportCSV(tableId, filename) {
     URL.revokeObjectURL(url);
 }
 
-// 페이지 로드 시 기본 정렬 적용 (ZCS/RDS 내림차순)
+// 1경기 이하 선수 필터 (2경기 이상만 표시)
+function toggleMinMatches(tableId, checkbox) {
+    const table = document.getElementById(tableId);
+    if (!table) return;
+    const minMatches = checkbox.checked ? 2 : 0;
+    const tbody = table.querySelector('tbody');
+    const rows = [...tbody.querySelectorAll('tr')];
+    let rank = 0;
+    rows.forEach(row => {
+        // matches 열 (data-key="matches")의 data-val 찾기
+        const matchesCell = row.querySelector('td[data-val]');
+        // matches는 4번째 열(idx 3) — 헤더 기준 data-key="matches"
+        const headers = [...table.querySelectorAll('th')];
+        const matchesIdx = headers.findIndex(h => h.dataset.key === 'matches');
+        const matches = matchesIdx >= 0 ? parseInt(row.children[matchesIdx].dataset.val) || 0 : 99;
+        if (matches < minMatches) {
+            row.style.display = 'none';
+        } else {
+            row.style.display = '';
+            rank++;
+            const rankCell = row.children[0];
+            rankCell.textContent = rank;
+            rankCell.className = 'rank' + (rank === 1 ? ' rank-1' : rank === 2 ? ' rank-2' : rank === 3 ? ' rank-3' : '');
+        }
+    });
+}
+
+// 페이지 로드 시 기본 정렬 적용 (ZCS/RDS 내림차순) + 필터 적용
 window.addEventListener('DOMContentLoaded', () => {
     const hpDefault = document.querySelector('#hp-table th[data-default="true"]');
     if (hpDefault) { sortBy('hp-table', hpDefault); sortBy('hp-table', hpDefault); }  // 두번 클릭해 내림차순 확정
     const sndDefault = document.querySelector('#snd-table th[data-default="true"]');
     if (sndDefault) { sortBy('snd-table', sndDefault); sortBy('snd-table', sndDefault); }
+    // 기본 필터 (2경기 이상만) 적용
+    const hpCheck = document.querySelector('#hp-table').closest('.tab-panel').querySelector('.filter-toggle input');
+    const sndCheck = document.querySelector('#snd-table').closest('.tab-panel').querySelector('.filter-toggle input');
+    if (hpCheck) toggleMinMatches('hp-table', hpCheck);
+    if (sndCheck) toggleMinMatches('snd-table', sndCheck);
 });
 </script>
 {% endblock %}
