@@ -172,3 +172,39 @@ def snd_rankings(path: str = None) -> list:
         })
     result.sort(key=lambda r: (-r["avg_rds"], -r["kills"], r["name"]))
     return result
+
+
+def champion_mvp(path: str = None, override_name: str = None) -> dict:
+    """우승팀(스탠딩 1위) 내에서 MVP 점수가 가장 높은 선수.
+
+    override_name: 특정 선수를 강제 MVP로 지정 (코치 재량).
+    리그 1위 팀이 확정된 상태에서만 유효.
+    반환: {name, team_name, mvp_score, avg_zcs, avg_rds, ...} 또는 None.
+    """
+    import standings
+    table = standings.compute(path)
+    if not table:
+        return None
+    champion = table[0]
+    champion_team = champion["team_name"]
+
+    rankings = player_rankings(path)
+
+    if override_name:
+        # 수동 지정 — 해당 선수 찾기
+        found = [r for r in rankings if r["name"] == override_name]
+        if not found:
+            return None
+        mvp = dict(found[0])
+    else:
+        # 자동 — 우승팀 내 MVP 점수 최고
+        team_players = [r for r in rankings if r["team_name"] == champion_team]
+        if not team_players:
+            return None
+        team_players.sort(key=lambda r: (-r["mvp_score"], -r["total_kills"]))
+        mvp = dict(team_players[0])
+
+    mvp["champion_team"] = champion_team
+    mvp["champion_sets"] = f"{champion['sets_won']}-{champion['sets_lost']}"
+    mvp["runner_up"] = table[1]["team_name"] if len(table) > 1 else None
+    return mvp

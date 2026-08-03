@@ -239,6 +239,16 @@ async def report_page(request: Request):
     mvps = awards.mvps()
     rankings = awards.player_rankings()[:10]  # 상위 10
     return templates.TemplateResponse(request, "report.html", {
-        "table": table, "final": final,
+        "request": request, "table": table, "final": final,
         "mvps": mvps, "rankings": rankings,
+    })
+
+
+@app.get("/poster", response_class=HTMLResponse)
+async def poster_page(request: Request):
+    """MVP 포스터 (SNS용 대형 그래픽)."""
+    # 코치 재량 MVP 지정 (ZCS 무시, LoseJai 선정)
+    mvp = awards.champion_mvp(override_name="LoseJai")
+    return templates.TemplateResponse(request, "poster.html", {
+        "request": request, "mvp": mvp,
     })
