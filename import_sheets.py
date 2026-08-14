@@ -10,7 +10,6 @@
 
 import os
 import re
-import sys
 from datetime import datetime
 
 import gspread
@@ -61,7 +60,6 @@ def _gspread_client():
     - 로컬: GOOGLE_SERVICE_ACCOUNT_FILE (파일 경로) 사용
     """
     if config.SERVICE_ACCOUNT_JSON:
-        from io import BytesIO
         import json
         return gspread.service_account_from_dict(json.loads(config.SERVICE_ACCOUNT_JSON))
     return gspread.service_account(filename=config.SERVICE_ACCOUNT_FILE)
@@ -187,7 +185,7 @@ def insert_aliases(conn, alias_rows):
         actual = (row[1] or "").strip()
         if not ign or not actual:
             continue
-        pid = db.resolve_player_id(conn, actual, ign_raw=ign)
+        db.resolve_player_id(conn, actual, ign_raw=ign)  # 부수효과(선수/alias 등록)만 사용
         n += 1
     return n
 

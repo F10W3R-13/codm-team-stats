@@ -22,7 +22,6 @@ STRINGS = {
         "matches": "Partidas",
         "match": "Partida",
         "no_data": "Sin datos",
-        "date_unknown": "Fecha desconocida",
         "map_unknown": "Mapa desconocido",
 
         "period": "Periodo",
@@ -41,7 +40,6 @@ STRINGS = {
         "avg_adr": "ADR Prom",
         "avg_score": "Score Prom",
         "avg_impact": "Impact Prom",
-        "custom_metrics_title": "🧮 Métricas Avanzadas",
         "custom_metrics_desc": "DPD = Daño/Muertes · DPK = Daño/Bajas · ID = Impact − Score/34 · AP% = (CapKill/Bajas)×100 · ZCS = max(0, 1.1·OBJ+8·CK+4.1·K−5·D)",
 
         "hp_section": "🎯 Punto Fuerte",
@@ -61,8 +59,6 @@ STRINGS = {
         "vs_team_title": "vs Promedio del Equipo",
         "custom_metrics_title": "🧮 Métricas Avanzadas",
         "lower_better": "menor es mejor",
-        "metric_label": "Métrica",
-        "team_avg": "Promedio",
         "insight_title": "Análisis",
 
         "leaderboard_title": "🏆 Ranking",

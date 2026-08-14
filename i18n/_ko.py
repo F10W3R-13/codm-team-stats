@@ -24,7 +24,6 @@ STRINGS = {
         "matches": "매치",
         "match": "매치",
         "no_data": "데이터 없음",
-        "date_unknown": "날짜 미상",
         "map_unknown": "맵 미상",
 
         # 대시보드
@@ -45,7 +44,6 @@ STRINGS = {
         "avg_adr": "평균 ADR",
         "avg_score": "평균 Score",
         "avg_impact": "평균 Impact",
-        "custom_metrics_title": "🧮 커스텀 지표",
         "custom_metrics_desc": "DPD = 딜/데스 · DPK = 딜/킬 · ID = Impact − Score/34 · AP% = (캡처킬/킬)×100 · ZCS = max(0, 1.1·OBJ+8·CK+4.1·K−5·D)",
 
         # 선수 상세
@@ -66,8 +64,6 @@ STRINGS = {
         "vs_team_title": "팀 평균 대비",
         "custom_metrics_title": "🧮 커스텀 지표",
         "lower_better": "낮을수록 좋음",
-        "metric_label": "지표",
-        "team_avg": "팀 평균",
         "insight_title": "인사이트",
 
         # 리더보드

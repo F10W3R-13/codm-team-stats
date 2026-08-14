@@ -113,6 +113,13 @@ HP: ZCS 최우선 + 보조 지표들. SND: RDS 단일.
 - 코칭 브레인 폴더/파일 없으면 빈 문자열 → 지표 정의만으로 AI 동작 (실패 안전).
 - 지표 공식(ZCS/RDS) 정의는 `prompt_context._METRIC_DEFINITIONS`에 고정 (metrics.py 동기화). 코칭 통찰과 분리.
 
+### 테스트·CI
+- **루트 스위트**: `pytest` — `conftest.py`가 임시 SQLite·더미 env 토큰을 자동 설정 (GPT/Discord 외부 호출 없음). fixture 시드는 HP 2매치+SND 2매치(Takeoff/Firing Range).
+- **토너먼트 스위트**: `pytest tournament/tests` — **반드시 별도 프로세스로 실행**. `tournament/_path_setup.py`가 최상위 모듈명(`db`, `metrics`)을 루트와 공유해 한 프로세스에서 함께 돌리면 sys.modules 충돌로 양쪽 다 깨짐 (`pytest.ini`의 `--ignore=tournament`가 기본 실행에서 제외).
+- **Lint**: `python -m ruff check .` (`ruff.toml` — 기본 오류 규칙 E4/E7/E9+F, E402 제외).
+- **CI**: `.github/workflows/ci.yml` — push/PR마다 ruff + 루트/토너먼트 스위트 실행.
+- 테스트 파일: `test_metrics.py`(ZCS/RDS 공식 고정), `test_smoke_routes.py`(전 라우트 200), `test_sql_compat.py`(_adapt_sql Postgres 변환 + SQL↔metrics 공식 일치). 공식 변경 시 `test_metrics.py`·`test_sql_compat.py`를 함께 수정.
+
 ### 데이터 현황 메모
 - 승패(`result`/`team_score`/`opponent_score`)는 대부분 NULL → `/admin`에서 수동 입력 필요. 입력 전까지 승률/폼 차트 비활성.
 - 역할 분류(`metrics.classify_role`): 팀 평균 대비 킬+딜 vs OBJ+캡처 비율 (threshold 1.08x). HP 전용.

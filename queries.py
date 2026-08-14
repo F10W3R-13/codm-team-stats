@@ -1132,15 +1132,15 @@ def win_loss_summary(mode: str = None) -> dict:
         total = _count(conn, where, params)
         w = _count(conn, (where + " AND result='WIN'") if where else "WHERE result='WIN'",
                    params if where else ())
-        l = _count(conn, (where + " AND result='LOSS'") if where else "WHERE result='LOSS'",
-                   params if where else ())
+        losses = _count(conn, (where + " AND result='LOSS'") if where else "WHERE result='LOSS'",
+                        params if where else ())
         d = _count(conn, (where + " AND result='DRAW'") if where else "WHERE result='DRAW'",
                    params if where else ())
-        n = total - w - l - d
-        decided = w + l
+        n = total - w - losses - d
+        decided = w + losses
         win_rate = round(w / decided * 100, 1) if decided else None
 
-        out = {"total": total, "wins": w, "losses": l, "draw": d,
+        out = {"total": total, "wins": w, "losses": losses, "draw": d,
                "none": n, "win_rate": win_rate}
 
         if not mode:
@@ -1205,7 +1205,7 @@ def recent_zcs_trend(limit: int = 10) -> list:
     """
     with db.get_conn() as conn:
         rows = conn.execute(
-            f"""SELECT m.id, m.match_date,
+            """SELECT m.id, m.match_date,
                        (SELECT ROUND(AVG(MAX(0, 1.1*obj_time + 8*capture_kill + 4.1*kills - 5*deaths)),1)
                         FROM player_stats_hp WHERE match_id=m.id) avg_zcs
                 FROM matches m WHERE m.mode='HP'
@@ -1277,8 +1277,10 @@ def compare_players(name_a: str, name_b: str, mode: str = "HP") -> dict:
         va = block_a.get(key)
         vb = block_b.get(key)
         # Postgres Decimal → float
-        if hasattr(va, "as_tuple"): va = float(va)
-        if hasattr(vb, "as_tuple"): vb = float(vb)
+        if hasattr(va, "as_tuple"):
+            va = float(va)
+        if hasattr(vb, "as_tuple"):
+            vb = float(vb)
         winner = None
         if va is not None and vb is not None:
             if va == vb:

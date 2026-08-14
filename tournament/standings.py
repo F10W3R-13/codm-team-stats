@@ -74,7 +74,6 @@ def compute(path: str = None) -> list:
     finally:
         conn.close()
 
-    team_map = {t["id"]: t for t in teams}
     duels = _duels(path)
 
     table = {}
@@ -138,7 +137,6 @@ def duel_details(path: str = None) -> list:
     results = []
     for (t1, t2), matches in sorted(duels.items()):
         t1_sets, t2_sets, mode_results = _duel_result(matches, t1, t2)
-        total = t1_sets + t2_sets
         winner = (team_map[t1] if t1_sets > t2_sets else
                   team_map[t2] if t2_sets > t1_sets else None)
         results.append({

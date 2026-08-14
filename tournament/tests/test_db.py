@@ -28,7 +28,7 @@ def test_insert_team_and_player():
     path = _fresh_db()
     try:
         team_id = db.insert_team("Alpha", seed=1, path=path)
-        player_id = db.insert_player("Ace", team_id, path=path)
+        db.insert_player("Ace", team_id, path=path)
         players = db.list_players(team_id, path=path)
         assert len(players) == 1
         assert players[0]["name"] == "Ace"

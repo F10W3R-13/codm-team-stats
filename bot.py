@@ -11,7 +11,7 @@
 import asyncio
 import json
 import logging
-from datetime import datetime, timezone, timedelta
+from datetime import timezone, timedelta
 
 import discord
 from discord.ext import commands

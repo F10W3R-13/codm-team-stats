@@ -22,7 +22,6 @@ STRINGS = {
         "matches": "Matches",
         "match": "Match",
         "no_data": "No data",
-        "date_unknown": "Unknown date",
         "map_unknown": "Unknown map",
 
         "period": "Period",
@@ -41,7 +40,6 @@ STRINGS = {
         "avg_adr": "Avg ADR",
         "avg_score": "Avg Score",
         "avg_impact": "Avg Impact",
-        "custom_metrics_title": "🧮 Advanced Metrics",
         "custom_metrics_desc": "DPD = DMG/Deaths · DPK = DMG/Kills · ID = Impact − Score/34 · AP% = (CapKill/Kills)×100 · ZCS = max(0, 1.1·OBJ+8·CK+4.1·K−5·D)",
 
         "hp_section": "🎯 Hardpoint",
@@ -61,8 +59,6 @@ STRINGS = {
         "vs_team_title": "vs Team Average",
         "custom_metrics_title": "🧮 Advanced Metrics",
         "lower_better": "lower is better",
-        "metric_label": "Metric",
-        "team_avg": "Team avg",
         "insight_title": "Insight",
 
         "leaderboard_title": "🏆 Leaderboard",

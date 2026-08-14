@@ -409,8 +409,6 @@ def banpick_board(recent_matches=None) -> dict:
         kd_vals = [m["avg_kd"] for m in season_maps if m.get("avg_kd") is not None]
         team_season_kd = sum(kd_vals) / len(kd_vals) if kd_vals else None
 
-        season_by_name = {m["map_name"]: m for m in season_maps}
-
         # 기간 데이터 (시즌 모드면 None → 시즌값 그대로)
         if recent_n is None:
             recent_by_name = {}  # 시즌 모드: 블렌딩 불필요

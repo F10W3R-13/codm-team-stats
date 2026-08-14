@@ -3,11 +3,10 @@
 실행: cd tournament && uvicorn app:app --port 8001 --reload
 라우트: / (import), /standings, /players, /matches/{id}, /report
 """
-import os
 from pathlib import Path
 
 from fastapi import FastAPI, Request, UploadFile, File, HTTPException
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 
 import db

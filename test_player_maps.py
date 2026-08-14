@@ -9,7 +9,13 @@
 #  - 빈 결과 (데이터 없는 선수) → 빈 리스트
 #  - _player_overall_rds 존재 + 정상 동작
 
+import pytest
+
 import queries
+
+# conftest의 시드 DB(스키마+샘플 매치) 사용 — 실제 로컬 codm.db 의존 제거.
+# 이전에는 로컬 DB에 데이터가 없으면 조용히 스킵되는 구조였다.
+pytestmark = pytest.mark.usefixtures("seeded_db")
 
 
 def _any_player_with_hp():

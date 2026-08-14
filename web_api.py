@@ -13,7 +13,6 @@
 #
 # 인증 없음 (로컬 전용).
 
-import os
 import asyncio
 from pathlib import Path
 

@@ -162,7 +162,7 @@ def main():
     else:
         print("  새 변형 없음 (이미 등록된 것과 일치).")
     if suspects:
-        print(f"\n  미확인 고유명사 후보 (선수/콜아웃 혼재, 검토 필요):")
+        print("\n  미확인 고유명사 후보 (선수/콜아웃 혼재, 검토 필요):")
         for w in suspects[:20]:
             print(f"    {w}")
     print()

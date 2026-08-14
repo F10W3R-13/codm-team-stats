@@ -1,0 +1,31 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt httpx ruff
+
+      - name: Lint (ruff)
+        run: ruff check .
+
+      # 루트 스위트와 tournament 스위트는 같은 이름의 최상위 모듈(db 등)을
+      # 서로 다른 파일로 임포트해 한 프로세스에선 충돌 → 반드시 분리 실행 (pytest.ini 참조)
+      - name: Test — root suite
+        run: pytest -q
+
+      - name: Test — tournament suite
+        run: pytest tournament/tests -q

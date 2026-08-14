@@ -1,9 +1,8 @@
-import sys
 
 
 def test_path_setup_enables_parent_metrics_import():
     """_path_setup import 후 부모 metrics.py 임포트 가능해야 함."""
-    import _path_setup  # 부모 디렉토리를 sys.path에 추가
+    import _path_setup  # noqa: F401 — sys.path 설정이 목적인 부수효과 임포트
     from metrics import compute_zcs, compute_rds  # 부모 모듈
     assert callable(compute_zcs)
     assert callable(compute_rds)

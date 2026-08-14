@@ -84,7 +84,7 @@ def best_guess(ign: str, candidates: list, min_ratio: float = 0.6):
     norm_map = {normalize(c): c for c in candidates}
     targets = list(norm_map.keys())
     # stripped와 norm_ign 둘 다에서 가장 높은 유사도
-    ratios = difflib.SequenceMatcher(None, stripped, "").quick_ratio()  # warmup
+    difflib.SequenceMatcher(None, stripped, "").quick_ratio()  # warmup (캐시 예열)
     best_t, best_r = None, 0.0
     for t in targets:
         r1 = difflib.SequenceMatcher(None, stripped, t).ratio()
