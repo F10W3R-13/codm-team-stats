@@ -2,7 +2,7 @@
 #
 # GPT 호출 비용/지연을 줄이기 위해 결과를 메모리에 캐싱.
 # 전략:
-#   - TTL 기반 만료 (기본 1시간)
+#   - TTL 기반 만료 (기본 10분)
 #   - 새 매치 기록 시 관련 캐시 무효화 (stats_repo.save_match 호출 시)
 #   - 코칭 브레인 지문 연동: 저장 시점 지문 ≠ 현재 지문이면 캐시 미스
 #     (코치가 코칭 브레인 수정 → 옛날 지식이 캐시에서 서비스되는 것 방지)
@@ -13,8 +13,9 @@
 import time
 from threading import Lock
 
-# 기본 TTL (초) — 1시간
-DEFAULT_TTL = 3600
+# 기본 TTL (초) — 10분
+# (봇↔웹이 별도 프로세스라 봇의 매치 저장이 웹 캐시를 못 지움 → 짧은 TTL로 옛 데이터 노출 상한)
+DEFAULT_TTL = 600
 
 _lock = Lock()
 # {(kind, target, lang): (insight_text, expire_timestamp, fingerprint)}

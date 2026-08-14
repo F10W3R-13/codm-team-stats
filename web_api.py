@@ -456,12 +456,16 @@ async def admin_match_edit(request: Request, match_id: int, lang: str = Query("k
 @app.post("/admin/match/{match_id}/meta")
 async def admin_update_meta(match_id: int, payload: dict = Body(...)):
     ok = admin_write.update_match_meta(match_id, **payload)
+    if ok:
+        insight_cache.invalidate_all()
     return {"ok": ok}
 
 
 @app.post("/admin/stat/{stat_id}")
 async def admin_update_stat(stat_id: int, mode: str = Query(...), payload: dict = Body(...)):
     ok = admin_write.update_player_stat(stat_id, mode, **payload)
+    if ok:
+        insight_cache.invalidate_all()
     return {"ok": ok}
 
 
@@ -477,6 +481,8 @@ async def admin_add_player(match_id: int, mode: str = Query(...), payload: dict 
     except (ValueError, TypeError):
         return {"ok": False, "error": "invalid player_id"}
     ok = admin_write.add_player_to_match(match_id, mode, player_id, **payload)
+    if ok:
+        insight_cache.invalidate_all()
     return {"ok": ok}
 
 
@@ -529,6 +535,8 @@ async def admin_upload_day_transcript(match_date: str, lang: str = Query("ko"),
 @app.delete("/admin/match/{match_id}")
 async def admin_delete_match(match_id: int):
     ok = admin_write.delete_match(match_id)
+    if ok:
+        insight_cache.invalidate_all()
     return {"ok": ok}
 
 
@@ -581,6 +589,8 @@ async def admin_players_page(request: Request, lang: str = Query("ko")):
 @app.delete("/admin/player/{player_id}")
 async def admin_delete_player(player_id: int):
     ok = admin_write.delete_player(player_id)
+    if ok:
+        insight_cache.invalidate_all()
     return {"ok": ok}
 
 
@@ -594,6 +604,8 @@ async def admin_merge_player(payload: dict = Body(...)):
     if not src_id or not dst_player:
         return {"ok": False, "message": "src_id 와 dst_player 가 필요합니다"}
     result = db.merge_player(int(src_id), dst_player)
+    if result.get("ok"):
+        insight_cache.invalidate_all()
     return result
 
 

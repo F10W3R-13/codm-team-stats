@@ -8,6 +8,7 @@
 #
 # make.com과의 차이: 메시지 작성 시간(한국시)을 Date 열에 자동 기록.
 
+import asyncio
 import json
 import logging
 from datetime import datetime, timezone, timedelta
@@ -204,7 +205,9 @@ async def on_message(message: discord.Message):
 
     async with message.channel.typing():
         try:
-            result = analyze_images(url1, url2)
+            # 동기 GPT 비전 호출(timeout 60s) — 이벤트 루프 블로킹 방지
+            result = await asyncio.get_running_loop().run_in_executor(
+                None, analyze_images, url1, url2)
         except json.JSONDecodeError as e:
             log.exception("GPT response JSON parse failed")
             await message.reply(f"❌ Failed to parse the analysis result as JSON: `{e}`")
@@ -275,7 +278,9 @@ async def on_message(message: discord.Message):
         # Auto match report (right after analysis completes)
         try:
             import report_embeds
-            embed = report_embeds.build_match_report_embed(result_info["match_id"])
+            # 내부에서 동기 GPT 인사이트 호출(최대 15s) — executor로 위임
+            embed = await asyncio.get_running_loop().run_in_executor(
+                None, report_embeds.build_match_report_embed, result_info["match_id"])
             if embed:
                 await message.channel.send(embed=embed)
         except Exception:
