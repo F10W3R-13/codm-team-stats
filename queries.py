@@ -1109,6 +1109,15 @@ def map_trend(map_name: str, mode: str = "HP", days: int = 30) -> dict:
 
 # ── 승패(W/L) 통계 ──────────────────────────────────────────────────────────
 
+def missing_result_count() -> int:
+    """승패(result)이 미입력(NULL)인 매치 수 — 허브 경고 배지용."""
+    with db.get_conn() as conn:
+        r = conn.execute(
+            db._adapt_sql("SELECT COUNT(*) c FROM matches WHERE result IS NULL")
+        ).fetchone()
+    return r["c"] if r else 0
+
+
 def win_loss_summary(mode: str = None) -> dict:
     """팀 승패 요약.
 

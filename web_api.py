@@ -113,6 +113,8 @@ async def coaching_hub_page(request: Request, lang: str = Query("ko"),
         {"id": p["id"], "name": p["name"]}
         for p in queries.all_players_overview("HP")
     ] if is_admin else []
+    # 승패 미입력 경고 배지 (관리자 전용 — 입력은 코치의 몫이므로)
+    data["missing_result"] = queries.missing_result_count() if is_admin else 0
     return render("coaching_hub.html", lang=lang, data=data, is_admin=is_admin)
 
 

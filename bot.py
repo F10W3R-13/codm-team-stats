@@ -231,9 +231,9 @@ async def on_message(message: discord.Message):
             await message.reply("⚠️ Analysis complete, but no player data was found.")
             return
 
-        # AI 누락(4명만 읽음 등) 조기 감지 — 관리 탭에서 보정 가능하지만 알림.
+        # AI 누락(4명만 읽음 등) 조기 감지 — 재업로드하면 자동 병합되므로 안내.
         if len(players) < 5:
-            print(f"[WARN] 선수 {len(players)}명만 인식됨 (5명 기대). 누락이면 /admin에서 추가.")
+            log.warning("선수 %d명만 인식됨 (5명 기대). 재업로드 시 자동 병합 또는 /admin에서 추가.", len(players))
 
         if mode not in ("HP", "SND"):
             await message.reply(
@@ -256,12 +256,33 @@ async def on_message(message: discord.Message):
 
         # Completion summary (승패/점수/맵 표시)
         names = ", ".join(p.get("name", "?") for p in players)
+        if result_info.get("duplicate"):
+            if result_info["saved"] > 0:
+                head = (
+                    f"♻️ **{mode}** re-upload merged into match #{result_info['match_id']} "
+                    f"(+{result_info['saved']} players)"
+                )
+            else:
+                head = (
+                    f"♻️ **{mode}** duplicate — already recorded as "
+                    f"match #{result_info['match_id']}, nothing saved"
+                )
+        else:
+            head = (
+                f"✅ **{mode}** analysis complete — {result_info['saved']} players saved "
+                f"(match #{result_info['match_id']})"
+            )
         summary = (
-            f"✅ **{mode}** analysis complete — {result_info['saved']} players saved "
-            f"(match #{result_info['match_id']})\n"
+            f"{head}\n"
             f"Players: {names}\n"
             f"Date: {date_str}"
         )
+        if len(players) < 5:
+            summary += (
+                f"\n⚠️ Only {len(players)} players detected. "
+                "Re-upload the same screenshots to auto-merge missing players, "
+                "or fix it in /admin."
+            )
         # 승패/점수/맵이 추출됐으면 추가
         extras = []
         if match_result:

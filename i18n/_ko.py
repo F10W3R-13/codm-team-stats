@@ -225,6 +225,9 @@ STRINGS = {
         # 코칭 허브
         "hub_title": "코칭 허브",
         "hub_subtitle": "지금 봐야 할 것 — 한눈에",
+        "hub_missing_result": "승패 미입력 매치",
+        "hub_missing_result_help": "입력 전까지 승률·폼 차트에 반영되지 않습니다",
+        "hub_missing_result_go": "입력하러 가기",
         "hub_team_trend": "팀 트렌드",
         "hub_kd": "K/D",
         "hub_kills": "킬",

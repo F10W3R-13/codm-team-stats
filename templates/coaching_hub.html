@@ -6,6 +6,15 @@
 <h1>🎯 {{ t.hub_title }}</h1>
 <p class="muted">{{ t.hub_subtitle }}</p>
 
+{# ── 승패 미입력 경고 (관리자 전용, missing_result는 비로그인 시 0) ── #}
+{% if data.missing_result %}
+<div class="card section card--warning">
+    <h2>⚠️ {{ t.hub_missing_result }}: {{ data.missing_result }}</h2>
+    <p class="muted">{{ t.hub_missing_result_help }}</p>
+    <a class="btn btn--toggle" href="/admin?has_result=NO">{{ t.hub_missing_result_go }}</a>
+</div>
+{% endif %}
+
 {# ── ⓪ 코칭 노트 (액션 아이템, 관리자 전용) ── #}
 {% if is_admin %}
 <div class="card section card--accent notes-widget">
