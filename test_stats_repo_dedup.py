@@ -102,3 +102,36 @@ def test_hub_missing_result_badge_rendering(client):
         assert "승패 미입력 매치" in html  # 기본 lang=ko 렌더
     else:
         assert "승패 미입력 매치" not in html
+
+
+def test_hub_form_up_widget(seeded_db):
+    """폼 상승 위젯 — 최근 K/D가 시즌 평균 대비 +10% 이상인 선수 검출.
+
+    시드(Shisui HP kd 2.0×2)에 최근 2경기 kd 5.0을 추가해 상승 플래그 유도.
+    추가 매치는 finally에서 정리한다 (공유 fixture DB 오염 방지)."""
+    import analytics
+    hot = [{"name": "Shisui", "k": 25, "d": 5, "kd_ratio": 5.0, "time": 90,
+            "score": 3000, "total_damage": 4000, "capture_kill": 2}]
+    added = []
+    try:
+        for date in ("2026-08-15", "2026-08-16"):
+            r = stats_repo.save_match(
+                "HP", hot + [dict(p) for p in HP_MATCH_1[1:]], date,
+                map_name="Takeoff")
+            assert r["duplicate"] is False
+            added.append(r["match_id"])
+
+        # Shisui: 최근 3경기 kd (5.0+5.0+2.0)/3=4.0 vs 시즌 4경기 3.5 → +14.3%
+        result = analytics.coaching_hub(recent_matches=3)
+        names_up = [p["name"] for p in result["form_up"]]
+        assert "Shisui" in names_up
+        assert all(p["delta_pct"] >= 10 for p in result["form_up"])
+        deltas = [p["delta_pct"] for p in result["form_up"]]
+        assert deltas == sorted(deltas, reverse=True)  # 상승폭 큰 순
+        # 임계값 대칭(±10%) → 한 선수가 경고·상승에 동시 등장 불가
+        assert "Shisui" not in [p["name"] for p in result["form_alerts"]]
+    finally:
+        with db.get_conn() as conn:
+            for mid in added:
+                conn.execute(db._adapt_sql("DELETE FROM player_stats_hp WHERE match_id=?"), (mid,))
+                conn.execute(db._adapt_sql("DELETE FROM matches WHERE id=?"), (mid,))

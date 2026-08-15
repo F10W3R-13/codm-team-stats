@@ -528,8 +528,9 @@ def coaching_hub(mode: str = "HP", recent_matches: int | None = 10) -> dict:
         if r.get("avg_zcs") is not None:
             r["avg_zcs"] = float(r["avg_zcs"])
 
-    # 폼 경고 — 시즌 평균 vs 최근 N매치 K/D (시즌 모드엔 무의미 → 비활성)
+    # 폼 경고·상승 — 시즌 평균 vs 최근 N매치 K/D (시즌 모드엔 무의미 → 비활성)
     form_alerts = []
+    form_up = []
     if not season_mode and n >= 3:
         players = queries.all_players_overview(mode)
         for p in players:
@@ -552,7 +553,14 @@ def coaching_hub(mode: str = "HP", recent_matches: int | None = 10) -> dict:
                         "recent_kd": recent_kd, "delta_pct": delta_pct,
                         "season_zcs": p.get("zcs"),
                     })
+                elif delta_pct >= 10:
+                    form_up.append({
+                        "name": p["name"], "season_kd": season_kd,
+                        "recent_kd": recent_kd, "delta_pct": delta_pct,
+                        "season_zcs": p.get("zcs"),
+                    })
         form_alerts.sort(key=lambda x: x["delta_pct"])
+        form_up.sort(key=lambda x: x["delta_pct"], reverse=True)
 
     # 밴픽 우선순위 리스트 (수축 블렌딩 + 정규화 + PICK/BAN 배지)
     banpick = banpick_board(recent_matches)
@@ -565,6 +573,7 @@ def coaching_hub(mode: str = "HP", recent_matches: int | None = 10) -> dict:
         "season_mode": season_mode,
         "summary": summary, "zcs_trend": zcs_trend,
         "form_alerts": form_alerts,
+        "form_up": form_up,
         "banpick": banpick, "roles": roles,
         "win_loss": win_loss,
     }

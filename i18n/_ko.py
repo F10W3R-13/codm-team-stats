@@ -236,6 +236,8 @@ STRINGS = {
         "hub_recent": "최근",
         "hub_form_alerts": "폼 경고",
         "hub_form_help": "시즌 평균 대비 최근 K/D 하락 선수 (-10% 이하)",
+        "hub_form_up": "폼 상승",
+        "hub_form_up_help": "시즌 평균 대비 최근 K/D 상승 선수 (+10% 이상)",
         "hub_season_kd": "시즌 K/D",
         "hub_recent_kd": "최근 K/D",
         # 기간 토글

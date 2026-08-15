@@ -139,7 +139,33 @@
 </div>
 {% endif %}
 
-{# ── ③ 폼 경고 (하락 선수) ── #}
+{# ── ③ 폼 상승 (최근 상승 선수) ── #}
+{% if data.form_up %}
+<div class="card section card--success">
+    <h2>📈 {{ t.hub_form_up }}</h2>
+    <p class="muted stat-label">{{ t.hub_form_up_help }}</p>
+    <div class="table-wrap">
+    <table>
+        <thead>
+            <tr><th>{{ t.player }}</th><th class="num" data-mobile-hide>{{ t.hub_season_kd }}</th><th class="num">{{ t.hub_recent_kd }}</th><th class="num" data-mobile-hide>{{ t.zcs_label }}</th><th class="num">Δ</th></tr>
+        </thead>
+        <tbody>
+            {% for p in data.form_up %}
+            <tr>
+                <td><a href="/players/{{ p.name }}?lang={{ lang }}" class="player-link">{{ p.name }}</a></td>
+                <td class="num" data-mobile-hide>{{ p.season_kd }}</td>
+                <td class="num">{{ p.recent_kd }}</td>
+                <td class="num" data-mobile-hide><strong class="text-accent">{{ p.season_zcs or '-' }}</strong></td>
+                <td class="num delta-up">{{ p.delta_pct }}%</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    </div>
+</div>
+{% endif %}
+
+{# ── ④ 폼 경고 (하락 선수) ── #}
 {% if data.form_alerts %}
 <div class="card section card--danger">
     <h2>⚠️ {{ t.hub_form_alerts }}</h2>
@@ -165,7 +191,7 @@
 </div>
 {% endif %}
 
-{# ── ④ 밴픽 우선순위 리스트 (픽 1순위 → 밴 1순위 정렬) ── #}
+{# ── ⑤ 밴픽 우선순위 리스트 (픽 1순위 → 밴 1순위 정렬) ── #}
 {% if data.banpick %}
 <div class="card section">
     <h2>🗺️ {{ t.hub_banpick }}</h2>
@@ -219,7 +245,7 @@
 </div>
 {% endif %}
 
-{# ── ⑤ 역할 스펙트럼 (slay↔obj 축 위 위치) ── #}
+{# ── ⑥ 역할 스펙트럼 (slay↔obj 축 위 위치) ── #}
 {% if data.roles %}
 <div class="card section">
     <h2>👥 {{ t.hub_role_spectrum }}</h2>

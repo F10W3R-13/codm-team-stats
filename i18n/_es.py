@@ -224,6 +224,8 @@ STRINGS = {
         "hub_recent": "Reciente",
         "hub_form_alerts": "Alertas de Forma",
         "hub_form_help": "Jugadores con K/D reciente ≥10% por debajo del promedio",
+        "hub_form_up": "Subida de Forma",
+        "hub_form_up_help": "Jugadores con K/D reciente ≥10% por encima del promedio",
         "hub_season_kd": "K/D Temporada",
         "hub_recent_kd": "K/D Reciente",
         # 기간 토글
