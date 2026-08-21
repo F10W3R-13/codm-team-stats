@@ -114,11 +114,11 @@ HP: ZCS 최우선 + 보조 지표들. SND: RDS 단일.
 - 지표 공식(ZCS/RDS) 정의는 `prompt_context._METRIC_DEFINITIONS`에 고정 (metrics.py 동기화). 코칭 통찰과 분리.
 
 ### 테스트·CI
-- **루트 스위트**: `pytest` — `conftest.py`가 임시 SQLite·더미 env 토큰을 자동 설정 (GPT/Discord 외부 호출 없음). fixture 시드는 HP 2매치+SND 2매치(Takeoff/Firing Range).
+- **루트 스위트**: `pytest` — `tests/conftest.py`가 임시 SQLite·더미 env 토큰을 자동 설정 (GPT/Discord 외부 호출 없음). fixture 시드는 HP 2매치+SND 2매치(Takeoff/Firing Range).
 - **토너먼트 스위트**: `pytest tournament/tests` — **반드시 별도 프로세스로 실행**. `tournament/_path_setup.py`가 최상위 모듈명(`db`, `metrics`)을 루트와 공유해 한 프로세스에서 함께 돌리면 sys.modules 충돌로 양쪽 다 깨짐 (`pytest.ini`의 `--ignore=tournament`가 기본 실행에서 제외).
 - **Lint**: `python -m ruff check .` (`ruff.toml` — 기본 오류 규칙 E4/E7/E9+F, E402 제외).
 - **CI**: `.github/workflows/ci.yml` — push/PR마다 ruff + 루트/토너먼트 스위트 실행.
-- 테스트 파일: `test_metrics.py`(ZCS/RDS 공식 고정), `test_smoke_routes.py`(전 라우트 200), `test_sql_compat.py`(_adapt_sql Postgres 변환 + SQL↔metrics 공식 일치). 공식 변경 시 `test_metrics.py`·`test_sql_compat.py`를 함께 수정.
+- 테스트 파일: `tests/test_metrics.py`(ZCS/RDS 공식 고정), `tests/test_smoke_routes.py`(전 라우트 200), `tests/test_sql_compat.py`(_adapt_sql Postgres 변환 + SQL↔metrics 공식 일치). 공식 변경 시 두 파일을 함께 수정. 루트 모듈 임포트를 위해 `pytest.ini`의 `pythonpath = .` 필수.
 
 ### 데이터 현황 메모
 - 승패(`result`/`team_score`/`opponent_score`)는 대부분 NULL → `/admin`에서 수동 입력 필요. 입력 전까지 승률/폼 차트 비활성.
@@ -165,6 +165,7 @@ git push origin main
 
 ### DB — 로컬 SQLite ≠ 배포 Postgres
 - 로컬 `codm.db`의 변경(선수 삭제 등)은 **배포 Postgres에 자동 반영되지 않는다.** `codm.db`는 `.gitignore`라 커밋 안 됨. 배포 DB 정리는 admin UI(`/admin/players` 등)로 직접.
+- **데이터 진단·분석은 배포 DB 기준으로 할 것** — 로컬 `codm.db`는 곧바로 스태일해짐(2026-08 실측: 배포 370매치·승패 138 vs 로컬 226·0). 읽기 전용 진단 패턴: `railway run --service Postgres python scripts/xxx.py` (Postgres 서비스의 `DATABASE_PUBLIC_URL`이 주입됨; `--service web`의 DATABASE_URL은 프라이빗이라 로컬에서 접속 불가). 참고: `scripts/zcs_validation.py`.
 - **Postgres 전용 SQL 함정**(로컬 SQLite에선 통과라 배포에서만 터짐):
   - `SELECT DISTINCT ... ORDER BY <표현식>` — Postgres는 ORDER BY 표현식이 SELECT 리스트에 있어야 함. SQLite는 느슨.
   - `AVG(MAX(0, ...))` 중첩 괄호 — `_adapt_sql`의 AVG→`::numeric` 변환 정규식이 중첩 괄호를 못 처리하면 Postgres에서 `ROUND(double, int)` 에러. 괄호 짝 매칭 파서로 처리됨.
@@ -210,6 +211,28 @@ git push origin main
 - 라우트/함수/템플릿 삭제 시 **이를 참조하는 곳(API 호출처, 문서)을 전수 확인**. `/trends` 삭제 후 AGENTS.md에 잔류한 사례 반복. 사용처 grep 습관화.
 
 ## 9. 아키텍처 개요
+
+### 디렉토리 맵 (AI 탐색 절감용 — 파일 열어보기 전에 여기서 먼저 찾을 것)
+```
+├─ web_api.py          웹 라우트 전부 (FastAPI) / start.py 통합 실행 / bot.py 디스코드 봇
+├─ db.py               DB 연결·스키마·_adapt_sql(SQLite↔Postgres 변환)
+├─ queries.py          읽기 전용 조회 (봇·웹 공통) / admin_write.py 쓰기(admin 전용)
+├─ analytics.py        집계 분석 / analytics_insights.py AI 인사이트 (insight_cache.py TTL캐시)
+├─ metrics.py          커스텀 지표 진실 공식 (ZCS/RDS/Impact…) — 수정 금지, 참조만
+├─ prompt.py·prompt_context.py  GPT 프롬프트/시스템 프롬프트 조립
+├─ coaching_brain_loader.py     코칭 브레인(Obsidian) 로더
+├─ commands_cog.py·report_embeds.py·stats_repo.py  디스코드 슬래시 명령·임베드·저장
+├─ config.py·auth.py   설정/admin 인증
+├─ import_sheets.py    구글 시트 → DB 마이그레이션 (일회성)
+├─ tests/              루트 스위트 (conftest.py가 임시 SQLite·더미 토큰 세팅)
+├─ tournament/         토너먼트 모드 (별도 프로세스로 pytest tournament/tests)
+├─ templates/          Jinja2 HTML (base.html에 전역 <style>·토큰·flash() 집중)
+├─ i18n/               3개국어 사전 (_ko/_en/_es, 키 동일성 test_i18n.py 강제)
+├─ scripts/            운영 보조 스크립트 (배포 DB 진단 등)
+├─ docs/               설계문서(superpowers plans/specs), 보안감사, OCR 시스템 문서
+├─ _archive/           미사용 원본(CSV·백업·개인 스터디 노트) — git 무시
+└─ coaching brain/     코치 Obsidian 볼트 (AI 지식 공급원, 공백 포함 이름 주의)
+```
 
 ```
 디스코드 채널 ──스크린샷──▶ bot.py (on_message)
