@@ -5,7 +5,7 @@
 
 | 버전 | 마지막 갱신 | 기반 전사문 | 다음 업데이트 조건 |
 |---|---|---|---|
-| v0.3 | 2026-07-11 | 전사문 1-7 | 새 전사문 추가 시 |
+| v0.5 | 2026-08-21 | 전사문 1-9 | 새 전사문 추가 시 |
 
 ---
 
@@ -40,7 +40,7 @@
 - [팀 운영 원칙](team/팀운영.md) — 콜 시스템, 역할 분배, 갈등 관리, Promise 시스템
 
 ### 🔁 흡수 로그
-- [흡수 로그](log/흡수로그.md) — 전사문 1-6에서 무엇을 학습했는가
+- [흡수 로그](log/흡수로그.md) — 전사문 1-9에서 무엇을 학습했는가
 
 ---
 
@@ -83,12 +83,13 @@
 ## ✅ 보완 필요 영역 (v0.2 기준)
 
 - [ ] Raid Control 상세 전술 (2026 풀)
-- [ ] Tunisia, Firing Range, Coastal, Slums, Meltdown 맵별 상세 (SnD 풀)
+- [x] Tunisia, Firing Range 맵별 상세 — 전사문 9로 부분 충족 (A러시 카운터·A 리테이크). Coastal, Slums, Meltdown는 여전히 보완 필요
 - [ ] Kingz/Cartels 외 선수들의 무기-플레이스타일 매핑 확장
 - [ ] Veto(밴픽) 전략 — [Esports Settings](../reference/CODM_2026_Esports_Settings.md#world-championship-veto-process) 기반
 - [ ] Mappings 문서화 산출물 — 코치가 선수 전원 입회 하에 진행 예정
 - [ ] 첫째/둘째 P3 교차 전술의 다른 맵 적용 (Combine 외)
 - [ ] operator sacrifice/promise 시스템의 맵·힐별 구체 약속 문서화
+- [ ] Control에서 스나이퍼=4v5 인식 문제 해결 (전사문 9에서 코치가 보류한 과제)
 
 ---
 
