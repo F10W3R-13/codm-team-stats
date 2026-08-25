@@ -18,8 +18,8 @@ import pytest  # noqa: E402 (환경변수 설정 후 임포트해야 함)
 
 # ── 시드 데이터 ────────────────────────────────────────────────────────────
 # 기대값은 test_metrics.py·test_sql_compat.py의 손계산과 일치시킨다:
-#   Shisui HP#1 ZCS = 1.1*100 + 8*3 + 4.1*20 - 5*10 = 166.0
-#   Shisui HP#2 ZCS = 1.1*95 + 8*2 + 4.1*22 - 5*11 = 155.7
+#   Shisui HP#1 ZCS = 1.1*100 + 8*3 + 4.1*(20-3) - 5*10 = 153.7
+#   Shisui HP#2 ZCS = 1.1*95 + 8*2 + 4.1*(22-2) - 5*11 = 147.5
 #   Shisui SND RDS  = 327.5 (test_metrics.test_rds_typical 동일 입력)
 
 HP_MATCH_1 = [

@@ -44,7 +44,7 @@ STRINGS = {
         "avg_adr": "평균 ADR",
         "avg_score": "평균 Score",
         "avg_impact": "평균 Impact",
-        "custom_metrics_desc": "DPD = 딜/데스 · DPK = 딜/킬 · ID = Impact − Score/34 · AP% = (캡처킬/킬)×100 · ZCS = max(0, 1.1·OBJ+8·CK+4.1·K−5·D)",
+        "custom_metrics_desc": "DPD = 딜/데스 · DPK = 딜/킬 · ID = Impact − Score/34 · AP% = (캡처킬/킬)×100 · ZCS = max(0, 1.1·OBJ+8·CK+4.1·(K−CK)−5·D)",
 
         # 선수 상세
         "hp_section": "🎯 하드포인트",

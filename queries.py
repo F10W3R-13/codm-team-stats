@@ -505,7 +505,7 @@ def match_history(limit: int = 50, offset: int = 0, mode: str = None) -> dict:
                        (SELECT COUNT(*) FROM player_stats_snd WHERE match_id=m.id) as players,
                        (SELECT ROUND(AVG(kd_ratio),2) FROM player_stats_hp WHERE match_id=m.id) avg_kd_hp,
                        (SELECT ROUND(AVG(kd_ratio),2) FROM player_stats_snd WHERE match_id=m.id) avg_kd_snd,
-                       (SELECT ROUND(AVG(MAX(0, 1.1*obj_time + 8*capture_kill + 4.1*kills - 5*deaths)),1)
+                       (SELECT ROUND(AVG(MAX(0, 1.1*obj_time + 8*capture_kill + 4.1*(kills - capture_kill) - 5*deaths)),1)
                         FROM player_stats_hp WHERE match_id=m.id) avg_zcs,
                        (SELECT ROUND(AVG(MAX(0, 4.1*kills + 3.5*assists + 14*first_kill + 20*lone_wolf_win + 0.12*adr - 5*deaths)),1)
                         FROM player_stats_snd WHERE match_id=m.id) avg_rds
@@ -578,7 +578,7 @@ def match_history_grouped(mode: str = None, date_page: int = 1,
                          (SELECT COUNT(*) FROM player_stats_snd WHERE match_id=m.id) as players,
                          (SELECT ROUND(AVG(kd_ratio),2) FROM player_stats_hp WHERE match_id=m.id) avg_kd_hp,
                          (SELECT ROUND(AVG(kd_ratio),2) FROM player_stats_snd WHERE match_id=m.id) avg_kd_snd,
-                         (SELECT ROUND(AVG(MAX(0, 1.1*obj_time + 8*capture_kill + 4.1*kills - 5*deaths)),1)
+                         (SELECT ROUND(AVG(MAX(0, 1.1*obj_time + 8*capture_kill + 4.1*(kills - capture_kill) - 5*deaths)),1)
                           FROM player_stats_hp WHERE match_id=m.id) avg_zcs,
                          (SELECT ROUND(AVG(MAX(0, 4.1*kills + 3.5*assists + 14*first_kill + 20*lone_wolf_win + 0.12*adr - 5*deaths)),1)
                           FROM player_stats_snd WHERE match_id=m.id) avg_rds,
@@ -699,7 +699,7 @@ def map_team_stats(mode: str = "HP", min_matches: int = 2) -> list:
                         ROUND(AVG(s.kd_ratio),2) avg_kd,
                         ROUND(AVG(s.kills),1) avg_k,
                         ROUND(AVG(s.total_damage),0) avg_dmg,
-                        ROUND(AVG(MAX(0, 1.1*s.obj_time + 8*s.capture_kill + 4.1*s.kills - 5*s.deaths)),1) avg_zcs
+                        ROUND(AVG(MAX(0, 1.1*s.obj_time + 8*s.capture_kill + 4.1*(s.kills - s.capture_kill) - 5*s.deaths)),1) avg_zcs
                  FROM player_stats_hp s JOIN matches m ON m.id=s.match_id
                  WHERE m.map_name IS NOT NULL AND m.map_name != '' AND m.mode='HP'
                  GROUP BY LOWER(m.map_name)
@@ -749,7 +749,7 @@ def map_team_stats_recent(mode: str = "HP", recent_matches: int = 10,
                         ROUND(AVG(s.kd_ratio),2) avg_kd,
                         ROUND(AVG(s.kills),1) avg_k,
                         ROUND(AVG(s.total_damage),0) avg_dmg,
-                        ROUND(AVG(MAX(0, 1.1*s.obj_time + 8*s.capture_kill + 4.1*s.kills - 5*s.deaths)),1) avg_zcs
+                        ROUND(AVG(MAX(0, 1.1*s.obj_time + 8*s.capture_kill + 4.1*(s.kills - s.capture_kill) - 5*s.deaths)),1) avg_zcs
                  FROM player_stats_hp s JOIN matches m ON m.id=s.match_id
                  WHERE m.map_name IS NOT NULL AND m.map_name != '' AND m.mode='HP'
                    AND m.id IN ({recent_ids})
@@ -792,7 +792,7 @@ def team_trend_by_matches(recent_matches: int = 10) -> dict:
     if recent_matches <= 0:
         recent_matches = 10
     recent_ids = f"SELECT id FROM matches WHERE mode='HP' ORDER BY id DESC LIMIT {int(recent_matches)}"
-    zcs_expr = "MAX(0, 1.1*s.obj_time + 8*s.capture_kill + 4.1*s.kills - 5*s.deaths)"
+    zcs_expr = "MAX(0, 1.1*s.obj_time + 8*s.capture_kill + 4.1*(s.kills - s.capture_kill) - 5*s.deaths)"
     with db.get_conn() as conn:
         r = conn.execute(db._adapt_sql(f"""SELECT COUNT(*) matches,
                        ROUND(AVG(s.kd_ratio),2) avg_kd,
@@ -834,7 +834,7 @@ def map_player_stats(map_name: str, mode: str = "HP", min_matches: int = 2) -> l
                         ROUND(AVG(s.total_damage),0) avg_dmg,
                         ROUND(AVG(s.obj_time),0) avg_obj,
                         ROUND(AVG(s.capture_kill),1) avg_capture,
-                        ROUND(AVG(MAX(0, 1.1*s.obj_time + 8*s.capture_kill + 4.1*s.kills - 5*s.deaths)),1) avg_zcs
+                        ROUND(AVG(MAX(0, 1.1*s.obj_time + 8*s.capture_kill + 4.1*(s.kills - s.capture_kill) - 5*s.deaths)),1) avg_zcs
                  FROM player_stats_hp s
                  JOIN matches m ON m.id=s.match_id
                  JOIN players p ON p.id=s.player_id
@@ -871,7 +871,7 @@ def map_player_stats(map_name: str, mode: str = "HP", min_matches: int = 2) -> l
 def player_map_breakdown(player_id: int, mode: str = "HP", min_matches: int = 5) -> list:
     """특정 선수의 맵별 성적 — 본인 전체 평균 대비 ±%.
 
-    mode="HP": ZCS(=max(0, 1.1·obj_time + 8·capture_kill + 4.1·kills - 5·deaths)) 기준.
+    mode="HP": ZCS(=max(0, 1.1·obj_time + 8·capture_kill + 4.1·(kills - capture_kill) - 5·deaths)) 기준.
     mode="SND": RDS(=max(0, 4.1·kills + 3.5·assists + 14·first_kill + 20·lone_wolf_win
                         + 0.12·adr - 5·deaths)) 기준.
     반환: [{map_name, matches, metric, metric_pct}, ...]
@@ -896,7 +896,7 @@ def player_map_breakdown(player_id: int, mode: str = "HP", min_matches: int = 5)
     else:  # HP (기본)
         sql = """SELECT LOWER(m.map_name) map_name,
                         COUNT(*) matches,
-                        ROUND(AVG(MAX(0, 1.1*s.obj_time + 8*s.capture_kill + 4.1*s.kills - 5*s.deaths)),1) metric
+                        ROUND(AVG(MAX(0, 1.1*s.obj_time + 8*s.capture_kill + 4.1*(s.kills - s.capture_kill) - 5*s.deaths)),1) metric
                  FROM player_stats_hp s
                  JOIN matches m ON m.id=s.match_id
                  WHERE s.player_id=? AND m.map_name IS NOT NULL AND m.map_name != ''
@@ -932,7 +932,7 @@ def player_map_breakdown(player_id: int, mode: str = "HP", min_matches: int = 5)
 
 def _player_overall_zcs(player_id: int) -> float:
     """선수의 전체 평균 ZCS (player_map_breakdown 내부용)."""
-    sql = "SELECT ROUND(AVG(MAX(0, 1.1*obj_time + 8*capture_kill + 4.1*kills - 5*deaths)),1) zcs FROM player_stats_hp WHERE player_id=?"
+    sql = "SELECT ROUND(AVG(MAX(0, 1.1*obj_time + 8*capture_kill + 4.1*(kills - capture_kill) - 5*deaths)),1) zcs FROM player_stats_hp WHERE player_id=?"
     with db.get_conn() as conn:
         r = conn.execute(db._adapt_sql(sql), (player_id,)).fetchone()
     if r and r["zcs"] is not None:
@@ -1215,7 +1215,7 @@ def recent_zcs_trend(limit: int = 10) -> list:
     with db.get_conn() as conn:
         rows = conn.execute(
             """SELECT m.id, m.match_date,
-                       (SELECT ROUND(AVG(MAX(0, 1.1*obj_time + 8*capture_kill + 4.1*kills - 5*deaths)),1)
+                       (SELECT ROUND(AVG(MAX(0, 1.1*obj_time + 8*capture_kill + 4.1*(kills - capture_kill) - 5*deaths)),1)
                         FROM player_stats_hp WHERE match_id=m.id) avg_zcs
                 FROM matches m WHERE m.mode='HP'
                 ORDER BY m.id DESC LIMIT ?""",

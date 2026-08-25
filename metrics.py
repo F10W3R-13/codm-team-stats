@@ -9,7 +9,7 @@
 #   DPK  = Total Damage / Kills           (킬당 필요 딜)
 #   ID   = Impact − Score/34              (점수 대비 임팩트 초과분)
 #   AP%  = Capture Kill / Kills × 100     (킬 대비 캡처킬 비율 = 목표 기여도)
-#   ZCS  = max(0, 1.1·OBJ + 8·CK + 4.1·K − 5·D)   (존 컨트롤 기여 점수)
+#   ZCS  = max(0, 1.1·OBJ + 8·CK + 4.1·(K−CK) − 5·D)   (존 컨트롤 기여 점수)
 
 
 def compute_impact(kills, deaths, obj_time, total_damage) -> float:
@@ -51,15 +51,17 @@ def compute_ap_pct(capture_kill, kills) -> float:
 
 
 def compute_zcs(obj_time, capture_kill, kills, deaths) -> float:
-    """Zone Control Score = max(0, 1.1·OBJ + 8·CK + 4.1·K − 5·D).
+    """Zone Control Score = max(0, 1.1·OBJ + 8·CK + 4.1·(K−CK) − 5·D).
 
+    CK(캡처킬)은 게임이 킬 컬럼에 포함 집계하는 거점 안 킬 —
+    거점 안 킬 8점, 거점 밖 킬(킬−캡처킬) 4.1점.
     ⚠️ HP 전용 지표 — SND 매치/선수 데이터로는 호출 금지.
     SND에는 OBJ/캡처킬이 없어 4.1·K − 5·D만 남은 의미 없는 점수가 됨.
     외부에서 직접 호출하지 말 것 — all_hp_metrics() 경유로만 사용.
     """
     if any(v is None for v in (obj_time, capture_kill, kills, deaths)):
         return None
-    val = 1.1 * obj_time + 8 * capture_kill + 4.1 * kills - 5 * deaths
+    val = 1.1 * obj_time + 8 * capture_kill + 4.1 * (kills - capture_kill) - 5 * deaths
     return round(max(0, val), 2)
 
 

@@ -36,14 +36,14 @@ You are advising a competitive Call of Duty Mobile (CODM) team. Use this domain 
 
 ## Game & Modes
 CODM competitive uses two modes:
-- HP (Hardpoint / 거점): capture rotating hills P1→P2→P3→P4, ~60s each. OBJ = hill time in seconds (higher = better). CapKill = bonus-score kills (multikills, trades, top-enemy kills, in-hill kills) — NOT pure objective time. "hill"/"언덕" = the current active point.
+- HP (Hardpoint / 거점): capture rotating hills P1→P2→P3→P4, ~60s each. OBJ = hill time in seconds (higher = better). CapKill = kills scored inside the active hill (OCR raw value; the game also counts them in K, so CapKill ⊆ K). "hill"/"언덕" = the current active point.
 - SND (Search & Destroy / 폭파): alternating attack/defense, round-based. FK = First Blood (first kill), LWW = Lone Wolf Win, ADR = avg damage per round.
 
 ## Key Metric Definitions (don't recompute — interpret the numbers provided)
-- ZCS (HP only) = max(0, 1.1·OBJ + 8·CapKill + 4.1·K − 5·D). Team avg ~150–200; 250+ = ace-level zone control; <100 = low impact.
+- ZCS (HP only) = max(0, 1.1·OBJ + 8·CapKill + 4.1·(K−CapKill) − 5·D). Team avg ~120 (deploy DB measured); 200+ = ace-level zone control; <80 = low impact.
   ZCS measures ZONE CONTROL CONTRIBUTION — how much a player helped OWN the hill.
-  CapKill ×8 (highest weight): bonus-score kills are HIGH-QUALITY objective-tied kills.
-  K ×4.1: standard kills — half the value of a CapKill (context matters).
+  CapKill ×8 (highest weight): in-hill kills are HIGH-QUALITY objective-tied kills.
+  (K−CapKill) ×4.1: kills outside the hill — standard kills, worth half an in-hill kill.
   OBJ ×1.1: hill time — pure presence, alone low-value.
   D ×5 (heavier than K's 4.1): deaths penalized MORE than kills rewarded.
   → Modest K/D + high CapKill density + rare hill deaths = high ZCS. Raw fragging with low OBJ/CapKill = lower ZCS.

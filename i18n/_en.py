@@ -40,7 +40,7 @@ STRINGS = {
         "avg_adr": "Avg ADR",
         "avg_score": "Avg Score",
         "avg_impact": "Avg Impact",
-        "custom_metrics_desc": "DPD = DMG/Deaths · DPK = DMG/Kills · ID = Impact − Score/34 · AP% = (CapKill/Kills)×100 · ZCS = max(0, 1.1·OBJ+8·CK+4.1·K−5·D)",
+        "custom_metrics_desc": "DPD = DMG/Deaths · DPK = DMG/Kills · ID = Impact − Score/34 · AP% = (CapKill/Kills)×100 · ZCS = max(0, 1.1·OBJ+8·CK+4.1·(K−CK)−5·D)",
 
         "hp_section": "🎯 Hardpoint",
         "snd_section": "🔍 Search & Destroy",

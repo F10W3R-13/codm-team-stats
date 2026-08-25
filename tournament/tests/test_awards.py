@@ -30,11 +30,11 @@ def test_mvp_highest_avg_zcs_plus_rds():
         p_avg = db.insert_player("Avg", t1, path=path)
         mid = db.insert_match("HP", "M1", "2026-08-01", t1, t2, 250, 200,
                               "round_robin", path=path)
-        # Star: K=30 D=5 OBJ=120 CK=4 → ZCS=1.1*120+8*4+4.1*30-5*5=132+32+123-25=262
+        # Star: K=30 D=5 OBJ=120 CK=4 → ZCS=132+32+4.1*26-25=132+32+106.6-25=245.6
         db.insert_player_stats_hp(mid, p_star, t1, kills=30, deaths=5,
                                   obj_time=120, capture_kill=4, damage=4000,
                                   path=path)
-        # Avg: K=10 D=10 OBJ=50 CK=1 → ZCS=1.1*50+8*1+4.1*10-5*10=55+8+41-50=54
+        # Avg: K=10 D=10 OBJ=50 CK=1 → ZCS=55+8+4.1*9-50=55+8+36.9-50=49.9
         db.insert_player_stats_hp(mid, p_avg, t1, kills=10, deaths=10,
                                   obj_time=50, capture_kill=1, damage=2000,
                                   path=path)

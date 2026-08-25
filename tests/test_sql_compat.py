@@ -10,7 +10,7 @@ import queries
 import metrics
 
 ZCS_SQL = ("SELECT ROUND(AVG(MAX(0, 1.1*obj_time + 8*capture_kill "
-           "+ 4.1*kills - 5*deaths)),1) zcs FROM player_stats_hp WHERE player_id=?")
+           "+ 4.1*(kills - capture_kill) - 5*deaths)),1) zcs FROM player_stats_hp WHERE player_id=?")
 RDS_SQL = ("SELECT ROUND(AVG(MAX(0, 4.1*kills + 3.5*assists + 14*first_kill "
            "+ 20*lone_wolf_win + 0.12*adr - 5*deaths)),1) rds "
            "FROM player_stats_snd WHERE player_id=?")
@@ -69,7 +69,7 @@ def test_adapt_rds_query_postgres_safe():
 # ── SQL 공식 ↔ metrics.py 공식 일치 (드리프트 방지) ────────────────────────
 
 def test_sql_zcs_matches_python_formula(seeded_db):
-    # Shisui HP 2매치: 166.0, 155.7 → 평균 160.85 (ROUND 1자리)
+    # Shisui HP 2매치: 153.7, 147.5 → 평균 150.6 (ROUND 1자리)
     pid = queries.get_player_id("Shisui")
     expected = (metrics.compute_zcs(100, 3, 20, 10)
                 + metrics.compute_zcs(95, 2, 22, 11)) / 2

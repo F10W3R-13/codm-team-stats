@@ -10,16 +10,16 @@ import metrics
 # ── ZCS (HP 제1 지표) ──────────────────────────────────────────────────────
 
 def test_zcs_typical():
-    # 1.1*100 + 8*3 + 4.1*20 - 5*10 = 110 + 24 + 82 - 50 = 166.0
-    assert metrics.compute_zcs(100, 3, 20, 10) == 166.0
+    # 1.1*100 + 8*3 + 4.1*(20-3) - 5*10 = 110 + 24 + 69.7 - 50 = 153.7
+    assert metrics.compute_zcs(100, 3, 20, 10) == 153.7
 
 def test_zcs_clamp_zero():
     # 음수는 0으로 clamp: 4.1*1 - 5*10 = -45.9 → 0
     assert metrics.compute_zcs(0, 0, 1, 10) == 0.0
 
 def test_zcs_rounding():
-    # 1.1 + 8 + 4.1 - 5 = 8.2
-    assert metrics.compute_zcs(1, 1, 1, 1) == 8.2
+    # 1.1 + 8 + 4.1*(1-1) - 5 = 4.1 (K=1이 전부 캡처킬)
+    assert metrics.compute_zcs(1, 1, 1, 1) == 4.1
 
 def test_zcs_none_input():
     assert metrics.compute_zcs(None, 3, 20, 10) is None
@@ -28,8 +28,8 @@ def test_zcs_none_input():
     assert metrics.compute_zcs(100, 3, 20, None) is None
 
 def test_zcs_weight_ratio():
-    # 캡처킬 1점 = 킬 8/4.1 ≈ 1.951킬 (가중치 상대 비율 고정)
-    a = metrics.compute_zcs(0, 1, 0, 0)
+    # 캡처킬(거점 안) 1 = 거점 밖 킬 8/4.1 ≈ 1.951개 (가중치 상대 비율 고정)
+    a = metrics.compute_zcs(0, 1, 1, 0)    # K=1, CK=1 → 밖 킬 0
     b = metrics.compute_zcs(0, 0, 8 / 4.1, 0)
     assert abs(a - b) < 0.01
 

@@ -40,7 +40,7 @@ STRINGS = {
         "avg_adr": "ADR Prom",
         "avg_score": "Score Prom",
         "avg_impact": "Impact Prom",
-        "custom_metrics_desc": "DPD = Daño/Muertes · DPK = Daño/Bajas · ID = Impact − Score/34 · AP% = (CapKill/Bajas)×100 · ZCS = max(0, 1.1·OBJ+8·CK+4.1·K−5·D)",
+        "custom_metrics_desc": "DPD = Daño/Muertes · DPK = Daño/Bajas · ID = Impact − Score/34 · AP% = (CapKill/Bajas)×100 · ZCS = max(0, 1.1·OBJ+8·CK+4.1·(K−CK)−5·D)",
 
         "hp_section": "🎯 Punto Fuerte",
         "snd_section": "🔍 Buscar y Destruir",
