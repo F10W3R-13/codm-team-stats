@@ -3,7 +3,7 @@
 #
 # 동작 흐름:
 #   1. scrim-result 채널에 이미지 2장 첨부 메시지가 오면
-#   2. GPT-4.1 비전으로 2장의 스크린샷을 분석 (HP/SND 모드 판별 + 선수 5명 통계 JSON)
+#   2. GPT 비전으로 2장의 스크린샷을 분석 (HP/SND 모드 판별 + 선수 5명 통계 JSON)
 #   3. 모드에 따라 구글 시트(Database_HP / Database_SND)에 선수별 행 추가
 #
 # make.com과의 차이: 메시지 작성 시간(한국시)을 Date 열에 자동 기록.
@@ -60,26 +60,25 @@ def load_roster() -> list:
 
 
 def analyze_images(url1: str, url2: str, roster: list = None) -> dict:
-    """GPT-4.1 비전으로 두 스크린샷을 분석해 통계 JSON(dict)을 반환.
+    """GPT 비전으로 두 스크린샷을 분석해 통계 JSON(dict)을 반환.
 
     roster: 동적 주입할 표준 선수명 리스트. None이면 load_roster()로 DB에서 로드.
       GPT가 우리 팀 식별 정규화 기준으로 쓴다 (OCR correction hint 역할).
 
-    make.com의 OpenAI 모듈 설정과 동일:
+    make.com의 OpenAI 모듈 설정을 계승:
       - messages: [user(프롬프트), user(image1), user(image2)]
       - response_format: json_object
-      - temperature: 0, top_p: 0, max_tokens: 2048
+      - temperature/max_tokens 는 config.chat_params()가 모델 세대에 맞게 보정
     """
     if roster is None:
         roster = load_roster()
     system_prompt = build_system_prompt(roster)
     completion = openai_client.chat.completions.create(
         model=config.OPENAI_MODEL,
-        temperature=config.OPENAI_TEMPERATURE,
-        max_tokens=config.OPENAI_MAX_TOKENS,
         response_format={"type": "json_object"},
         timeout=60,
         n=1,
+        **config.chat_params(config.OPENAI_TEMPERATURE, config.OPENAI_MAX_TOKENS),
         messages=[
             {
                 "role": "user",

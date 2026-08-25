@@ -10,9 +10,32 @@ DISCORD_TOKEN = os.environ["DISCORD_BOT_TOKEN"]
 
 # ── OpenAI ───────────────────────────────────────────────────────────────
 OPENAI_API_KEY = os.environ["OPENAI_API_KEY"]
-OPENAI_MODEL = "gpt-4.1"          # make.com 설정과 동일
-OPENAI_TEMPERATURE = 0.0          # make.com: temperature 0
-OPENAI_MAX_TOKENS = 2048          # make.com: max_tokens 2048
+OPENAI_MODEL = "gpt-5.6-luna"      # 2026-08 전환: gpt-4.1($2/$8) → luna($0.20/$1.20), 비전 지원
+OPENAI_TEMPERATURE = 0.0          # 구세대 전용 (reasoning 계열에선 미전송)
+OPENAI_MAX_TOKENS = 2048          # 구세대 전용 (reasoning 계열에선 max_completion_tokens로 전송)
+OPENAI_REASONING_EFFORT = "low"   # reasoning 계열: OCR·짧은 인사이트엔 low로 충분 (지연·비용 절약)
+
+# gpt-5+/o계열 reasoning 모델은 temperature 변경·max_tokens 미지원 → 파라미터 자동 보정.
+OPENAI_IS_REASONING = OPENAI_MODEL.startswith(("gpt-5", "o1", "o3", "o4"))
+
+
+def chat_params(temperature: float = None, max_tokens: int = None) -> dict:
+    """모델 세대에 맞는 chat.completions.create 추가 파라미터 조립.
+
+    reasoning 계열: temperature 미전송(고정 1), max_tokens→max_completion_tokens.
+    구세대(gpt-4.1 등): 기존대로 temperature/max_tokens.
+    """
+    params: dict = {}
+    if OPENAI_IS_REASONING:
+        if max_tokens:
+            params["max_completion_tokens"] = max_tokens
+        params["reasoning_effort"] = OPENAI_REASONING_EFFORT
+    else:
+        if temperature is not None:
+            params["temperature"] = temperature
+        if max_tokens:
+            params["max_tokens"] = max_tokens
+    return params
 
 # ── 구글 시트 ─────────────────────────────────────────────────────────────
 SPREADSHEET_ID = "1nnyzo7_mH1JgTF5yln2AR1HuUiVGc9c7ZctVyA8PlgE"

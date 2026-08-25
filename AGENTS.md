@@ -236,7 +236,7 @@ git push origin main
 
 ```
 디스코드 채널 ──스크린샷──▶ bot.py (on_message)
-                              │ GPT-4.1 비전 (prompt.py)
+                              │ GPT 비전 (prompt.py, 모델: config.OPENAI_MODEL)
                               ▼ JSON {mode, result, team_score, map, players[]}
                          stats_repo.save_match()
                               │

@@ -82,8 +82,7 @@ def match_insight(report: dict, lang: str = "ko") -> str:
         }
         completion = _client().chat.completions.create(
             model=config.OPENAI_MODEL,
-            temperature=0.5,
-            max_tokens=300,
+            **config.chat_params(0.5, 300),
             messages=[
                 {
                     "role": "system",
@@ -118,8 +117,7 @@ def weekly_insight(report: dict, lang: str = "ko") -> str:
         }
         completion = _client().chat.completions.create(
             model=config.OPENAI_MODEL,
-            temperature=0.5,
-            max_tokens=350,
+            **config.chat_params(0.5, 350),
             messages=[
                 {
                     "role": "system",
@@ -159,8 +157,7 @@ def trend_insight(trend: dict, lang: str = "ko") -> str:
         li = _lang_instruction(lang)
         completion = _client().chat.completions.create(
             model=config.OPENAI_MODEL,
-            temperature=0.5,
-            max_tokens=300,
+            **config.chat_params(0.5, 300),
             messages=[
                 {
                     "role": "system",
@@ -199,8 +196,7 @@ def player_profile_insight(stats: dict, team_hp: dict = None, lang: str = "ko") 
         }
         completion = _client().chat.completions.create(
             model=config.OPENAI_MODEL,
-            temperature=0.5,
-            max_tokens=400,
+            **config.chat_params(0.5, 400),
             messages=[
                 {
                     "role": "system",
@@ -260,12 +256,11 @@ def map_advice(map_data: dict, lang: str = "ko") -> str:
             "team_avg": map_data.get("team_avg"),
         }
         zcs_hint = (
-            f"'player X has highest ZCS at 220'). " if is_hp else ""
+            "'player X has highest ZCS at 220'). " if is_hp else ""
         )
         completion = _client().chat.completions.create(
             model=config.OPENAI_MODEL,
-            temperature=0.4,
-            max_tokens=350,
+            **config.chat_params(0.4, 350),
             messages=[
                 {
                     "role": "system",
@@ -274,10 +269,10 @@ def map_advice(map_data: dict, lang: str = "ko") -> str:
                         f"RULES: only point out statistical tendencies (e.g. 'on this map "
                         f"team K/D is -12% vs season'{zcs_hint}"
                         + ("Do NOT mention ZCS — it is undefined for SND. " if not is_hp else "")
-                        + f"). Cross-reference the map tendency in your domain context when "
-                        f"relevant. Do NOT give direct orders or tactical instructions. "
-                        f"Stick to what the numbers show — let the coach interpret. "
-                        f"Grounded strictly in the JSON. For web display.",
+                        + "). Cross-reference the map tendency in your domain context when "
+                        "relevant. Do NOT give direct orders or tactical instructions. "
+                        "Stick to what the numbers show — let the coach interpret. "
+                        "Grounded strictly in the JSON. For web display.",
                         lang,
                         domains=_domains_for_match(mode, map_data.get("map_name"),
                                                    extra=["mechanics-terms"]),
@@ -321,8 +316,7 @@ def summarize_transcript(report: dict, transcript: str, lang: str = "ko") -> str
 
         completion = _client().chat.completions.create(
             model=config.OPENAI_MODEL,
-            temperature=0.4,
-            max_tokens=600,
+            **config.chat_params(0.4, 600),
             messages=[
                 {
                     "role": "system",
@@ -396,8 +390,7 @@ def briefing_insight(hub_data: dict, lang: str = "ko") -> str:
         }
         completion = _client().chat.completions.create(
             model=config.OPENAI_MODEL,
-            temperature=0.4,
-            max_tokens=600,
+            **config.chat_params(0.4, 600),
             messages=[
                 {
                     "role": "system",

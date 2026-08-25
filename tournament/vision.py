@@ -1,7 +1,8 @@
-"""GPT-4.1 비전 호출 래퍼 (토너먼트 양쪽 10명 파싱).
+"""GPT 비전 호출 래퍼 (토너먼트 양쪽 10명 파싱).
 
 부모 bot.py의 analyze_images와 동일 패턴:
-- model=gpt-4.1, temperature=0, max_tokens=2048, response_format=json_object
+- model=루트 config.OPENAI_MODEL 과 동일값(여기선 환경변수 없이 import 가능하도록 상수 유지),
+  response_format=json_object, reasoning 계열 파라미터 보정
 - 차이: 부모는 Discord URL을 받지만 토너먼트는 업로드된 파일 bytes를 base64 인코딩.
 - 차이: 프롬프트는 prompt_tournament.PROMPT (양쪽 파싱).
 """
@@ -14,6 +15,10 @@ from openai import OpenAI
 
 import _path_setup  # noqa: F401  (부모 디렉토리를 sys.path에 추가)
 import prompt_tournament
+
+# 부모 config.py 와 동일 값 (config import는 import 시점 환경변수를 요구해
+# 토너먼트 테스트에서 깨지므로 여기선 상수로 유지 — 변경 시 양쪽 함께 고칠 것).
+MODEL = "gpt-5.6-luna"
 
 # 부모 디렉토리의 .env 에서 OPENAI_API_KEY 자동 로드.
 # (부모 bot.py:18-21 패턴과 동일 — 별도 export 없이 .env 만 있으면 동작.)
@@ -57,9 +62,9 @@ def analyze_two_screens(image_bytes_1: bytes, image_bytes_2: bytes,
             "같은 팀 선수들이 한쪽에 모여 있는지 확인해 team_left/team_right를 구성하세요.\n"
         )
     completion = _get_client().chat.completions.create(
-        model="gpt-4.1",
-        temperature=0.0,
-        max_tokens=4096,
+        model=MODEL,
+        max_completion_tokens=4096,   # reasoning 계열: max_tokens 미지원
+        reasoning_effort="low",       # OCR 과업엔 low 로 충분 (지연·비용 절약)
         response_format={"type": "json_object"},
         timeout=120,
         n=1,
