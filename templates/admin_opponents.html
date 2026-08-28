@@ -66,6 +66,34 @@
 </div>
 {% endif %}
 
+{% if data.recent_opponents %}
+<div class="card">
+    <h3>{{ t.opp_merge_title }}</h3>
+    <p class="muted">{{ t.opp_merge_hint }}</p>
+    <div class="table-wrap">
+    <table>
+        <thead><tr><th>{{ t.opp_player }}</th><th>{{ t.opp_merge_into }}</th><th></th></tr></thead>
+        <tbody>
+        {% for p in data.recent_opponents %}
+        <tr>
+            <td>{{ p.name }}</td>
+            <td>
+                <select class="select merge-select" data-src="{{ p.id }}">
+                    <option value="">{{ t.opp_assign_player }}</option>
+                    {% for c in data.all_opponent_players if c.id != p.id %}
+                    <option value="{{ c.id }}">{{ c.name }}</option>
+                    {% endfor %}
+                </select>
+            </td>
+            <td><button class="btn merge-btn" data-src="{{ p.id }}" disabled>{{ t.opp_merge }}</button></td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    </div>
+</div>
+{% endif %}
+
 <script>
 // 폼/버튼 fetch 처리 — flash()로 결과 표시 (base.html 글로벌 토스트)
 document.getElementById("add-team-form").addEventListener("submit", async (e) => {
@@ -100,6 +128,22 @@ document.querySelectorAll(".assign-btn").forEach((btn) => {
         const r = await (await fetch("/admin/opponent/match-team", {
             method: "POST", headers: {"Content-Type": "application/json"},
             body: JSON.stringify({match_id: Number(mid), team_id: Number(teamId)})})).json();
+        flash(r.message || (r.ok ? "{{ t.opp_saved }}" : "{{ t.opp_error }}"), r.ok);
+        if (r.ok) location.reload();
+    });
+});
+document.querySelectorAll(".merge-select").forEach((sel) => {
+    sel.addEventListener("change", () => {
+        sel.closest("tr").querySelector(".merge-btn").disabled = !sel.value;
+    });
+});
+document.querySelectorAll(".merge-btn").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+        const sel = btn.closest("tr").querySelector(".merge-select");
+        const r = await (await fetch("/admin/opponent/merge", {
+            method: "POST", headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({src_player_id: Number(btn.dataset.src),
+                                  dst_player_id: Number(sel.value)})})).json();
         flash(r.message || (r.ok ? "{{ t.opp_saved }}" : "{{ t.opp_error }}"), r.ok);
         if (r.ok) location.reload();
     });

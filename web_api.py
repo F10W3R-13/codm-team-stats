@@ -629,6 +629,20 @@ async def admin_set_opponent_roster(payload: dict = Body(...)):
                                            payload.get("names", ""))
 
 
+@app.post("/admin/opponent/match-team")
+async def admin_assign_match_opponent(payload: dict = Body(...)):
+    """미확정 매치에 팀 지정 — 그 매치 상대 선수를 팀 로스터로 재매칭."""
+    return admin_write.assign_match_opponent(int(payload.get("match_id", 0)),
+                                             int(payload.get("team_id", 0)))
+
+
+@app.post("/admin/opponent/merge")
+async def admin_merge_opponent(payload: dict = Body(...)):
+    """같은 선수의 분리된 이름을 하나로 병합 (병합 1회 영구 학습)."""
+    return admin_write.merge_opponent(int(payload.get("src_player_id", 0)),
+                                      int(payload.get("dst_player_id", 0)))
+
+
 # ── 코칭 노트 (액션 아이템) ──────────────────────────────────────────────────
 @app.post("/admin/notes")
 async def admin_add_note(request: Request,

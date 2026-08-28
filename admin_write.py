@@ -9,6 +9,7 @@
 # 코드 리뷰·감사가 쉽도록.
 
 import db
+import insight_cache
 
 
 # ── 선수 관리 ──────────────────────────────────────────────────────────────
@@ -390,7 +391,14 @@ def opponent_admin_data() -> dict:
                           UNION ALL
                           SELECT 1 FROM opponent_stats_snd s WHERE s.match_id = m.id)
             ORDER BY m.id DESC LIMIT 50""")).fetchall()
-        return {"teams": result, "pending": [dict(p) for p in pending]}
+        recent = conn.execute(db._adapt_sql("""
+            SELECT id, name FROM opponent_players
+            ORDER BY id DESC LIMIT 30""")).fetchall()
+        allp = conn.execute(db._adapt_sql(
+            "SELECT id, name FROM opponent_players ORDER BY name")).fetchall()
+        return {"teams": result, "pending": [dict(p) for p in pending],
+                "recent_opponents": [dict(r) for r in recent],
+                "all_opponent_players": [dict(a) for a in allp]}
 
 
 def add_opponent_team(name: str) -> dict:
@@ -425,3 +433,41 @@ def set_opponent_roster(team_id: int, names_text: str) -> dict:
                         conflict_col="team_id, player_id")
             added += 1
     return {"ok": True, "added": added}
+
+
+def assign_match_opponent(match_id: int, team_id: int) -> dict:
+    """미확정 매치에 팀 지정 + 그 매치의 상대 선수 재매칭 (spec §6.2).
+
+    팀이 정해지면 후보 풀이 그 팀 로스터로 좁아져 퍼지 재확률 상승.
+    """
+    with db.get_conn() as conn:
+        m = conn.execute(db._adapt_sql(
+            "SELECT id, mode FROM matches WHERE id = ?"), (match_id,)).fetchone()
+        if not m:
+            return {"ok": False, "message": "없는 매치입니다"}
+        t = conn.execute(db._adapt_sql(
+            "SELECT id FROM opponent_teams WHERE id = ?"), (team_id,)).fetchone()
+        if not t:
+            return {"ok": False, "message": "없는 팀입니다"}
+        tbl = "opponent_stats_hp" if m["mode"] == "HP" else "opponent_stats_snd"
+        rows = conn.execute(db._adapt_sql(
+            f"SELECT id, ign_raw FROM {tbl} WHERE match_id = ?"), (match_id,)).fetchall()
+        for r in rows:
+            pid = db.resolve_opponent_player_id(conn, r["ign_raw"] or "", team_id=team_id)
+            conn.execute(db._adapt_sql(
+                f"UPDATE {tbl} SET player_id = ? WHERE id = ?"), (pid, r["id"]))
+            conn.upsert("opponent_team_rosters",
+                        ["team_id", "player_id", "source"], (team_id, pid, "match"),
+                        conflict_col="team_id, player_id")
+        conn.execute(db._adapt_sql(
+            "UPDATE matches SET opponent_team_id = ? WHERE id = ?"), (team_id, match_id))
+    insight_cache.invalidate_all()
+    return {"ok": True}
+
+
+def merge_opponent(src_player_id: int, dst_player_id: int) -> dict:
+    """상대 선수 병합 라우트 래퍼 — 병합 후 캐시 무효화."""
+    result = db.merge_opponent_player(src_player_id, dst_player_id)
+    if result.get("ok"):
+        insight_cache.invalidate_all()
+    return result
