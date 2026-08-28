@@ -120,6 +120,72 @@ CREATE TABLE IF NOT EXISTS coaching_notes (
     FOREIGN KEY (player_id) REFERENCES players(id)
 );
 CREATE INDEX IF NOT EXISTS idx_coaching_notes_status ON coaching_notes(status);
+
+-- 상대팀 전적/H2H (우리팀 테이블과 완전 분리 — 기존 쿼리 오염 방지, spec §3)
+CREATE TABLE IF NOT EXISTS opponent_teams (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    name        TEXT NOT NULL UNIQUE,
+    created_at  TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS opponent_players (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    name        TEXT NOT NULL UNIQUE,
+    created_at  TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS opponent_aliases (
+    id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+    ign                 TEXT NOT NULL UNIQUE,
+    opponent_player_id  INTEGER NOT NULL REFERENCES opponent_players(id),
+    source              TEXT NOT NULL DEFAULT 'Auto',
+    created_at          TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS opponent_team_rosters (
+    team_id     INTEGER NOT NULL REFERENCES opponent_teams(id),
+    player_id   INTEGER NOT NULL REFERENCES opponent_players(id),
+    source      TEXT NOT NULL,
+    created_at  TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(team_id, player_id)
+);
+
+CREATE TABLE IF NOT EXISTS opponent_stats_hp (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    match_id        INTEGER NOT NULL REFERENCES matches(id),
+    player_id       INTEGER NOT NULL REFERENCES opponent_players(id),
+    ign_raw         TEXT,
+    kills           INTEGER,
+    deaths          INTEGER,
+    kd_ratio        REAL,
+    obj_time        INTEGER,
+    score           INTEGER,
+    impact          REAL,
+    total_damage    INTEGER,
+    capture_kill    INTEGER,
+    UNIQUE(match_id, player_id)
+);
+
+CREATE TABLE IF NOT EXISTS opponent_stats_snd (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    match_id        INTEGER NOT NULL REFERENCES matches(id),
+    player_id       INTEGER NOT NULL REFERENCES opponent_players(id),
+    ign_raw         TEXT,
+    kills           INTEGER,
+    deaths          INTEGER,
+    assists         INTEGER,
+    kd_ratio        REAL,
+    score           INTEGER,
+    impact          REAL,
+    adr             REAL,
+    first_kill      INTEGER,
+    lone_wolf_win   INTEGER,
+    UNIQUE(match_id, player_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_opp_hp_player ON opponent_stats_hp(player_id);
+CREATE INDEX IF NOT EXISTS idx_opp_snd_player ON opponent_stats_snd(player_id);
+CREATE INDEX IF NOT EXISTS idx_matches_opp_team ON matches(opponent_team_id);
 """
 
 
@@ -223,7 +289,10 @@ def init_db() -> None:
                 # 어드바이저 락으로 직렬화. autocommit 모드여야 즉시 락 획득/해제.
                 cur.execute("SELECT pg_advisory_lock(89473124)")  # 고정 키
                 try:
-                    cur.execute(_adapt_sql(SCHEMA))
+                    # 컬럼 의존 인덱스는 ALTER 이후 생성 (기존 DB에 opponent_team_id 없으면 실패)
+                    cur.execute(_adapt_sql(SCHEMA.replace(
+                        "CREATE INDEX IF NOT EXISTS idx_matches_opp_team ON matches(opponent_team_id);", ""
+                    )))
                     # 마이그레이션: aliases.source 컬럼 (기존 Postgres DB엔 source 없이 생성되어 있음)
                     cur.execute(
                         "ALTER TABLE aliases ADD COLUMN IF NOT EXISTS source TEXT NOT NULL DEFAULT 'Manual'"
@@ -232,24 +301,33 @@ def init_db() -> None:
                     cur.execute("ALTER TABLE matches ADD COLUMN IF NOT EXISTS coach_note TEXT")
                     cur.execute("ALTER TABLE matches ADD COLUMN IF NOT EXISTS vod_url TEXT")
                     cur.execute("ALTER TABLE matches ADD COLUMN IF NOT EXISTS transcript_summary TEXT")
+                    # 마이그레이션: matches.opponent_team_id (상대팀 H2H) + 의존 인덱스
+                    cur.execute("ALTER TABLE matches ADD COLUMN IF NOT EXISTS opponent_team_id INTEGER")
+                    cur.execute("CREATE INDEX IF NOT EXISTS idx_matches_opp_team ON matches(opponent_team_id)")
                     conn.commit()
                 finally:
                     cur.execute("SELECT pg_advisory_unlock(89473124)")
     else:
         with sqlite3.connect(DB_PATH) as conn:
-            schema_no_result_idx = SCHEMA.replace(
+            # 컬럼 의존 인덱스는 ALTER 이후에 생성하도록 SCHEMA에서 제외
+            # (기존 DB에 컬럼이 없으면 CREATE INDEX가 먼저 실행돼 실패)
+            schema_pre_alter = SCHEMA.replace(
                 "CREATE INDEX IF NOT EXISTS idx_matches_result ON matches(result);", ""
+            ).replace(
+                "CREATE INDEX IF NOT EXISTS idx_matches_opp_team ON matches(opponent_team_id);", ""
             )
-            conn.executescript(_adapt_sql(schema_no_result_idx))
+            conn.executescript(_adapt_sql(schema_pre_alter))
             # 마이그레이션: 새 컬럼 추가 (SQLite 전용 — Postgres는 SCHEMA에 이미 포함)
             cols = {row[1] for row in conn.execute("PRAGMA table_info(matches)").fetchall()}
             for col, decl in [("result", "TEXT"), ("team_score", "INTEGER"),
                               ("opponent_score", "INTEGER"),
                               ("coach_note", "TEXT"), ("vod_url", "TEXT"),
-                              ("transcript_summary", "TEXT")]:
+                              ("transcript_summary", "TEXT"),
+                              ("opponent_team_id", "INTEGER")]:
                 if col not in cols:
                     conn.execute(f"ALTER TABLE matches ADD COLUMN {col} {decl}")
             conn.execute("CREATE INDEX IF NOT EXISTS idx_matches_result ON matches(result)")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_matches_opp_team ON matches(opponent_team_id)")
             # 마이그레이션: aliases.source 컬럼 (감사 추적 — Manual/OCR Auto)
             alias_cols = {row[1] for row in conn.execute("PRAGMA table_info(aliases)").fetchall()}
             if "source" not in alias_cols:
