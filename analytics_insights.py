@@ -56,7 +56,8 @@ def _client():
     if _openai is None:
         # timeout=15s: 인사이트 동기 대기 무한정 블록 방지.
         # max_retries=1: 지연 시 재시도 최소화 (기본 2 → 3배 지연 위험).
-        _openai = OpenAI(api_key=config.OPENAI_API_KEY, timeout=15.0, max_retries=1)
+        _openai = OpenAI(api_key=config.OPENAI_API_KEY, base_url=config.OPENAI_BASE_URL,
+                         timeout=15.0, max_retries=1)
     return _openai
 
 
@@ -82,15 +83,15 @@ def match_insight(report: dict, lang: str = "ko") -> str:
         }
         completion = _client().chat.completions.create(
             model=config.OPENAI_MODEL,
-            **config.chat_params(0.5, 300),
+            **config.chat_params(0.5, 500),
             messages=[
                 {
                     "role": "system",
                     "content": prompt_context.build_system_prompt(
-                        "Write 1-2 sentences of key insight from the match stats JSON. "
+                        "Write 3-4 sentences of key insight from the match stats JSON. "
                         "Provide insight (who had good form, team strengths/weaknesses, "
                         "what stands out tactically — e.g. anchor play, slayer dominance, "
-                        "ZCS outliers), not just a list of numbers. Concise, for Discord.",
+                        "ZCS outliers), not just a list of numbers. For Discord.",
                         lang,
                         domains=_domains_for_match(report["mode"], report.get("map_name")),
                     ),
@@ -117,15 +118,15 @@ def weekly_insight(report: dict, lang: str = "ko") -> str:
         }
         completion = _client().chat.completions.create(
             model=config.OPENAI_MODEL,
-            **config.chat_params(0.5, 350),
+            **config.chat_params(0.5, 600),
             messages=[
                 {
                     "role": "system",
                     "content": prompt_context.build_system_prompt(
-                        "Summarize the weekly trend data in 2-3 sentences. "
+                        "Summarize the weekly trend data in 4-6 sentences. "
                         "Include rising/falling players (with role context — e.g. 'the AR slayer "
                         "is finding form'), notable changes, and coaching suggestions. "
-                        "Concise and actionable, for Discord.",
+                        "Actionable, for Discord.",
                         lang,
                         domains=["principles", "mechanics-core", "team"],
                     ),
@@ -157,14 +158,14 @@ def trend_insight(trend: dict, lang: str = "ko") -> str:
         li = _lang_instruction(lang)
         completion = _client().chat.completions.create(
             model=config.OPENAI_MODEL,
-            **config.chat_params(0.5, 300),
+            **config.chat_params(0.5, 500),
             messages=[
                 {
                     "role": "system",
                     "content": prompt_context.build_system_prompt(
-                        f"Diagnose the player's recent form vs overall average in 1-2 "
+                        f"Diagnose the player's recent form vs overall average in 2-4 "
                         f"sentences {li}. Include whether rising/falling with specific "
-                        f"numeric evidence. Concise.",
+                        f"numeric evidence.",
                         lang,
                         domains=_domains_for_match(trend.get("mode")),
                     ),
@@ -196,19 +197,19 @@ def player_profile_insight(stats: dict, team_hp: dict = None, lang: str = "ko") 
         }
         completion = _client().chat.completions.create(
             model=config.OPENAI_MODEL,
-            **config.chat_params(0.5, 400),
+            **config.chat_params(0.5, 650),
             messages=[
                 {
                     "role": "system",
                     "content": prompt_context.build_system_prompt(
-                        "Write 3-5 sentences of coaching insight from a player's overall stats "
+                        "Write 5-8 sentences of coaching insight from a player's overall stats "
                         "and team average. Include: 1) clear strengths/weaknesses vs team average "
                         "(mention ±% with metric interpretation), "
                         f"2) play style bias — "
                         f"{'infer slayer/objective/balanced from OBJ, CapKill, ZCS, DPD (HP-only metrics). ' if stats.get('hp') else ''}"
                         f"3) form stability (mention std dev if present). "
                         f"IMPORTANT: ZCS/OBJ/CapKill are HP-only metrics — never reference them for SND-only data. "
-                        f"Grounded in numbers, no over-interpretation. Concise and actionable, for web display.",
+                        f"Grounded in numbers, no over-interpretation. Actionable, for web display.",
                         lang,
                         domains=_domains_for_player(stats),
                     ),
@@ -260,12 +261,12 @@ def map_advice(map_data: dict, lang: str = "ko") -> str:
         )
         completion = _client().chat.completions.create(
             model=config.OPENAI_MODEL,
-            **config.chat_params(0.4, 350),
+            **config.chat_params(0.4, 550),
             messages=[
                 {
                     "role": "system",
                     "content": prompt_context.build_system_prompt(
-                        f"Describe the NUMERIC TRENDS of one map ({mode}) in 3-4 sentences. "
+                        f"Describe the NUMERIC TRENDS of one map ({mode}) in 4-6 sentences. "
                         f"RULES: only point out statistical tendencies (e.g. 'on this map "
                         f"team K/D is -12% vs season'{zcs_hint}"
                         + ("Do NOT mention ZCS — it is undefined for SND. " if not is_hp else "")
@@ -316,13 +317,13 @@ def summarize_transcript(report: dict, transcript: str, lang: str = "ko") -> str
 
         completion = _client().chat.completions.create(
             model=config.OPENAI_MODEL,
-            **config.chat_params(0.4, 600),
+            **config.chat_params(0.4, 900),
             messages=[
                 {
                     "role": "system",
                     "content": prompt_context.build_system_prompt(
                         "Summarize a match transcript (voice-to-text from a coaching VOD review) "
-                        "for the coach. Write a concise review in 5-8 sentences covering: "
+                        "for the coach. Write a review in 8-12 sentences covering: "
                         "1) key moments/turning points of the round flow, "
                         "2) tactical decisions (rotations, setups, spawn flips, holder positions) mentioned, "
                         "3) communication/callout observations, "

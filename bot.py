@@ -35,7 +35,7 @@ log = logging.getLogger("codm-bot")
 KST = timezone(timedelta(hours=9))
 
 # ── 외부 클라이언트 초기화 ────────────────────────────────────────────────
-openai_client = OpenAI(api_key=config.OPENAI_API_KEY)
+openai_client = OpenAI(api_key=config.OPENAI_API_KEY, base_url=config.OPENAI_BASE_URL)
 
 # 데이터베이스 초기화 (없으면 생성)
 db.init_db()

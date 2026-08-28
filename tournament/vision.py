@@ -18,7 +18,8 @@ import prompt_tournament
 
 # 부모 config.py 와 동일 값 (config import는 import 시점 환경변수를 요구해
 # 토너먼트 테스트에서 깨지므로 여기선 상수로 유지 — 변경 시 양쪽 함께 고칠 것).
-MODEL = "gpt-5.6-luna"
+MODEL = "glm-5.3-flash"
+BASE_URL = "https://api.z.ai/api/paas/v4/"
 
 # 부모 디렉토리의 .env 에서 OPENAI_API_KEY 자동 로드.
 # (부모 bot.py:18-21 패턴과 동일 — 별도 export 없이 .env 만 있으면 동작.)
@@ -33,7 +34,7 @@ def _get_client():
     """OPENAI_API_KEY 가 설정된 실제 호출 시점에 클라이언트 생성 (lazy)."""
     global _client
     if _client is None:
-        _client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
+        _client = OpenAI(api_key=os.environ["OPENAI_API_KEY"], base_url=BASE_URL)
     return _client
 
 
@@ -63,8 +64,7 @@ def analyze_two_screens(image_bytes_1: bytes, image_bytes_2: bytes,
         )
     completion = _get_client().chat.completions.create(
         model=MODEL,
-        max_completion_tokens=4096,   # reasoning 계열: max_tokens 미지원
-        reasoning_effort="low",       # OCR 과업엔 low 로 충분 (지연·비용 절약)
+        max_tokens=8192,             # glm-5.3-flash: thinking 토큰 포함 총한도 (OpenAI reasoning 전용 파라미터 미사용)
         response_format={"type": "json_object"},
         timeout=120,
         n=1,
