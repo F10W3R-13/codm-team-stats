@@ -74,3 +74,5 @@ coaching brain/*.pptx
 coaching brain/*.pdf
 coaching brain/slide-*.jpg
 backups/
+reprocess_state.json
+reprocess_log.txt
