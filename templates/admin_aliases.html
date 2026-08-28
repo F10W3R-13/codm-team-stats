@@ -20,6 +20,7 @@
     <a href="/admin/aliases?source=ALL&player={{ player }}&lang={{ lang }}" class="filter-pill {{ 'active' if source == 'ALL' else '' }}">{{ t.filter_all }} ({{ total }})</a>
     <a href="/admin/aliases?source=Manual&player={{ player }}&lang={{ lang }}" class="filter-pill {{ 'active' if source == 'Manual' else '' }}">{{ t.source_manual }} ({{ counts.get('Manual', 0) }})</a>
     <a href="/admin/aliases?source=OCR Auto&player={{ player }}&lang={{ lang }}" class="filter-pill {{ 'active' if source == 'OCR Auto' else '' }}">{{ t.source_ocr_auto }} ({{ counts.get('OCR Auto', 0) }})</a>
+    <a href="/admin/aliases?source=Merge&player={{ player }}&lang={{ lang }}" class="filter-pill {{ 'active' if source == 'Merge' else '' }}">{{ t.source_merge }} ({{ counts.get('Merge', 0) }})</a>
 </div>
 
 <!-- 추가 폼 -->
@@ -65,6 +66,8 @@
                 <td>
                     {% if a.source == 'OCR Auto' %}
                     <span class="badge badge--ocr">🤖 {{ t.source_ocr_auto }}</span>
+                    {% elif a.source == 'Merge' %}
+                    <span class="badge badge--merge">🔗 {{ t.source_merge }}</span>
                     {% else %}
                     <span class="badge badge--manual">✋ {{ t.source_manual }}</span>
                     {% endif %}
@@ -95,6 +98,7 @@
 .meta-label { font-size: var(--fs-xs); }
 .badge--ocr    { background: var(--hp-weak); color: var(--hp); }
 .badge--manual { background: var(--card-2); color: var(--muted); }
+.badge--merge  { background: var(--accent-weak); color: var(--accent); }
 .btn--sm { padding: var(--space-1) var(--space-2); font-size: var(--fs-xs); }
 .empty-list { padding: var(--space-6) 0; }
 </style>

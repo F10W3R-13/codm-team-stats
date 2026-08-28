@@ -197,6 +197,7 @@ STRINGS = {
         "alias_source": "Origen",
         "source_manual": "Manual",
         "source_ocr_auto": "OCR Auto",
+        "source_merge": "Fusionado",
         "alias_empty": "No hay alias registrados.",
         "alias_fill_both": "Introduce IGN y jugador.",
         "alias_confirm_delete": "¿Eliminar este alias?",

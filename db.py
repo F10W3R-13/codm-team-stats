@@ -552,8 +552,18 @@ def merge_player(src_player_id: int, dst_player_name: str) -> dict:
 
     src 의 모든 매치 스탯/alias 를 dst 로 옮긴 뒤 src 행 삭제.
     같은 매치에 src/dst 둘 다 있으면 충돌(UNIQUE(match_id,player_id)) — 그런 행은 스킵.
+    src 이름은 dst 의 alias 로 영구 등록(source='Merge') — 재유입 시 새 선수로
+    재생성되지 않고 자동으로 dst 에 귀속된다.
     """
     with get_conn() as conn:
+        # src 이름 — 행 삭제 전에 미리 읽는다 (병합 이력 alias 재료)
+        src_row = conn.execute(
+            "SELECT name FROM players WHERE id = ?", (src_player_id,)
+        ).fetchone()
+        if not src_row:
+            return {"ok": False, "message": "병합할 선수를 찾을 수 없습니다"}
+        src_name = src_row["name"]
+
         # dst player 확보 (없으면 생성)
         dst_sql = (
             "SELECT id FROM players WHERE LOWER(name) = LOWER(%s)" if USE_POSTGRES else
@@ -600,6 +610,13 @@ def merge_player(src_player_id: int, dst_player_name: str) -> dict:
                 (dst_id, src_player_id),
             )
 
+        # 병합 이력: src 이름을 dst 의 alias 로 등록 (이미 다른 선수 것이면 덮어쓰지 않음)
+        _learn_alias(conn, src_name, dst_id, source="Merge")
+
         # src player 행 삭제
         conn.execute("DELETE FROM players WHERE id = ?", (src_player_id,))
-        return {"ok": True, "message": f"✅ 병합 완료 → {dst_player_name}", "dst": dst_player_name}
+        return {
+            "ok": True,
+            "message": f"✅ 병합 완료 → {dst_player_name} · '{src_name}' 별명 등록",
+            "dst": dst_player_name,
+        }

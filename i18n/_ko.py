@@ -207,6 +207,7 @@ STRINGS = {
         "alias_source": "출처",
         "source_manual": "수동",
         "source_ocr_auto": "OCR 자동",
+        "source_merge": "병합",
         "alias_empty": "등록된 별명이 없습니다.",
         "alias_fill_both": "IGN과 선수를 모두 입력하세요.",
         "alias_confirm_delete": "이 별명을 삭제할까요?",
