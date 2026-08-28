@@ -191,6 +191,7 @@ STRINGS = {
         "opp_matches": "Matches",
         "opp_pending_title": "Matches with unidentified opponent",
         "opp_date": "Date", "opp_mode": "Mode", "opp_map": "Map", "opp_result": "Result",
+        "opp_score": "Score",
         "opp_assign_team": "Assign team",
         "opp_save": "Save",
         "opp_saved": "Saved",

@@ -403,6 +403,14 @@ async def versus_page(request: Request, lang: str = Query("ko")):
     return render("versus.html", lang=lang, teams=teams)
 
 
+@app.get("/versus/{team_id}", response_class=HTMLResponse)
+async def versus_team_page(request: Request, team_id: int, lang: str = Query("ko")):
+    detail = queries.versus_team_detail(team_id)
+    if not detail:
+        raise HTTPException(404, "상대팀 없음")
+    return render("versus_team.html", lang=lang, d=detail)
+
+
 # ── 관리(Admin) 페이지 ───────────────────────────────────────────────────
 @app.get("/admin/login", response_class=HTMLResponse)
 async def admin_login_page(request: Request, lang: str = Query("ko"), error: str = Query("")):

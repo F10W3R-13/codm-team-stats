@@ -1445,3 +1445,76 @@ def versus_overview() -> list:
                 "avg_margin": round(float(r["avg_margin"]), 1) if r["avg_margin"] is not None else None,
             })
         return out
+
+
+def versus_team_detail(team_id: int) -> dict:
+    """팀 상세: 매치 히스토리 + H2H 매트릭스 (spec §7).
+
+    H2H 정의: 같은 매치에 양쪽 다 출전한 경우에 한해 집계.
+    셀 = {"matches": n, "kd_diff": Σ(우리 K-D) - Σ(상대 K-D),
+          "metric_diff": Σ(ZCS|HP) or Σ(RDS|SND) diff}
+    """
+    with db.get_conn() as conn:
+        team = conn.execute(db._adapt_sql(
+            "SELECT id, name FROM opponent_teams WHERE id = ?"), (team_id,)).fetchone()
+        if not team:
+            return None
+        matches = conn.execute(db._adapt_sql("""
+            SELECT id, match_date, mode, map_name, result, team_score, opponent_score
+            FROM matches WHERE opponent_team_id = ? ORDER BY match_date DESC, id DESC"""),
+            (team_id,)).fetchall()
+        mlist = [dict(m) for m in matches]
+
+        # 매치별 양쪽 스탯 로드 → H2H 누적
+        h2h = {}
+        our_names, opp_names = {}, {}
+        for m in mlist:
+            tbl_o = "player_stats_hp" if m["mode"] == "HP" else "player_stats_snd"
+            tbl_e = "opponent_stats_hp" if m["mode"] == "HP" else "opponent_stats_snd"
+            ours = conn.execute(db._adapt_sql(
+                f"SELECT s.*, p.name AS pname FROM {tbl_o} s "
+                f"JOIN players p ON p.id = s.player_id WHERE s.match_id = ?"),
+                (m["id"],)).fetchall()
+            theirs = conn.execute(db._adapt_sql(
+                f"SELECT s.*, p.name AS pname FROM {tbl_e} s "
+                f"JOIN opponent_players p ON p.id = s.player_id WHERE s.match_id = ?"),
+                (m["id"],)).fetchall()
+            for o in ours:
+                our_names[o["player_id"]] = o["pname"]
+                if m["mode"] == "HP":
+                    o_metric = metrics.compute_zcs(o["obj_time"] or 0,
+                                                   o["capture_kill"] or 0,
+                                                   o["kills"] or 0, o["deaths"] or 0)
+                else:
+                    o_metric = metrics.compute_rds(o["kills"] or 0, o["assists"] or 0,
+                                                   o["first_kill"] or 0,
+                                                   o["lone_wolf_win"] or 0,
+                                                   o["adr"] or 0, o["deaths"] or 0)
+                for e in theirs:
+                    opp_names[e["player_id"]] = e["pname"]
+                    if m["mode"] == "HP":
+                        e_metric = metrics.compute_zcs(e["obj_time"] or 0,
+                                                       e["capture_kill"] or 0,
+                                                       e["kills"] or 0, e["deaths"] or 0)
+                    else:
+                        e_metric = metrics.compute_rds(e["kills"] or 0, e["assists"] or 0,
+                                                       e["first_kill"] or 0,
+                                                       e["lone_wolf_win"] or 0,
+                                                       e["adr"] or 0, e["deaths"] or 0)
+                    key = (o["player_id"], e["player_id"])
+                    c = h2h.setdefault(key, {"matches": 0, "kd_diff": 0, "metric_diff": 0.0})
+                    c["matches"] += 1
+                    c["kd_diff"] += ((o["kills"] or 0) - (o["deaths"] or 0)) \
+                                    - ((e["kills"] or 0) - (e["deaths"] or 0))
+                    c["metric_diff"] += o_metric - e_metric
+
+        return {
+            "team": dict(team), "matches": mlist,
+            "h2h": {
+                "our_players": [{"id": pid, "name": nm} for pid, nm in
+                                sorted(our_names.items(), key=lambda kv: kv[1])],
+                "opp_players": [{"id": pid, "name": nm} for pid, nm in
+                                sorted(opp_names.items(), key=lambda kv: kv[1])],
+                "cells": h2h,
+            },
+        }

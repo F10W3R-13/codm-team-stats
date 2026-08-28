@@ -201,6 +201,7 @@ STRINGS = {
         "opp_matches": "매치 수",
         "opp_pending_title": "상대팀 미확정 매치",
         "opp_date": "날짜", "opp_mode": "모드", "opp_map": "맵", "opp_result": "결과",
+        "opp_score": "스코어",
         "opp_assign_team": "팀 지정",
         "opp_save": "저장",
         "opp_saved": "저장됨",

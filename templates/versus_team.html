@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}{{ d.team.name }} — {{ t.versus_title }}{% endblock %}
+{% block nav_versus %}active{% endblock %}
+
+{% block content %}
+<h1>{{ t.versus_title }} — {{ d.team.name }}</h1>
+
+<h2>{{ t.versus_match_history }}</h2>
+<div class="table-wrap">
+<table>
+    <thead><tr><th>{{ t.opp_date }}</th><th>{{ t.opp_mode }}</th><th>{{ t.opp_map }}</th>
+        <th>{{ t.opp_result }}</th><th>{{ t.opp_score }}</th></tr></thead>
+    <tbody>
+    {% for m in d.matches %}
+    <tr>
+        <td><a href="/matches/{{ m.id }}?lang={{ lang }}">{{ m.match_date }}</a></td>
+        <td>{{ m.mode }}</td><td>{{ m.map_name or "-" }}</td>
+        <td>{% if m.result == 'WIN' %}<span class="win-badge">W</span>
+            {% elif m.result == 'LOSS' %}<span class="loss-badge">L</span>{% endif %}</td>
+        <td>{{ m.team_score }} : {{ m.opponent_score }}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+</table>
+</div>
+
+<h2>{{ t.versus_h2h }}</h2>
+<div class="table-wrap">
+<table>
+    <thead><tr><th>{{ t.versus_our_player }}</th>
+        {% for p in d.h2h.opp_players %}<th>{{ p.name }}</th>{% endfor %}</tr></thead>
+    <tbody>
+    {% for o in d.h2h.our_players %}
+    <tr>
+        <td>{{ o.name }}</td>
+        {% for p in d.h2h.opp_players %}
+        {% set c = d.h2h.cells.get((o.id, p.id)) %}
+        <td>{% if c %}
+            <div class="muted">{{ t.versus_matches_together }} {{ c.matches }}</div>
+            <div class="{% if c.kd_diff > 0 %}delta-up{% elif c.kd_diff < 0 %}delta-down{% else %}delta-flat{% endif %}">
+                {{ t.versus_kd_diff }} {{ "%+d"|format(c.kd_diff) }}</div>
+            <div class="{% if c.metric_diff > 0 %}delta-up{% elif c.metric_diff < 0 %}delta-down{% else %}delta-flat{% endif %}">
+                {{ t.versus_metric_diff }} {{ "%+.1f"|format(c.metric_diff) }}</div>
+            {% else %}-{% endif %}
+        </td>
+        {% endfor %}
+    </tr>
+    {% endfor %}
+    </tbody>
+</table>
+</div>
+{% endblock %}

@@ -191,6 +191,7 @@ STRINGS = {
         "opp_matches": "Partidos",
         "opp_pending_title": "Partidos con rival sin identificar",
         "opp_date": "Fecha", "opp_mode": "Modo", "opp_map": "Mapa", "opp_result": "Resultado",
+        "opp_score": "Marcador",
         "opp_assign_team": "Asignar equipo",
         "opp_save": "Guardar",
         "opp_saved": "Guardado",
