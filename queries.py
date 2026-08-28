@@ -1421,3 +1421,27 @@ def notes_for_match(match_id: int) -> list:
             "ORDER BY n.created_at DESC, n.id DESC"
         ), (match_id,)).fetchall()]
     return rows
+
+
+def versus_overview() -> list:
+    """팀별 상대전적 요약 (spec §7) — 승패 미입력 매치는 wins/losses에 미포함."""
+    with db.get_conn() as conn:
+        rows = conn.execute(db._adapt_sql("""
+            SELECT t.id, t.name,
+                   COUNT(m.id) AS match_n,
+                   SUM(CASE WHEN m.result = 'WIN' THEN 1 ELSE 0 END) AS wins,
+                   SUM(CASE WHEN m.result = 'LOSS' THEN 1 ELSE 0 END) AS losses,
+                   AVG(m.team_score - m.opponent_score) AS avg_margin
+            FROM opponent_teams t
+            LEFT JOIN matches m ON m.opponent_team_id = t.id
+            GROUP BY t.id, t.name
+            ORDER BY match_n DESC, t.name""")).fetchall()
+        out = []
+        for r in rows:
+            out.append({
+                "id": r["id"], "name": r["name"],
+                "match_n": r["match_n"] or 0,
+                "wins": int(r["wins"] or 0), "losses": int(r["losses"] or 0),
+                "avg_margin": round(float(r["avg_margin"]), 1) if r["avg_margin"] is not None else None,
+            })
+        return out

@@ -397,6 +397,12 @@ async def map_detail_page(
     return render("map_detail.html", lang=lang, data=data, advice=advice)
 
 
+@app.get("/versus", response_class=HTMLResponse)
+async def versus_page(request: Request, lang: str = Query("ko")):
+    teams = queries.versus_overview()
+    return render("versus.html", lang=lang, teams=teams)
+
+
 # ── 관리(Admin) 페이지 ───────────────────────────────────────────────────
 @app.get("/admin/login", response_class=HTMLResponse)
 async def admin_login_page(request: Request, lang: str = Query("ko"), error: str = Query("")):
