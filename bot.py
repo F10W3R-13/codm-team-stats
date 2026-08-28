@@ -116,7 +116,8 @@ def date_str_from_message(message: discord.Message) -> str:
 
 def write_to_db(mode: str, players: list, date_str: str,
                 map_name: str = None, result: str = None,
-                team_score: int = None, opponent_score: int = None) -> dict:
+                team_score: int = None, opponent_score: int = None,
+                enemy_players: list = None) -> dict:
     """GPT 분석 결과 한 매치를 SQLite DB에 저장.
 
     반환: save_match 결과 dict (match_id, saved, mode, result, scores, map 포함)
@@ -125,6 +126,7 @@ def write_to_db(mode: str, players: list, date_str: str,
         mode=mode, players=players, match_date=date_str,
         map_name=map_name, result=result,
         team_score=team_score, opponent_score=opponent_score,
+        enemy_players=enemy_players,
     )
 
 
@@ -225,6 +227,7 @@ async def on_message(message: discord.Message):
         team_score = result.get("team_score")
         opponent_score = result.get("opponent_score")
         map_name = result.get("map")
+        enemy_players = result.get("enemy_players") or []
 
         if not players:
             await message.reply("⚠️ Analysis complete, but no player data was found.")
@@ -247,6 +250,7 @@ async def on_message(message: discord.Message):
                 mode, players, date_str,
                 map_name=map_name, result=match_result,
                 team_score=team_score, opponent_score=opponent_score,
+                enemy_players=enemy_players,
             )
         except Exception as e:
             log.exception("DB write failed")
