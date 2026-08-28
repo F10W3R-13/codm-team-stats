@@ -545,7 +545,7 @@ async def admin_delete_match(match_id: int):
 @app.get("/admin/aliases", response_class=HTMLResponse)
 async def admin_aliases_page(
     request: Request,
-    source: str = Query("ALL", pattern="^(ALL|Manual|OCR Auto)$"),
+    source: str = Query("ALL", pattern="^(ALL|Manual|OCR Auto|Merge)$"),
     player: str = Query(""),
     lang: str = Query("ko"),
 ):

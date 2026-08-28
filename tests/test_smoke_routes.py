@@ -62,6 +62,8 @@ def test_admin_pages_with_cookie(admin_client, seeded_db):
     paths = [
         "/admin",
         "/admin/aliases",
+        "/admin/aliases?source=Merge",   # 병합 필터 — Query pattern 누락 시 422 (2026-08 실사고)
+        "/admin/aliases?source=OCR%20Auto",
         "/admin/players",
         f"/admin/match/{seeded_db['hp_match_id']}",
         "/admin/day/2026-08-01",
