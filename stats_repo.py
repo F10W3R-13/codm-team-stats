@@ -4,11 +4,16 @@
 # 구글 시트에 직접 쓰던 것을 SQLite로 대체한다.
 # 디스코드 봇이 한 매치 분석 결과를 이 모듈의 save_match()로 넘기면 된다.
 
+import logging
+
 import db
+
+log = logging.getLogger(__name__)
 
 
 def save_match(mode: str, players: list, match_date: str, map_name: str = None,
-               result: str = None, team_score: int = None, opponent_score: int = None) -> dict:
+               result: str = None, team_score: int = None, opponent_score: int = None,
+               enemy_players: list = None) -> dict:
     """GPT 분석 결과 한 매치를 DB에 저장.
 
     mode:           "HP" 또는 "SND"
@@ -18,13 +23,17 @@ def save_match(mode: str, players: list, match_date: str, map_name: str = None,
     result:         "WIN" 또는 "LOSS"
     team_score:     우리 팀 점수
     opponent_score: 상대 팀 점수
+    enemy_players:  상대팀 선수 스탯 (선택). 있으면 상대팀 테이블에 별도 저장 +
+                    팀 자동 식별(matches.opponent_team_id 태그). 부분 실패 격리 —
+                    여기서 실패해도 우리팀 저장은 정상 (spec §5.3).
 
     재업로드(같은 경기 중복) 처리:
     같은 날짜·모드·맵의 기존 매치 중 스탯이 들어오는 것의 부분집합인 매치가 있으면
     새 매치를 만들지 않고 그 매치에 병합한다 (부분 인식 4/5명 재업로드 보정).
     반환 dict에 "duplicate": True 와 실제 추가된 행수가 "saved"로 들어간다.
 
-    반환: {"match_id": int, "saved": int, "mode": mode, "duplicate": bool, ...}
+    반환: {"match_id": int, "saved": int, "mode": mode, "duplicate": bool,
+           ..., "opponent": {"team_id": int|None, "saved": int} | None}
     """
     with db.get_conn() as conn:
         dup_match_id = _find_reupload_target(conn, mode, players, match_date, map_name)
@@ -46,6 +55,16 @@ def save_match(mode: str, players: list, match_date: str, map_name: str = None,
             saved = len(players)
             duplicate = False
 
+        # 상대팀 저장 — 부분 실패 격리: 여기서 실패해도 우리팀 저장은 유효 (spec §5.3)
+        # if/else 밖에서 실행 → 신규·재업로드 병합 양쪽 경로 모두 커버.
+        enemy_info = None
+        if enemy_players:
+            try:
+                enemy_info = _save_opponent_stats(conn, match_id, mode, enemy_players)
+            except Exception as e:
+                log.warning(f"[save_match] 상대팀 저장 실패 (우리팀 저장은 정상): {e}")
+                enemy_info = {"team_id": None, "saved": 0, "error": str(e)}
+
         # 매치 기록/병합 → 인사이트 캐시 전체 무효화 (최신 데이터로 갱신 유도)
         try:
             import insight_cache
@@ -56,7 +75,8 @@ def save_match(mode: str, players: list, match_date: str, map_name: str = None,
         return {"match_id": match_id, "saved": saved, "mode": mode,
                 "duplicate": duplicate,
                 "result": result, "team_score": team_score,
-                "opponent_score": opponent_score, "map": map_name}
+                "opponent_score": opponent_score, "map": map_name,
+                "opponent": enemy_info}
 
 
 def _upsert_players(conn, mode: str, match_id: int, players: list) -> None:
@@ -163,6 +183,84 @@ def _insert_snd(conn, match_id, p):
          "kd_ratio", "score", "impact", "adr", "first_kill", "lone_wolf_win"],
         (
             match_id, pid, ign_raw,
+            _to_int(p.get("k")), _to_int(p.get("d")), _to_int(p.get("a")),
+            _to_float(p.get("kd_ratio")), _to_int(p.get("score")),
+            _to_float(p.get("impact")), _to_float(p.get("adr")),
+            _to_int(p.get("first_kill")), _to_int(p.get("lone_wolf_win")),
+        ),
+        conflict_col="match_id, player_id",
+        update_cols=["ign_raw", "kills", "deaths", "assists", "kd_ratio",
+                     "score", "impact", "adr", "first_kill", "lone_wolf_win"],
+    )
+
+
+def _save_opponent_stats(conn, match_id: int, mode: str, enemy_players: list) -> dict:
+    """상대 선수 스탯 저장 + 팀 자동 식별 (spec §5).
+
+    identify(전역 resolve + 다수결) → 팀 태그 → 팀 풀 재resolve로 저장 →
+    로스터 축적(source='match'). 사전이 자라나는 지점.
+    """
+    names = [(p.get("name") or "").strip() for p in enemy_players]
+    names = [n for n in names if n]
+    if not names:
+        return {"team_id": None, "saved": 0}
+
+    team_id = db.identify_opponent_team(conn, names)
+    # 1차 패스: 전원 resolve를 먼저 끝낸다 — 저장 중에 로스터를 축적하면
+    # 방금 추가된 신규 선수가 다음 이름의 팀 풀 퍼지 후보로 들어가
+    # 유사 무명 선수끼리 오병합된다 (예: SubNew1~SubNew2).
+    resolved = []
+    for p in enemy_players:
+        name = (p.get("name") or "").strip()
+        if not name:
+            continue
+        pid = db.resolve_opponent_player_id(conn, name, team_id=team_id)
+        resolved.append((pid, p))
+    # 2차 패스: 스탯 저장 + 로스터 축적(source='match'). 사전이 자라나는 지점.
+    saved = 0
+    for pid, p in resolved:
+        if mode == "HP":
+            _insert_opp_hp(conn, match_id, pid, p)
+        else:
+            _insert_opp_snd(conn, match_id, pid, p)
+        if team_id:
+            conn.upsert("opponent_team_rosters",
+                        ["team_id", "player_id", "source"], (team_id, pid, "match"),
+                        conflict_col="team_id, player_id")
+        saved += 1
+
+    if team_id:
+        conn.execute(db._adapt_sql(
+            "UPDATE matches SET opponent_team_id = ? "
+            "WHERE id = ? AND opponent_team_id IS NULL"), (team_id, match_id))
+    return {"team_id": team_id, "saved": saved}
+
+
+def _insert_opp_hp(conn, match_id, pid, p):
+    conn.upsert(
+        "opponent_stats_hp",
+        ["match_id", "player_id", "ign_raw", "kills", "deaths", "kd_ratio",
+         "obj_time", "score", "impact", "total_damage", "capture_kill"],
+        (
+            match_id, pid, (p.get("name") or "").strip() or "Unknown",
+            _to_int(p.get("k")), _to_int(p.get("d")), _to_float(p.get("kd_ratio")),
+            _to_int(p.get("time")), _to_int(p.get("score")),
+            _to_float(p.get("impact")), _to_int(p.get("total_damage")),
+            _to_int(p.get("capture_kill")),
+        ),
+        conflict_col="match_id, player_id",
+        update_cols=["ign_raw", "kills", "deaths", "kd_ratio",
+                     "obj_time", "score", "impact", "total_damage", "capture_kill"],
+    )
+
+
+def _insert_opp_snd(conn, match_id, pid, p):
+    conn.upsert(
+        "opponent_stats_snd",
+        ["match_id", "player_id", "ign_raw", "kills", "deaths", "assists",
+         "kd_ratio", "score", "impact", "adr", "first_kill", "lone_wolf_win"],
+        (
+            match_id, pid, (p.get("name") or "").strip() or "Unknown",
             _to_int(p.get("k")), _to_int(p.get("d")), _to_int(p.get("a")),
             _to_float(p.get("kd_ratio")), _to_int(p.get("score")),
             _to_float(p.get("impact")), _to_float(p.get("adr")),

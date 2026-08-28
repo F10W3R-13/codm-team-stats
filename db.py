@@ -721,12 +721,17 @@ def _learn_opponent_alias(conn, ign: str, player_id: int, source: str = "Auto"):
         log.warning(f"[_learn_opponent_alias] {ign} → {player_id} 학습 실패: {e}")
 
 
-def resolve_opponent_player_id(conn, name: str, team_id: int = None) -> int:
+def resolve_opponent_player_id(conn, name: str, team_id: int = None,
+                               create: bool = True):
     """상대 선수 resolve (spec §5.1): alias 사전 → 풀 내 정확 → 퍼지 → 신규 생성.
 
     team_id가 있으면 그 팀 로스터 풀에서 넉넉한 임계값(0.75)으로,
     없으면 전역 풀에서 엄격한 임계값(0.85, 용병 폴백)으로 퍼지 매칭.
-    반환: opponent_players.id (항상 존재 — 신규 생성 포함).
+    create=False면 학습(alias)·생성 없이 조회만 하고 미발견 시 None을 반환한다
+    (팀 투표 등 읽기 전용 용도 — 식별 단계에서 사전이 오염되면 직후 저장 단계
+    resolve가 유사 무명 선수를 오병합할 수 있다).
+    반환: opponent_players.id (create=True, 항상 존재 — 신규 생성 포함).
+          create=False면 미발견 시 None.
     """
     name = (name or "").strip() or "Unknown"
     target = opponent_matching.norm_name(name)
@@ -750,17 +755,21 @@ def resolve_opponent_player_id(conn, name: str, team_id: int = None) -> int:
     # 3) 풀 내 정확(정규화 일치)
     for r in rows:
         if opponent_matching.norm_name(r["name"]) == target:
-            _learn_opponent_alias(conn, name, r["id"])
+            if create:
+                _learn_opponent_alias(conn, name, r["id"])
             return r["id"]
 
     # 4) 풀 내 퍼지
     match = opponent_matching.best_fuzzy_match(
         name, [(r["id"], r["name"]) for r in rows], threshold)
     if match:
-        _learn_opponent_alias(conn, name, match[0])
+        if create:
+            _learn_opponent_alias(conn, name, match[0])
         return match[0]
 
-    # 5) 신규 생성 (admin 병합 대기)
+    # 5) 신규 생성 (admin 병합 대기) — create=False면 포기
+    if not create:
+        return None
     return conn.execute_returning_id(
         "INSERT INTO opponent_players(name) VALUES (?)", (name,))
 
@@ -768,11 +777,16 @@ def resolve_opponent_player_id(conn, name: str, team_id: int = None) -> int:
 def identify_opponent_team(conn, names: list):
     """상대팀 자동 식별 (spec §5.2): resolve 결과의 소속팀 득표 다수결.
 
+    투표는 읽기 전용(create=False)으로 수행 — 식별 단계에서 선수·alias가
+    생성되면 직후 저장 단계의 팀 풀 resolve가 깨진다 (등록 안 된 신규 선수
+    이중 INSERT 충돌, 유사 무명 선수 오병합).
     반환: opponent_teams.id 또는 None(미달·동률 → admin 큐).
     """
     team_votes = []
     for nm in names:
-        pid = resolve_opponent_player_id(conn, nm)  # 전역 모드로 resolve
+        pid = resolve_opponent_player_id(conn, nm, create=False)
+        if pid is None:
+            continue
         rows = conn.execute(_adapt_sql(
             "SELECT DISTINCT team_id FROM opponent_team_rosters WHERE player_id = ?"),
             (pid,)).fetchall()
