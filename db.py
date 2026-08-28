@@ -15,6 +15,8 @@ import os
 import sqlite3
 import logging
 
+import opponent_matching
+
 log = logging.getLogger("codm-db")
 
 # DB 종류 판별
@@ -698,3 +700,111 @@ def merge_player(src_player_id: int, dst_player_name: str) -> dict:
             "message": f"✅ 병합 완료 → {dst_player_name} · '{src_name}' 별명 등록",
             "dst": dst_player_name,
         }
+
+
+# ── 상대팀 선수·팀 분류 (spec §5.1~5.2) ─────────────────────────────────
+
+
+def _learn_opponent_alias(conn, ign: str, player_id: int, source: str = "Auto"):
+    """상대 변형 IGN을 opponent_aliases에 영구 저장. 충돌 시 무시(덮어쓰지 않음)."""
+    try:
+        if USE_POSTGRES:
+            conn.execute(
+                "INSERT INTO opponent_aliases(ign, opponent_player_id, source) "
+                "VALUES (%s, %s, %s) ON CONFLICT (ign) DO NOTHING",
+                (ign, player_id, source))
+        else:
+            conn.execute(
+                "INSERT OR IGNORE INTO opponent_aliases(ign, opponent_player_id, source) "
+                "VALUES (?, ?, ?)", (ign, player_id, source))
+    except Exception as e:
+        log.warning(f"[_learn_opponent_alias] {ign} → {player_id} 학습 실패: {e}")
+
+
+def resolve_opponent_player_id(conn, name: str, team_id: int = None) -> int:
+    """상대 선수 resolve (spec §5.1): alias 사전 → 풀 내 정확 → 퍼지 → 신규 생성.
+
+    team_id가 있으면 그 팀 로스터 풀에서 넉넉한 임계값(0.75)으로,
+    없으면 전역 풀에서 엄격한 임계값(0.85, 용병 폴백)으로 퍼지 매칭.
+    반환: opponent_players.id (항상 존재 — 신규 생성 포함).
+    """
+    name = (name or "").strip() or "Unknown"
+    target = opponent_matching.norm_name(name)
+
+    # 1) alias 사전 (학습 우선, 풀 무관)
+    for r in conn.execute("SELECT ign, opponent_player_id FROM opponent_aliases").fetchall():
+        if opponent_matching.norm_name(r["ign"]) == target:
+            return r["opponent_player_id"]
+
+    # 2) 후보 풀: 팀 로스터 or 전역
+    if team_id:
+        rows = conn.execute(_adapt_sql(
+            "SELECT p.id, p.name FROM opponent_players p "
+            "JOIN opponent_team_rosters r ON r.player_id = p.id WHERE r.team_id = ?"),
+            (team_id,)).fetchall()
+        threshold = opponent_matching.FUZZY_TEAM_THRESHOLD
+    else:
+        rows = conn.execute("SELECT id, name FROM opponent_players").fetchall()
+        threshold = opponent_matching.FUZZY_GLOBAL_THRESHOLD
+
+    # 3) 풀 내 정확(정규화 일치)
+    for r in rows:
+        if opponent_matching.norm_name(r["name"]) == target:
+            _learn_opponent_alias(conn, name, r["id"])
+            return r["id"]
+
+    # 4) 풀 내 퍼지
+    match = opponent_matching.best_fuzzy_match(
+        name, [(r["id"], r["name"]) for r in rows], threshold)
+    if match:
+        _learn_opponent_alias(conn, name, match[0])
+        return match[0]
+
+    # 5) 신규 생성 (admin 병합 대기)
+    return conn.execute_returning_id(
+        "INSERT INTO opponent_players(name) VALUES (?)", (name,))
+
+
+def identify_opponent_team(conn, names: list):
+    """상대팀 자동 식별 (spec §5.2): resolve 결과의 소속팀 득표 다수결.
+
+    반환: opponent_teams.id 또는 None(미달·동률 → admin 큐).
+    """
+    team_votes = []
+    for nm in names:
+        pid = resolve_opponent_player_id(conn, nm)  # 전역 모드로 resolve
+        rows = conn.execute(_adapt_sql(
+            "SELECT DISTINCT team_id FROM opponent_team_rosters WHERE player_id = ?"),
+            (pid,)).fetchall()
+        team_votes.extend(r["team_id"] for r in rows)
+    team_id, _n = opponent_matching.tally_team_votes(team_votes, total=len(names))
+    return team_id
+
+
+def merge_opponent_player(src_player_id: int, dst_player_id: int) -> dict:
+    """상대 선수 병합: src의 스탯·alias·로스터를 dst로 흡수 후 src 삭제.
+
+    같은 매치에 둘 다 있으면 dst 우선(src 행 삭제) — 스펙 §6.3 수동 병합.
+    """
+    with get_conn() as conn:
+        for tbl in ("opponent_stats_hp", "opponent_stats_snd"):
+            conn.execute(_adapt_sql(
+                f"DELETE FROM {tbl} WHERE player_id = ? AND match_id IN "
+                f"(SELECT match_id FROM {tbl} WHERE player_id = ?)"),
+                (src_player_id, dst_player_id))
+            conn.execute(_adapt_sql(
+                f"UPDATE {tbl} SET player_id = ? WHERE player_id = ?"),
+                (dst_player_id, src_player_id))
+        conn.execute(_adapt_sql(
+            "UPDATE opponent_aliases SET opponent_player_id = ? WHERE opponent_player_id = ?"),
+            (dst_player_id, src_player_id))
+        conn.execute(_adapt_sql(
+            "DELETE FROM opponent_team_rosters WHERE player_id = ? AND team_id IN "
+            "(SELECT team_id FROM opponent_team_rosters WHERE player_id = ?)"),
+            (src_player_id, dst_player_id))
+        conn.execute(_adapt_sql(
+            "UPDATE opponent_team_rosters SET player_id = ? WHERE player_id = ?"),
+            (dst_player_id, src_player_id))
+        conn.execute(_adapt_sql(
+            "DELETE FROM opponent_players WHERE id = ?"), (src_player_id,))
+    return {"ok": True}
