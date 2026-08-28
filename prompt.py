@@ -69,7 +69,7 @@ _PROMPT_TEMPLATE = (
     "\"opponent_score\": 198,\n"
     "\"map\": \"Combine\",\n"
     "\"our_team_side\": \"left\",\n"
-    "\"players\": [{\"name\": \"이름\", \"k\": 0, \"d\": 0, \"kd_ratio\": 0.0, \"time\": 0, \"score\": 0, \"impact\": 0, \"total_damage\": 0, \"capture_kill\": 0}]\n"
+    "\"players\": [{\"name\": \"이름\", \"k\": 0, \"d\": 0, \"kd_ratio\": 0.0, \"time\": 0, \"score\": 0, \"impact\": 0, \"total_damage\": 0, \"capture_kill\": 0}],\n"
     "\"enemy_players\": [{\"name\": \"보이는그대로\", \"k\": 0, \"d\": 0, \"kd_ratio\": 0.0, \"time\": 0, \"score\": 0, \"impact\": 0, \"total_damage\": 0, \"capture_kill\": 0}]\n"
     "}\n\n"
     "SND 예시:\n"
@@ -80,7 +80,7 @@ _PROMPT_TEMPLATE = (
     "\"opponent_score\": 6,\n"
     "\"map\": \"Coastal\",\n"
     "\"our_team_side\": \"right\",\n"
-    "\"players\": [{\"name\": \"이름\", \"k\": 0, \"d\": 0, \"a\": 0, \"kd_ratio\": 0.0, \"score\": 0, \"impact\": 0, \"adr\": 0, \"first_kill\": 0, \"lone_wolf_win\": 0}]\n"
+    "\"players\": [{\"name\": \"이름\", \"k\": 0, \"d\": 0, \"a\": 0, \"kd_ratio\": 0.0, \"score\": 0, \"impact\": 0, \"adr\": 0, \"first_kill\": 0, \"lone_wolf_win\": 0}],\n"
     "\"enemy_players\": [{\"name\": \"보이는그대로\", \"k\": 0, \"d\": 0, \"a\": 0, \"kd_ratio\": 0.0, \"score\": 0, \"impact\": 0, \"adr\": 0, \"first_kill\": 0, \"lone_wolf_win\": 0}]\n"
     "}"
 )
