@@ -610,6 +610,25 @@ async def admin_merge_player(payload: dict = Body(...)):
     return result
 
 
+# ── 상대팀 관리 (opponents) ──────────────────────────────────────────────
+@app.get("/admin/opponents", response_class=HTMLResponse)
+async def admin_opponents_page(request: Request, lang: str = Query("ko")):
+    """상대팀 관리 페이지 — 팀 등록·로스터 선등록·미확정 매치 큐."""
+    data = admin_write.opponent_admin_data()
+    return render("admin_opponents.html", lang=lang, data=data)
+
+
+@app.post("/admin/opponent/team")
+async def admin_add_opponent_team(payload: dict = Body(...)):
+    return admin_write.add_opponent_team(payload.get("name", ""))
+
+
+@app.post("/admin/opponent/roster")
+async def admin_set_opponent_roster(payload: dict = Body(...)):
+    return admin_write.set_opponent_roster(int(payload.get("team_id", 0)),
+                                           payload.get("names", ""))
+
+
 # ── 코칭 노트 (액션 아이템) ──────────────────────────────────────────────────
 @app.post("/admin/notes")
 async def admin_add_note(request: Request,

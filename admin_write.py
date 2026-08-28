@@ -361,3 +361,67 @@ def get_note_status(note_id: int) -> str | None:
             "SELECT status FROM coaching_notes WHERE id=?"
         ), (note_id,)).fetchone()
         return dict(r)["status"] if r else None
+
+
+# ── 상대팀 관리 (opponent teams) ────────────────────────────────────────────
+
+def opponent_admin_data() -> dict:
+    """상대팀 관리 페이지 데이터: 팀+로스터, 미확정 매치(opponent_team_id NULL)."""
+    with db.get_conn() as conn:
+        teams = conn.execute(db._adapt_sql("""
+            SELECT t.id, t.name,
+                   (SELECT COUNT(*) FROM matches m WHERE m.opponent_team_id = t.id) AS match_n
+            FROM opponent_teams t ORDER BY t.name""")).fetchall()
+        result = []
+        for t in teams:
+            roster = conn.execute(db._adapt_sql("""
+                SELECT p.id, p.name, r.source
+                FROM opponent_team_rosters r
+                JOIN opponent_players p ON p.id = r.player_id
+                WHERE r.team_id = ? ORDER BY p.name"""), (t["id"],)).fetchall()
+            result.append({"id": t["id"], "name": t["name"],
+                           "match_n": t["match_n"], "roster": [dict(r) for r in roster]})
+        pending = conn.execute(db._adapt_sql("""
+            SELECT m.id, m.match_date, m.mode, m.map_name, m.result,
+                   m.team_score, m.opponent_score
+            FROM matches m
+            WHERE m.opponent_team_id IS NULL
+              AND EXISTS (SELECT 1 FROM opponent_stats_hp h WHERE h.match_id = m.id
+                          UNION ALL
+                          SELECT 1 FROM opponent_stats_snd s WHERE s.match_id = m.id)
+            ORDER BY m.id DESC LIMIT 50""")).fetchall()
+        return {"teams": result, "pending": [dict(p) for p in pending]}
+
+
+def add_opponent_team(name: str) -> dict:
+    name = (name or "").strip()
+    if not name:
+        return {"ok": False, "message": "팀 이름이 필요합니다"}
+    with db.get_conn() as conn:
+        row = conn.execute(db._adapt_sql(
+            "SELECT id FROM opponent_teams WHERE name = ?"), (name,)).fetchone()
+        if row:
+            return {"ok": False, "message": "이미 등록된 팀입니다"}
+        tid = conn.execute_returning_id(
+            "INSERT INTO opponent_teams(name) VALUES (?)", (name,))
+    return {"ok": True, "team_id": tid}
+
+
+def set_opponent_roster(team_id: int, names_text: str) -> dict:
+    """줄당 닉네임 1개 텍스트를 로스터로 등록 — 공식 로스터 선등록 (spec §6.1)."""
+    added = 0
+    with db.get_conn() as conn:
+        team = conn.execute(db._adapt_sql(
+            "SELECT id FROM opponent_teams WHERE id = ?"), (team_id,)).fetchone()
+        if not team:
+            return {"ok": False, "message": "없는 팀입니다"}
+        for line in (names_text or "").splitlines():
+            nm = line.strip()
+            if not nm:
+                continue
+            pid = db.resolve_opponent_player_id(conn, nm, team_id=team_id)
+            conn.upsert("opponent_team_rosters",
+                        ["team_id", "player_id", "source"], (team_id, pid, "registered"),
+                        conflict_col="team_id, player_id")
+            added += 1
+    return {"ok": True, "added": added}

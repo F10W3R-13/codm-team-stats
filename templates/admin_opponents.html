@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="subtabs">
+    <a href="/admin?lang={{ lang }}" class="subtab">📋 {{ t.admin_tab_matches }}</a>
+    <a href="/admin/aliases?lang={{ lang }}" class="subtab">🏷️ {{ t.admin_tab_aliases }}</a>
+    <a href="/admin/players?lang={{ lang }}" class="subtab">👤 {{ t.admin_tab_players }}</a>
+    <a href="/admin/opponents?lang={{ lang }}" class="subtab active">⚔️ {{ t.admin_tab_opponents }}</a>
+</div>
+
+<h2>{{ t.opp_title }}</h2>
+
+<div class="card">
+    <h3>{{ t.opp_add_team }}</h3>
+    <form id="add-team-form" class="filter-bar">
+        <input class="input" id="team-name" placeholder="{{ t.opp_team_name }}" required>
+        <button class="btn btn--primary" type="submit">{{ t.opp_add }}</button>
+    </form>
+</div>
+
+{% for team in data.teams %}
+<div class="card">
+    <h3>{{ team.name }} <span class="muted">{{ t.opp_matches }}: {{ team.match_n }}</span></h3>
+    <form class="filter-bar" data-team="{{ team.id }}">
+        <textarea class="input" rows="2" placeholder="{{ t.opp_roster_paste }}"></textarea>
+        <button class="btn" type="submit">{{ t.opp_roster_add }}</button>
+    </form>
+    <div class="table-wrap">
+    <table>
+        <thead><tr><th>{{ t.opp_player }}</th><th>{{ t.opp_source }}</th></tr></thead>
+        <tbody>
+        {% for p in team.roster %}
+        <tr><td>{{ p.name }}</td><td>{{ p.source }}</td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    </div>
+</div>
+{% endfor %}
+
+{% if data.pending %}
+<div class="card card--warning">
+    <h3>{{ t.opp_pending_title }}</h3>
+    <div class="table-wrap">
+    <table>
+        <thead><tr><th>{{ t.opp_date }}</th><th>{{ t.opp_mode }}</th><th>{{ t.opp_map }}</th><th>{{ t.opp_result }}</th><th></th></tr></thead>
+        <tbody>
+        {% for m in data.pending %}
+        <tr>
+            <td>{{ m.match_date }}</td><td>{{ m.mode }}</td><td>{{ m.map_name or "-" }}</td>
+            <td>{% if m.result == 'WIN' %}<span class="win-badge">W</span>
+                {% elif m.result == 'LOSS' %}<span class="loss-badge">L</span>{% endif %}</td>
+            <td>
+                <select class="select team-select" data-match="{{ m.id }}">
+                    <option value="">{{ t.opp_assign_team }}</option>
+                    {% for team in data.teams %}
+                    <option value="{{ team.id }}">{{ team.name }}</option>
+                    {% endfor %}
+                </select>
+                <button class="btn btn--primary assign-btn" data-match="{{ m.id }}" disabled>{{ t.opp_save }}</button>
+            </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    </div>
+</div>
+{% endif %}
+
+<script>
+// 폼/버튼 fetch 처리 — flash()로 결과 표시 (base.html 글로벌 토스트)
+document.getElementById("add-team-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const name = document.getElementById("team-name").value;
+    const r = await (await fetch("/admin/opponent/team", {
+        method: "POST", headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({name})})).json();
+    flash(r.message || (r.ok ? "{{ t.opp_saved }}" : "{{ t.opp_error }}"), r.ok);
+    if (r.ok) location.reload();
+});
+document.querySelectorAll("form.filter-bar[data-team]").forEach((f) => {
+    f.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const names = f.querySelector("textarea").value;
+        const r = await (await fetch("/admin/opponent/roster", {
+            method: "POST", headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({team_id: Number(f.dataset.team), names})})).json();
+        flash(r.message || (r.ok ? "{{ t.opp_saved }}" : "{{ t.opp_error }}"), r.ok);
+        if (r.ok) location.reload();
+    });
+});
+document.querySelectorAll(".team-select").forEach((sel) => {
+    sel.addEventListener("change", () => {
+        sel.parentElement.querySelector(".assign-btn").disabled = !sel.value;
+    });
+});
+document.querySelectorAll(".assign-btn").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+        const mid = btn.dataset.match;
+        const teamId = btn.parentElement.querySelector(".team-select").value;
+        const r = await (await fetch("/admin/opponent/match-team", {
+            method: "POST", headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({match_id: Number(mid), team_id: Number(teamId)})})).json();
+        flash(r.message || (r.ok ? "{{ t.opp_saved }}" : "{{ t.opp_error }}"), r.ok);
+        if (r.ok) location.reload();
+    });
+});
+</script>
+{% endblock %}
