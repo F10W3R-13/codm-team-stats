@@ -785,8 +785,41 @@ def merge_opponent_player(src_player_id: int, dst_player_id: int) -> dict:
     """상대 선수 병합: src의 스탯·alias·로스터를 dst로 흡수 후 src 삭제.
 
     같은 매치에 둘 다 있으면 dst 우선(src 행 삭제) — 스펙 §6.3 수동 병합.
+    src 표시 이름은 dst의 alias로 영구 등록(source='Merge') — 재유입 시
+    새 선수로 재생성되지 않고 dst에 자동 귀속된다.
     """
     with get_conn() as conn:
+        # src 이름 — 행 삭제 전에 미리 읽는다 (병합 이력 alias 재료)
+        src_row = conn.execute(
+            "SELECT name FROM opponent_players WHERE id = ?", (src_player_id,)).fetchone()
+        if not src_row:
+            return {"ok": False, "message": "병합할 선수를 찾을 수 없습니다"}
+        dst_row = conn.execute(
+            "SELECT name FROM opponent_players WHERE id = ?", (dst_player_id,)).fetchone()
+        if not dst_row:
+            return {"ok": False, "message": "병합 대상 선수를 찾을 수 없습니다"}
+        src_name = src_row["name"]
+
+        if src_player_id == dst_player_id:
+            return {"ok": False, "message": "같은 선수입니다"}
+
+        # alias 이관 (merge_player 선례):
+        # 1) dst에 이미 존재하는 src ign(충돌 → UNIQUE(ign) 위반)은 먼저 삭제
+        # 2) 남은 src alias는 opponent_player_id를 dst로 UPDATE
+        src_alias_igns = [r["ign"] for r in conn.execute(
+            "SELECT ign FROM opponent_aliases WHERE opponent_player_id = ?",
+            (src_player_id,)).fetchall()]
+        if src_alias_igns:
+            placeholders_ign = ",".join(["?"] * len(src_alias_igns))
+            conn.execute(
+                f"DELETE FROM opponent_aliases WHERE opponent_player_id = ? AND ign IN "
+                f"(SELECT ign FROM opponent_aliases WHERE opponent_player_id = ? "
+                f"AND ign IN ({placeholders_ign}))",
+                (src_player_id, dst_player_id, *src_alias_igns))
+            conn.execute(
+                "UPDATE opponent_aliases SET opponent_player_id = ? WHERE opponent_player_id = ?",
+                (dst_player_id, src_player_id))
+
         for tbl in ("opponent_stats_hp", "opponent_stats_snd"):
             conn.execute(_adapt_sql(
                 f"DELETE FROM {tbl} WHERE player_id = ? AND match_id IN "
@@ -796,15 +829,16 @@ def merge_opponent_player(src_player_id: int, dst_player_id: int) -> dict:
                 f"UPDATE {tbl} SET player_id = ? WHERE player_id = ?"),
                 (dst_player_id, src_player_id))
         conn.execute(_adapt_sql(
-            "UPDATE opponent_aliases SET opponent_player_id = ? WHERE opponent_player_id = ?"),
-            (dst_player_id, src_player_id))
-        conn.execute(_adapt_sql(
             "DELETE FROM opponent_team_rosters WHERE player_id = ? AND team_id IN "
             "(SELECT team_id FROM opponent_team_rosters WHERE player_id = ?)"),
             (src_player_id, dst_player_id))
         conn.execute(_adapt_sql(
             "UPDATE opponent_team_rosters SET player_id = ? WHERE player_id = ?"),
             (dst_player_id, src_player_id))
+
+        # 병합 이력: src 이름을 dst의 alias로 등록 (이미 다른 선수 것이면 덮어쓰지 않음)
+        _learn_opponent_alias(conn, src_name, dst_player_id, source="Merge")
+
         conn.execute(_adapt_sql(
             "DELETE FROM opponent_players WHERE id = ?"), (src_player_id,))
     return {"ok": True}

@@ -107,3 +107,51 @@ def test_merge_opponent_player_moves_stats():
         # src 선수 삭제
         gone = conn.execute("SELECT id FROM opponent_players WHERE id=?", (src,)).fetchone()
         assert gone is None
+
+
+def test_merge_same_match_dedup_dst_wins():
+    with db.get_conn() as conn:
+        teams, pids = _seed_roster(conn)
+        mid = conn.execute_returning_id(
+            "INSERT INTO matches(mode, match_date) VALUES ('HP', '2026-08-28')")
+        src = conn.execute_returning_id(
+            "INSERT INTO opponent_players(name) VALUES (?)", ("DupSrc",))
+        # 같은 매치에 src/dst 둘 다 존재 (UNIQUE(match_id, player_id) 충돌 상황)
+        conn.execute(db._adapt_sql(
+            "INSERT INTO opponent_stats_hp(match_id, player_id, ign_raw, kills, deaths) "
+            "VALUES (?,?,?,?,?)"), (mid, src, "DupSrc", 3, 9))
+        conn.execute(db._adapt_sql(
+            "INSERT INTO opponent_stats_hp(match_id, player_id, ign_raw, kills, deaths) "
+            "VALUES (?,?,?,?,?)"), (mid, pids["Alpha"], "Alpha", 30, 2))
+        conn.commit()  # 병합은 자체 get_conn() — 잠금 해제 후 호출
+        result = db.merge_opponent_player(src, pids["Alpha"])
+        assert result["ok"] is True
+        rows = conn.execute(db._adapt_sql(
+            "SELECT player_id, kills FROM opponent_stats_hp WHERE match_id=?"), (mid,)).fetchall()
+        assert len(rows) == 1  # 충돌한 src 행은 버려지고 dst 행만 남음
+        assert rows[0]["player_id"] == pids["Alpha"]
+        assert rows[0]["kills"] == 30  # dst 우선
+
+
+def test_merge_moves_snd_stats():
+    with db.get_conn() as conn:
+        teams, pids = _seed_roster(conn)
+        mid = conn.execute_returning_id(
+            "INSERT INTO matches(mode, match_date) VALUES ('SND', '2026-08-28')")
+        src = conn.execute_returning_id(
+            "INSERT INTO opponent_players(name) VALUES (?)", ("SndMerc",))
+        conn.execute(db._adapt_sql(
+            "INSERT INTO opponent_stats_snd(match_id, player_id, ign_raw, kills, deaths, assists) "
+            "VALUES (?,?,?,?,?,?)"), (mid, src, "SndMerc", 7, 4, 2))
+        conn.commit()  # 병합은 자체 get_conn() — 잠금 해제 후 호출
+        result = db.merge_opponent_player(src, pids["Delta"])
+        assert result["ok"] is True
+        rows = conn.execute(db._adapt_sql(
+            "SELECT player_id FROM opponent_stats_snd WHERE match_id=?"), (mid,)).fetchall()
+        assert [r["player_id"] for r in rows] == [pids["Delta"]]
+        # src 표시 이름이 dst alias로 학습됨 (source='Merge' — 재유입 시 dst 귀속)
+        a = conn.execute(
+            "SELECT opponent_player_id, source FROM opponent_aliases WHERE ign='SndMerc'").fetchone()
+        assert a["opponent_player_id"] == pids["Delta"] and a["source"] == "Merge"
+        gone = conn.execute("SELECT id FROM opponent_players WHERE id=?", (src,)).fetchone()
+        assert gone is None
