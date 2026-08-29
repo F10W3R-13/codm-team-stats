@@ -10,9 +10,9 @@ DISCORD_TOKEN = os.environ["DISCORD_BOT_TOKEN"]
 
 # ── OpenAI 호환 (OpenAI / Z.ai GLM) ───────────────────────────────────────
 OPENAI_API_KEY = os.environ["OPENAI_API_KEY"]
-OPENAI_MODEL = "glm-5.3-flash"     # 2026-08 전환: gpt-5.6-luna($0.20/$1.20) → Z.ai flash($0.075/$0.25), 네이티브 비전
+OPENAI_MODEL = "gpt-5.6-luna"      # 2026-08 복귀: Z.ai flash는 Discord CDN 이미지 fetch 불가(에러 1210) → luna 복귀
 OPENAI_TEMPERATURE = 0.0          # 구세대 전용 (reasoning 계열에선 미전송)
-OPENAI_MAX_TOKENS = 8192          # glm-5.3-flash: thinking 토큰 포함 총한도 — OCR JSON본문까지 여유 확보
+OPENAI_MAX_TOKENS = 2048          # 구세대 전용 (reasoning 계열에선 max_completion_tokens로 전송)
 OPENAI_REASONING_EFFORT = "low"   # reasoning 계열: OCR·짧은 인사이트엔 low로 충분 (지연·비용 절약)
 
 # glm-* 모델은 Z.ai OpenAI 호환 엔드포인트로. env OPENAI_BASE_URL 로 오버라이드 가능.
