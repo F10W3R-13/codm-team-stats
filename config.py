@@ -1,6 +1,8 @@
 # CODM 스탯 봇 설정값
 # make.com 시나리오에서 사용하던 값들을 그대로 가져왔다.
+import logging
 import os
+import secrets
 
 # ── 디스코드 ────────────────────────────────────────────────────────────
 # 스탯 스크린샷을 감시할 채널 ID (make.com: scrim-result 채널)
@@ -54,10 +56,20 @@ SHEET_SND = "Database_SND"        # make.com: sheetId Database_SND
 ROSTER = ["Shisui", "Cartels", "unravel", "Kingz", "Maozyn", "Exile"]  # AyeoRaph 퇴단 (2026-06)
 
 # ── 관리자 인증 (웹 /admin/* 보호용) ──────────────────────────────────────
-# Railway 환경변수 ADMIN_PASSWORD 로 설정. 없으면 기본값 사용.
-ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "3717")
-# 쿠키 서명용 시크릿. 환경변수 우선, 없으면 ADMIN_PASSWORD 파생값.
-SECRET_KEY = os.environ.get("SECRET_KEY") or f"codm-admin-{ADMIN_PASSWORD}"
+# Railway 환경변수 ADMIN_PASSWORD 로 설정 (2026-08-31 정책 변경).
+# 기본값 폐지: env 미설정 시 ADMIN_PASSWORD=None → 관리자 로그인 자체가 불가능(폐쇄).
+# 코드에 비밀번호를 두면 저장소 공개 시 즉시 유출된다. 반드시 Railway에서 설정할 것.
+ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD") or None
+if ADMIN_PASSWORD is None:
+    # 폐쇄 상태를 로그로 알린다(로그인 시도는 전부 401).
+    logging.getLogger(__name__).warning(
+        "ADMIN_PASSWORD 미설정 — /admin 로그인 비활성화 (Railway 환경변수를 설정하세요)"
+    )
+# 쿠키 서명용 시크릿. 환경변수 우선, 없으면 ADMIN_PASSWORD 파생값(미설정 시 부팅마다 랜덤).
+SECRET_KEY = (
+    os.environ.get("SECRET_KEY")
+    or (f"codm-admin-{ADMIN_PASSWORD}" if ADMIN_PASSWORD else secrets.token_hex(32))
+)
 # 인증 쿠키 수명(초). 7일.
 ADMIN_COOKIE_MAX_AGE = 7 * 24 * 3600
 
