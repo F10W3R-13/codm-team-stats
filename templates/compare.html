@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block title %}{{ t.compare_title }} — CODM Stats{% endblock %}
 {% block nav_compare %}active{% endblock %}
+{% block chart_lib %}{% if a and b and data %}<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>{% endif %}{% endblock %}
 
 {% block content %}
 <h1>⚔️ {{ t.compare_title }}</h1>

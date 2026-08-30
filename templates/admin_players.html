@@ -56,7 +56,7 @@
                 </td>
                 <td class="row-actions">
                     <button type="button" class="btn btn--toggle btn--sm" onclick="mergePlayer({{ p.id }})">{{ t.merge }}</button>
-                    <button type="button" class="btn btn--danger btn--sm" onclick="deletePlayer({{ p.id }}, '{{ p.name }}')">🗑️</button>
+                    <button type="button" class="btn btn--danger btn--sm" onclick="deletePlayer({{ p.id }}, '{{ p.name }}')" aria-label="{{ t.delete }}">🗑️</button>
                 </td>
             </tr>
             {% endfor %}

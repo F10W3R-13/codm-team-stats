@@ -41,7 +41,7 @@
 {% set top_value = rows[0].value if rows else none %}
 
 <div class="card section">
-    <h2>{{ metric_label }} <span class="muted" style="font-size: var(--fs-sm); font-weight: var(--fw-normal);">— {{ t.lb_ranking }}</span></h2>
+    <h2>{{ metric_label }} <span class="muted lb-sub">— {{ t.lb_ranking }}</span></h2>
     {% if rows %}
     <div class="table-wrap">
     <table class="lb-table">
@@ -128,6 +128,7 @@
 .lb-metrics { margin-bottom: var(--space-4); }
 /* 리더보드 표 */
 .lb-table .rank-value { color: var(--accent); }
+.lb-sub { font-size: var(--fs-sm); font-weight: var(--fw-normal); }
 .lb-bar { height: 4px; border-radius: var(--radius-full); background: var(--card-2); margin-top: var(--space-1); min-width: 80px; }
 .lb-bar__fill { display: block; height: 100%; border-radius: inherit; background: var(--accent); opacity: 0.6; }
 .lb-avg-row { border-top: 2px dashed var(--border-strong); border-bottom: 2px dashed var(--border-strong); }

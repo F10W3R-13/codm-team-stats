@@ -72,11 +72,11 @@
         <div class="note-item note-item--{{ n.status }}">
             {% if n.status == 'open' %}
             <form method="post" action="/admin/notes/{{ n.id }}/toggle" class="note-check">
-                <button class="note-check__btn" type="submit" title="{{ t.notes_resolve }}">✓</button>
+                <button class="note-check__btn" type="submit" title="{{ t.notes_resolve }}" aria-label="{{ t.notes_resolve }}">✓</button>
             </form>
             {% else %}
             <form method="post" action="/admin/notes/{{ n.id }}/toggle" class="note-check">
-                <button class="note-check__btn note-check__btn--done" type="submit" title="{{ t.notes_reopen }}">↩</button>
+                <button class="note-check__btn note-check__btn--done" type="submit" title="{{ t.notes_reopen }}" aria-label="{{ t.notes_reopen }}">↩</button>
             </form>
             {% endif %}
             <span class="note-item__content">{{ n.content }}</span>

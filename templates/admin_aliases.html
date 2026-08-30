@@ -73,7 +73,7 @@
                     <span class="badge badge--manual">✋ {{ t.source_manual }}</span>
                     {% endif %}
                 </td>
-                <td><button type="button" class="btn btn--danger btn--sm" onclick="delAlias('{{ a.ign }}', this)">🗑</button></td>
+                <td><button type="button" class="btn btn--danger btn--sm" onclick="delAlias('{{ a.ign }}', this)" aria-label="{{ t.delete }}">🗑</button></td>
             </tr>
             {% endfor %}
         </tbody>

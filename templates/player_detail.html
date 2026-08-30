@@ -1,15 +1,16 @@
 {% extends "base.html" %}
 {% block title %}{{ stats.name }} — CODM Stats{% endblock %}
 {% block nav_players %}active{% endblock %}
+{% block chart_lib %}<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>{% endblock %}
 
 {% block content %}
 <h1>🎯 {{ stats.name }}</h1>
 {% if stats.hp and stats.hp.spectrum_pos is not none %}
-<div class="mini-spectrum section" style="max-width: 280px;" title="{{ t.hub_spectrum_slay }} {{ stats.hp.slay_score }} · {{ t.hub_spectrum_obj }} {{ stats.hp.obj_score }}">
+<div class="mini-spectrum section mini-spectrum--narrow" title="{{ t.hub_spectrum_slay }} {{ stats.hp.slay_score }} · {{ t.hub_spectrum_obj }} {{ stats.hp.obj_score }}">
     <span class="mini-spectrum__mid"></span>
     <span class="mini-spectrum__marker mini-spectrum__marker--{{ stats.hp.role }}" style="left: {{ stats.hp.spectrum_pos }}%"></span>
 </div>
-<div class="mini-spectrum__labels" style="max-width: 280px; margin-bottom: var(--space-4);">
+<div class="mini-spectrum__labels mini-spectrum__labels--narrow">
     <span class="text-hp">{{ t.hub_spectrum_obj }}</span>
     <span class="text-danger">{{ t.hub_spectrum_slay }}</span>
 </div>
@@ -245,6 +246,9 @@
 .insight-text { line-height: 1.7; white-space: pre-wrap; }
 .metric-controls { display: flex; gap: var(--space-4); flex-wrap: wrap; align-items: flex-end; margin-bottom: var(--space-4); }
 .mode-toggle-group { display: inline-flex; gap: var(--space-1); }
+/* 상단 역할 스펙트럼 축소판 폭 (인라인 max-width 대체) */
+.mini-spectrum--narrow { max-width: 280px; }
+.mini-spectrum__labels--narrow { max-width: 280px; margin-bottom: var(--space-4); }
 /* 맵별 성적 히트맵 */
 .map-heatmap { margin-top: var(--space-3); display: flex; flex-direction: column; gap: var(--space-1); }
 .map-heatmap__bar { display: flex; justify-content: space-between; font-size: var(--fs-xs); font-weight: var(--fw-medium); margin-bottom: var(--space-1); padding: 0 var(--space-2); }

@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block title %}{{ t.hub_title }} — CODM Stats{% endblock %}
 {% block nav_dashboard %}active{% endblock %}
+{% block chart_lib %}{% if data.zcs_trend %}<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>{% endif %}{% endblock %}
 
 {% block content %}
 <h1>🎯 {{ t.hub_title }}</h1>
@@ -35,7 +36,7 @@
         {% for n in data.open_notes %}
         <div class="note-item{% if n.elapsed_matches >= 3 %} note-item--stale{% endif %}">
             <form method="post" action="/admin/notes/{{ n.id }}/toggle" class="note-check">
-                <button class="note-check__btn" type="submit" title="{{ t.notes_resolve }}">✓</button>
+                <button class="note-check__btn" type="submit" title="{{ t.notes_resolve }}" aria-label="{{ t.notes_resolve }}">✓</button>
             </form>
             <span class="note-item__content">{{ n.content }}</span>
             {% if n.match_id %}<a href="/matches/{{ n.match_id }}?lang={{ lang }}" class="badge">#{{ n.match_id }}</a>{% endif %}

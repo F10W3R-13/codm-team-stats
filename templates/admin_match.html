@@ -66,7 +66,7 @@
                 {% for key, _, w in hp_fields %}
                 <td class="num"><input type="number" class="input edit-{{ key }} stat-input" style="width:{{ w }}px;" value="{{ p[key] }}"></td>
                 {% endfor %}
-                <td><button type="button" class="btn btn--toggle btn--sm" onclick="saveStat(this)" data-stat="{{ p.stat_id }}">✓</button></td>
+                <td><button type="button" class="btn btn--toggle btn--sm" onclick="saveStat(this)" data-stat="{{ p.stat_id }}" aria-label="{{ t.save }}">✓</button></td>
             </tr>
             {% endfor %}
         </tbody>
@@ -94,7 +94,7 @@
                 {% for key, _, w in snd_fields %}
                 <td class="num"><input type="number" class="input edit-{{ key }} stat-input" style="width:{{ w }}px;" value="{{ p[key] }}"></td>
                 {% endfor %}
-                <td><button type="button" class="btn btn--toggle btn--sm" onclick="saveStat(this)" data-stat="{{ p.stat_id }}">✓</button></td>
+                <td><button type="button" class="btn btn--toggle btn--sm" onclick="saveStat(this)" data-stat="{{ p.stat_id }}" aria-label="{{ t.save }}">✓</button></td>
             </tr>
             {% endfor %}
         </tbody>
@@ -207,7 +207,7 @@ function addPlayerRow() {
     const inputs = fields.map(([k, w]) =>
         `<td class="num"><input type="number" class="input edit-${k} stat-input" style="width:${w}px;"></td>`
     ).join('');
-    const btn = `<td><button type="button" class="btn btn--primary btn--sm" onclick="addPlayer(this)">＋</button></td>`;
+    const btn = `<td><button type="button" class="btn btn--primary btn--sm" onclick="addPlayer(this)" aria-label="{{ t.add_player }}">＋</button></td>`;
     tr.innerHTML = sel + inputs + btn;
     tbody.appendChild(tr);
 }
