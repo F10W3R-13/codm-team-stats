@@ -8,6 +8,8 @@
 # 분리 이유: "봇·웹이 동시에 DB를 만질 때 위험한 함수"가 한곳에 모여
 # 코드 리뷰·감사가 쉽도록.
 
+import re
+
 import db
 import insight_cache
 
@@ -366,8 +368,22 @@ def get_note_status(note_id: int) -> str | None:
 
 # ── 상대팀 관리 (opponent teams) ────────────────────────────────────────────
 
+def _ocr_suspect(name: str) -> bool:
+    """OCR로 이름이 깨져 보이는 표기 휴리스틱 — 관리자 확인 대기 판별용.
+    대괄호 garbage([386yLR...), 단일 숫자 토큰(EXCL 4), null류, 알파벳숫자 1글자 미만."""
+    n = (name or "").strip()
+    if not n or "[" in n or "]" in n:
+        return True
+    if n.lower() in ("null", "none", "unknown", "n/a"):
+        return True
+    if len(re.sub(r"[^a-z0-9]", "", n.lower())) < 2:
+        return True
+    return any(len(tok) == 1 and tok.isdigit() for tok in n.split())
+
+
 def opponent_admin_data() -> dict:
-    """상대팀 관리 페이지 데이터: 팀+로스터, 미확정 매치(opponent_team_id NULL)."""
+    """상대팀 관리 페이지 데이터: 팀+로스터, 미확정 매치(opponent_team_id NULL).
+    recent_opponents는 '확인 필요 선수' — 팀 없음 또는 OCR 의심 표기만 담는다."""
     with db.get_conn() as conn:
         teams = conn.execute(db._adapt_sql("""
             SELECT t.id, t.name,
@@ -391,13 +407,39 @@ def opponent_admin_data() -> dict:
                           UNION ALL
                           SELECT 1 FROM opponent_stats_snd s WHERE s.match_id = m.id)
             ORDER BY m.id DESC LIMIT 50""")).fetchall()
-        recent = conn.execute(db._adapt_sql("""
-            SELECT id, name FROM opponent_players
-            ORDER BY id DESC LIMIT 30""")).fetchall()
+
+        # 확인 필요 선수: 팀 없음 or OCR 의심. 소속·스탯행·alias 수를 함께 노출해
+        # 병합/재분류 판단 재료로 쓴다. 등록+정상 표기 선수는 목록에서 제외.
+        players = conn.execute("SELECT id, name FROM opponent_players").fetchall()
+        teams_of = {}
+        for r in conn.execute(db._adapt_sql(
+                "SELECT r.player_id, t.name FROM opponent_team_rosters r "
+                "JOIN opponent_teams t ON t.id = r.team_id")).fetchall():
+            teams_of.setdefault(r["player_id"], []).append(r["name"])
+        stat_n = {r["player_id"]: r["c"] for r in conn.execute(db._adapt_sql(
+            "SELECT player_id, COUNT(*) c FROM ("
+            "  SELECT player_id FROM opponent_stats_hp"
+            "  UNION ALL SELECT player_id FROM opponent_stats_snd"
+            ") GROUP BY player_id")).fetchall()}
+        alias_n = {r["pid"]: r["c"] for r in conn.execute(db._adapt_sql(
+            "SELECT opponent_player_id pid, COUNT(*) c FROM opponent_aliases "
+            "GROUP BY opponent_player_id")).fetchall()}
+        attention = []
+        for p in players:
+            pteams = teams_of.get(p["id"], [])
+            suspect = _ocr_suspect(p["name"])
+            if pteams and not suspect:
+                continue
+            attention.append({"id": p["id"], "name": p["name"], "teams": pteams,
+                              "no_team": not pteams, "ocr_suspect": suspect,
+                              "stat_n": stat_n.get(p["id"], 0),
+                              "alias_n": alias_n.get(p["id"], 0)})
+        attention.sort(key=lambda a: (not a["no_team"], -a["stat_n"]))
+
         allp = conn.execute(db._adapt_sql(
             "SELECT id, name FROM opponent_players ORDER BY name")).fetchall()
         return {"teams": result, "pending": [dict(p) for p in pending],
-                "recent_opponents": [dict(r) for r in recent],
+                "recent_opponents": attention,
                 "all_opponent_players": [dict(a) for a in allp]}
 
 

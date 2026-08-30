@@ -88,3 +88,25 @@ def test_merge_opponent_route(admin_client):
     with db.get_conn() as conn:
         assert conn.execute("SELECT id FROM opponent_players WHERE id=?",
                             (src,)).fetchone() is None
+
+
+def test_attention_list_only_teamless_or_suspect(admin_client):
+    """병합 섹션 = 확인 필요 선수(팀 없음 or OCR 의심)만 — 등록+정상 표기는 제외."""
+    import admin_write
+    import db
+    with db.get_conn() as conn:
+        tid = conn.execute_returning_id(
+            "INSERT INTO opponent_teams(name) VALUES (?)", ("ProbeTeam",))
+        clean_id = conn.execute_returning_id(
+            "INSERT INTO opponent_players(name) VALUES (?)", ("CleanProbe",))
+        conn.execute_returning_id(
+            "INSERT INTO opponent_players(name) VALUES (?)", ("[GarbageProbe",))
+        conn.execute(db._adapt_sql(
+            "INSERT INTO opponent_team_rosters(team_id, player_id, source) "
+            "VALUES (?, ?, 'manual')"), (tid, clean_id))
+    data = admin_write.opponent_admin_data()
+    names = [p["name"] for p in data["recent_opponents"]]
+    assert "CleanProbe" not in names       # 팀 있음 + 정상 표기 → 제외
+    assert "[GarbageProbe" in names        # OCR 의심 → 포함
+    row = next(p for p in data["recent_opponents"] if p["name"] == "[GarbageProbe")
+    assert row["no_team"] is True and row["ocr_suspect"] is True

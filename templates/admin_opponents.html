@@ -72,11 +72,16 @@
     <p class="muted">{{ t.opp_merge_hint }}</p>
     <div class="table-wrap">
     <table>
-        <thead><tr><th>{{ t.opp_player }}</th><th>{{ t.opp_merge_into }}</th><th></th></tr></thead>
+        <thead><tr><th>{{ t.opp_player }}</th><th>{{ t.opp_teams_col }}</th><th>{{ t.opp_stat_rows }}</th><th>{{ t.opp_merge_into }}</th><th></th></tr></thead>
         <tbody>
         {% for p in data.recent_opponents %}
         <tr>
-            <td>{{ p.name }}</td>
+            <td>{{ p.name }}
+                {% if p.no_team %}<span class="badge danger">{{ t.opp_no_team }}</span>{% endif %}
+                {% if p.ocr_suspect %}<span class="badge warning">{{ t.opp_ocr_suspect }}</span>{% endif %}
+            </td>
+            <td class="muted">{{ p.teams|join(', ') if p.teams else '—' }}</td>
+            <td class="num">{{ p.stat_n }}</td>
             <td>
                 <select class="select merge-select" data-src="{{ p.id }}">
                     <option value="">{{ t.opp_assign_player }}</option>
