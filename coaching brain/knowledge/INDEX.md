@@ -5,7 +5,7 @@
 
 | 버전 | 마지막 갱신 | 기반 전사문 | 다음 업데이트 조건 |
 |---|---|---|---|
-| v0.5 | 2026-08-21 | 전사문 1-9 | 새 전사문 추가 시 |
+| v0.6 | 2026-09-01 | 전사문 1-10 | 새 전사문 추가 시 |
 
 ---
 
@@ -25,12 +25,12 @@
 **모드 일반 역학:**
 - [Hardpoint](modes/Hardpoint.md) — 모드 역학 + 흔한 실수
 - [Search & Destroy](modes/SearchDestroy.md)
-- [Control](modes/Control.md)
+- [Control](modes/Control.md) — 모드 역학 + Raid 공격 티켓 운영(전사문 10)
 
 **맵별 상세:**
 - [Combine](maps/Combine.md) (HP) — P1~P4 심층, cinema 진입, E-box smoke
 - [Hacienda](maps/Hacienda.md) (HP) — P1 삥 vs 연막, P3 폭을 거점 안에, P4 corner 클리어 매핑
-- [Takeoff](maps/Takeoff.md) (HP) — P3 top red, P4 거점 연관성·내정지, slay out 조건
+- [Takeoff](maps/Takeoff.md) (HP) — P3 top red, P4 거점 연관성·내정지, slay out 조건, AR 포지셔닝(전사문 10)
 - [Summit](maps/Summit.md) (HP) — P3, P4 spawn
 - [Arsenal](maps/Arsenal.md) (HP) — P2 yellow spawn
 - [Standoff](maps/Standoff.md) (Control/HP) — B push 연쇄, Sparrow 제안
@@ -40,7 +40,7 @@
 - [팀 운영 원칙](team/팀운영.md) — 콜 시스템, 역할 분배, 갈등 관리, Promise 시스템
 
 ### 🔁 흡수 로그
-- [흡수 로그](log/흡수로그.md) — 전사문 1-9에서 무엇을 학습했는가
+- [흡수 로그](log/흡수로그.md) — 전사문 1-10에서 무엇을 학습했는가
 
 ---
 
@@ -82,7 +82,7 @@
 
 ## ✅ 보완 필요 영역 (v0.2 기준)
 
-- [ ] Raid Control 상세 전술 (2026 풀)
+- [x] Raid Control 상세 전술 (2026 풀) — 전사문 10으로 공격 플랜 부분 충족. 방어 상세는 보완 필요
 - [x] Tunisia, Firing Range 맵별 상세 — 전사문 9로 부분 충족 (A러시 카운터·A 리테이크). Coastal, Slums, Meltdown는 여전히 보완 필요
 - [ ] Kingz/Cartels 외 선수들의 무기-플레이스타일 매핑 확장
 - [ ] Veto(밴픽) 전략 — [Esports Settings](../reference/CODM_2026_Esports_Settings.md#world-championship-veto-process) 기반
