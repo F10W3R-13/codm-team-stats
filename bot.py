@@ -15,7 +15,6 @@ from datetime import timezone, timedelta
 
 import discord
 from discord.ext import commands
-from openai import OpenAI
 from dotenv import load_dotenv
 
 # .env 파일이 있으면 환경변수로 로드 (config.py보다 먼저 실행되어야 함)
@@ -35,7 +34,17 @@ log = logging.getLogger("codm-bot")
 KST = timezone(timedelta(hours=9))
 
 # ── 외부 클라이언트 초기화 ────────────────────────────────────────────────
-openai_client = OpenAI(api_key=config.OPENAI_API_KEY, base_url=config.OPENAI_BASE_URL)
+# RAM 다이어트: openai 패키지(pydantic/httpx 포함, ~20MB RSS)를 부팅 즉시 로드하지 않고
+# 첫 스크린샷 분석 시점에 지연 로드한다. 봇 기동/명령 처리엔 불필요한 의존성.
+openai_client = None
+
+
+def get_openai_client():
+    global openai_client
+    if openai_client is None:
+        from openai import OpenAI
+        openai_client = OpenAI(api_key=config.OPENAI_API_KEY, base_url=config.OPENAI_BASE_URL)
+    return openai_client
 
 # 데이터베이스 초기화 (없으면 생성)
 db.init_db()
@@ -43,7 +52,7 @@ db.init_db()
 intents = discord.Intents.default()
 intents.message_content = True   # Message Content Intent (개발자 포털에서 활성화 필수)
 
-bot = commands.Bot(command_prefix="!", intents=intents)
+bot = commands.Bot(command_prefix="!", intents=intents, max_messages=200)  # 메시지 캐시 축소 (기본 1000) — 히스토리/참조 읽기 미사용
 
 
 # ── 헬퍼 ──────────────────────────────────────────────────────────────────
@@ -73,7 +82,7 @@ def analyze_images(url1: str, url2: str, roster: list = None) -> dict:
     if roster is None:
         roster = load_roster()
     system_prompt = build_system_prompt(roster)
-    completion = openai_client.chat.completions.create(
+    completion = get_openai_client().chat.completions.create(
         model=config.OPENAI_MODEL,
         response_format={"type": "json_object"},
         timeout=60,
