@@ -263,7 +263,7 @@
             <a href="/players/{{ p.name }}?lang={{ lang }}" class="player-link spectrum__name">{{ p.name }}</a>
             <div class="spectrum-track">
                 <span class="spectrum__mid"></span>
-                <span class="spectrum-marker spectrum-marker--{{ p.role }}" style="left: {{ pos }}%"></span>
+                <span class="spectrum-marker spectrum-marker--{{ p.tilt }}" title="{{ t.hub_spectrum_slay }} {{ p.slay_score }} · {{ t.hub_spectrum_obj }} {{ p.obj_score }}" style="left: {{ pos }}%"></span>
             </div>
         </div>
         {% endfor %}
@@ -350,9 +350,8 @@
 }
 .spectrum__mid { position: absolute; left: 50%; top: 2px; bottom: 2px; width: 2px; background: var(--border-strong); transform: translateX(-50%); }
 .spectrum-marker { position: absolute; top: 50%; width: 20px; height: 20px; border-radius: var(--radius-full); border: 2px solid var(--card); transform: translate(-50%, -50%); box-shadow: var(--shadow-sm); }
-.spectrum-marker--slayer { background: var(--danger); }
-.spectrum-marker--objective { background: var(--hp); }
-.spectrum-marker--balanced { background: var(--muted); }
+.spectrum-marker--slay { background: var(--danger); }
+.spectrum-marker--obj { background: var(--hp); }
 @media (max-width: 600px) {
     .zcs-banner__spark { min-width: 100%; }
     .spectrum__row { grid-template-columns: 80px 1fr; }

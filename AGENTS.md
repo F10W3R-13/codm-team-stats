@@ -132,7 +132,7 @@ HP: ZCS 최우선 + 보조 지표들. SND: RDS 단일.
 
 ### 데이터 현황 메모
 - 승패(`result`/`team_score`/`opponent_score`)는 대부분 NULL → `/admin`에서 수동 입력 필요. 입력 전까지 승률/폼 차트 비활성.
-- 역할 분류(`metrics.classify_role`): 팀 평균 대비 킬+딜 vs OBJ+캡처 비율 (threshold 1.08x). HP 전용.
+- 역할 분류(`metrics.classify_role`): 팀 평균 대비 킬+딜 vs OBJ+캡처 비율 (threshold 1.08x). HP 전용. 스펙트럼 바는 별개 체계 — 위치는 `role_spectrum_pos` ×200 배율(norm ±0.225서 바 끝, s1 실측 캘리브레이션), **마커 색은 기울임 방향(`tilt`: obj=--hp색/slay=--danger색)** 으로 role 배지(절대 임계)와 다른 질문에 답한다. 허브·선수표·선수상세 3곳 동일.
 - `service-account.json`: 로컬 파일 + 배포 `GOOGLE_SERVICE_ACCOUNT_JSON` 환경변수 양쪽 지원.
 
 ---

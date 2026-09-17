@@ -143,6 +143,7 @@ async def players_page(
                 p["role"] = r["role"]
                 p["slay_score"] = r["slay_score"]
                 p["obj_score"] = r["obj_score"]
+                p["tilt"] = r["tilt"]
                 p["spectrum_pos"] = metrics.role_spectrum_pos(r["slay_score"], r["obj_score"])
     return render("players.html", lang=lang, players=players, mode=mode, season=season)
 
@@ -169,6 +170,7 @@ async def player_detail(request: Request, name: str, lang: str = Query("ko"),
             stats["hp"]["role"] = r["role"]
             stats["hp"]["slay_score"] = r["slay_score"]
             stats["hp"]["obj_score"] = r["obj_score"]
+            stats["hp"]["tilt"] = r["tilt"]
             stats["hp"]["spectrum_pos"] = metrics.role_spectrum_pos(r["slay_score"], r["obj_score"])
     # 맵별 성적 — HP(ZCS)/SND(RDS) 본인 평균 대비 강은/약한 맵
     player_maps = queries.player_map_breakdown(pid, mode="HP", min_matches=5, season=season) if stats["hp"] else []

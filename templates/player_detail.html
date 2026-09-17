@@ -8,7 +8,7 @@
 {% if stats.hp and stats.hp.spectrum_pos is not none %}
 <div class="mini-spectrum section mini-spectrum--narrow" title="{{ t.hub_spectrum_slay }} {{ stats.hp.slay_score }} · {{ t.hub_spectrum_obj }} {{ stats.hp.obj_score }}">
     <span class="mini-spectrum__mid"></span>
-    <span class="mini-spectrum__marker mini-spectrum__marker--{{ stats.hp.role }}" style="left: {{ stats.hp.spectrum_pos }}%"></span>
+    <span class="mini-spectrum__marker mini-spectrum__marker--{{ stats.hp.tilt }}" style="left: {{ stats.hp.spectrum_pos }}%"></span>
 </div>
 <div class="mini-spectrum__labels mini-spectrum__labels--narrow">
     <span class="text-hp">{{ t.hub_spectrum_obj }}</span>

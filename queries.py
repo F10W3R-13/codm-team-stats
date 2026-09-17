@@ -1441,6 +1441,8 @@ def team_role_distribution(season: str = None) -> list:
         out.append({
             "name": p["name"], "role": role,
             "slay_score": slay, "obj_score": obj,
+            # 스펙트럼 마커 색용 — classify_role(절대 임계)과 별개로 기울임 방향만 표시.
+            "tilt": "obj" if obj > slay else "slay",
             "spectrum_pos": metrics.role_spectrum_pos(slay, obj),
             "avg_k": p.get("avg_k"), "avg_obj": p.get("avg_obj"),
             "avg_dmg": p.get("avg_dmg"), "avg_capture": p_norm.get("avg_capture"),

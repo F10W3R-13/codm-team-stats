@@ -136,3 +136,15 @@ def test_role_spectrum_center():
 def test_role_spectrum_clamp():
     assert metrics.role_spectrum_pos(2.0, 0) == 95.0   # 0 → 1.0 폴백 후 slayer 극단
     assert metrics.role_spectrum_pos(0, 2.0) == 5.0
+
+def test_role_spectrum_scale_x200():
+    """스펙트럼 배율 ×200 캘리브레이션 — s1(438매치) 실측 기준.
+
+    s1 최대 편차(Kingz norm≈0.088)는 60%대에 머물고,
+    현실적 극단(norm ±0.225 이상)만 바 끝(5/95)에 도달한다.
+    (구 ×450은 포화점 ±0.10이라 일반 편차도 끝에 박혔음 — 2026-09-17 조정)
+    """
+    import pytest
+    assert metrics.role_spectrum_pos(0.99, 0.83) == pytest.approx(67.6, abs=0.15)  # s1 Kingz
+    assert metrics.role_spectrum_pos(1.14, 1.20) == pytest.approx(44.9, abs=0.15)  # s1 Shisui
+    assert metrics.role_spectrum_pos(1.14, 0.89) == pytest.approx(74.6, abs=0.15)  # s2 Cartels

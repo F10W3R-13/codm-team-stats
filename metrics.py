@@ -154,4 +154,6 @@ def role_spectrum_pos(slay_score: float, obj_score: float) -> float:
     ss = slay_score if slay_score else 1.0
     os_ = obj_score if obj_score else 1.0
     norm = (ss - os_) / (ss + os_)  # -1(순obj) ~ +1(순slay)
-    return round(max(5, min(95, 50 + norm * 450)), 1)
+    # 배율 ×200 — s1(438매치) 실측 캘리브레이션: 일반 편차(norm ±0.09)는 60%대에
+    # 머물고 현실적 극단(±0.225)만 바 끝에 도달. (지표 공식이 아닌 표시 스케일)
+    return round(max(5, min(95, 50 + norm * 200)), 1)

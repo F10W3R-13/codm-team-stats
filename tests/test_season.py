@@ -301,3 +301,14 @@ class TestS6SeasonMapping:
         assert db.season_for_date("2026-09-04") == "s1"
         assert db.season_for_date(None) == "s1"
         assert db.season_for_date("") == "s1"
+
+
+class TestSpectrumTilt:
+    def test_tilt_matches_score_direction(self, two_season_db):
+        """마커 색용 tilt 필드 — obj점수가 크면 'obj', slay점수가 크면 'slay'."""
+        import queries
+        rows = queries.team_role_distribution()
+        assert rows, "fixture에 HP 역할 데이터 있어야 함"
+        for r in rows:
+            expected = "obj" if r["obj_score"] > r["slay_score"] else "slay"
+            assert r["tilt"] == expected, r
