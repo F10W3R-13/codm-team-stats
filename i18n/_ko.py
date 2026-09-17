@@ -229,6 +229,8 @@ STRINGS = {
         "opp_source_match": "매치 자동",
         "opp_source_manual": "스크립트",
         "opp_session_expired": "세션 만료 — 다시 로그인하세요",
+        "opp_suggest_badge": "추정 {team} · 근거 {n}매치",
+        "opp_suggest_apply": "배정",
         "opp_confirm_unassign": "매치 #{n}의 팀 지정을 해제할까요?",
         "opp_merge_title": "상대 선수 병합",
         "opp_merge_hint": "팀 소속이 없거나 OCR로 이름이 깨진 선수만 표시됩니다. 같은 선수가 다른 이름으로 분리돼 있으면 하나로 합칩니다. 병합 1회로 영구 학습됩니다.",

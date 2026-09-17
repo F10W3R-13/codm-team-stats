@@ -414,10 +414,12 @@ def opponent_admin_data() -> dict:
         # 병합/재분류 판단 재료로 쓴다. 등록+정상 표기 선수는 목록에서 제외.
         players = conn.execute("SELECT id, name FROM opponent_players").fetchall()
         teams_of = {}
+        team_id_of = {}
         for r in conn.execute(db._adapt_sql(
-                "SELECT r.player_id, t.name FROM opponent_team_rosters r "
+                "SELECT r.player_id, r.team_id, t.name FROM opponent_team_rosters r "
                 "JOIN opponent_teams t ON t.id = r.team_id")).fetchall():
             teams_of.setdefault(r["player_id"], []).append(r["name"])
+            team_id_of.setdefault(r["player_id"], []).append(r["team_id"])
         stat_n = {r["player_id"]: r["c"] for r in conn.execute(db._adapt_sql(
             "SELECT player_id, COUNT(*) c FROM ("
             "  SELECT player_id FROM opponent_stats_hp"
@@ -426,16 +428,21 @@ def opponent_admin_data() -> dict:
         alias_n = {r["pid"]: r["c"] for r in conn.execute(db._adapt_sql(
             "SELECT opponent_player_id pid, COUNT(*) c FROM opponent_aliases "
             "GROUP BY opponent_player_id")).fetchall()}
+        suggestions = _suggest_teams_for_teamless(conn, players, team_id_of)
         attention = []
         for p in players:
             pteams = teams_of.get(p["id"], [])
             suspect = _ocr_suspect(p["name"])
             if pteams and not suspect:
                 continue
+            sug = suggestions.get(p["id"])
             attention.append({"id": p["id"], "name": p["name"], "teams": pteams,
                               "no_team": not pteams, "ocr_suspect": suspect,
                               "stat_n": stat_n.get(p["id"], 0),
-                              "alias_n": alias_n.get(p["id"], 0)})
+                              "alias_n": alias_n.get(p["id"], 0),
+                              "suggest_team": sug["team_name"] if sug else None,
+                              "suggest_team_id": sug["team_id"] if sug else None,
+                              "suggest_n": sug["n"] if sug else 0})
         attention.sort(key=lambda a: (not a["no_team"], -a["stat_n"]))
 
         allp = conn.execute(db._adapt_sql(
@@ -450,6 +457,84 @@ def opponent_admin_data() -> dict:
                 "recent_opponents": attention,
                 "all_opponent_players": [dict(a) for a in allp],
                 "aliases": [dict(a) for a in aliases]}
+
+
+def _suggest_teams_for_teamless(conn, players, team_id_of):
+    """팀 없는 상대 선수의 소속 추론 — "옛날 애들은 어느 팀인지도 기억 안 나" 대응.
+
+    근거 = 그 선수가 출전한 매치의 (a) opponent_team_id 태그 + (b) 같은 매치에
+    출전한 다른 상대 선수들의 소속팀. 근거 매치 수가 최소 2(SUGGEST_MIN_EVIDENCE)이고
+    단독 최다인 팀 하나만 추천한다 (1회 우연 공동출전·동률은 추측하지 않음).
+    반환: {player_id: {"team_id", "team_name", "n"}}.
+    """
+    SUGGEST_MIN_EVIDENCE = 2
+
+    match_tag = {r["id"]: r["opponent_team_id"] for r in conn.execute(
+        db._adapt_sql("SELECT id, opponent_team_id FROM matches "
+                      "WHERE opponent_team_id IS NOT NULL")).fetchall()}
+    player_teams = {}
+    for r in conn.execute(db._adapt_sql(
+            "SELECT player_id, team_id FROM opponent_team_rosters")).fetchall():
+        player_teams.setdefault(r["player_id"], set()).add(r["team_id"])
+    match_enemies = {}
+    for tbl in ("opponent_stats_hp", "opponent_stats_snd"):
+        for r in conn.execute(db._adapt_sql(
+                f"SELECT DISTINCT match_id, player_id FROM {tbl}")).fetchall():
+            match_enemies.setdefault(r["match_id"], []).append(r["player_id"])
+    player_matches = {}
+    for mid, pids in match_enemies.items():
+        for pid_ in pids:
+            player_matches.setdefault(pid_, []).append(mid)
+    team_name_of = {r["id"]: r["name"] for r in conn.execute(
+        db._adapt_sql("SELECT id, name FROM opponent_teams")).fetchall()}
+
+    out = {}
+    for p in players:
+        if team_id_of.get(p["id"]):
+            continue
+        votes = {}
+        for mid in player_matches.get(p["id"], []):
+            ev = set()
+            tag = match_tag.get(mid)
+            if tag is not None:
+                ev.add(tag)
+            for other in match_enemies.get(mid, []):
+                if other != p["id"]:
+                    ev |= player_teams.get(other, set())
+            for t in ev:
+                votes[t] = votes.get(t, 0) + 1
+        if not votes:
+            continue
+        best = max(votes.values())
+        winners = [t for t, n in votes.items() if n == best]
+        if best >= SUGGEST_MIN_EVIDENCE and len(winners) == 1 \
+                and winners[0] in team_name_of:
+            out[p["id"]] = {"team_id": winners[0],
+                            "team_name": team_name_of[winners[0]],
+                            "n": best}
+    return out
+
+
+def assign_opponent_player_team(player_id: int, team_id: int) -> dict:
+    """팀 없는 상대 선수를 팀 로스터에 배정 (추론 추천 적용, source='match')."""
+    with db.get_conn() as conn:
+        t = conn.execute(db._adapt_sql(
+            "SELECT id FROM opponent_teams WHERE id = ?"), (team_id,)).fetchone()
+        if not t:
+            return {"ok": False, "message": "없는 팀입니다"}
+        p = conn.execute(db._adapt_sql(
+            "SELECT id FROM opponent_players WHERE id = ?"), (player_id,)).fetchone()
+        if not p:
+            return {"ok": False, "message": "없는 선수입니다"}
+        dup = conn.execute(db._adapt_sql(
+            "SELECT COUNT(*) c FROM opponent_team_rosters "
+            "WHERE team_id=? AND player_id=?"), (team_id, player_id)).fetchone()["c"]
+        if dup:
+            return {"ok": False, "message": "이미 그 팀 로스터에 있습니다"}
+        conn.execute(db._adapt_sql(
+            "INSERT INTO opponent_team_rosters(team_id, player_id, source) "
+            "VALUES (?, ?, 'match')"), (team_id, player_id))
+    return {"ok": True}
 
 
 def add_opponent_team(name: str) -> dict:

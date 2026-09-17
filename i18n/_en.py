@@ -219,6 +219,8 @@ STRINGS = {
         "opp_source_match": "Auto (match)",
         "opp_source_manual": "Script",
         "opp_session_expired": "Session expired — please log in again",
+        "opp_suggest_badge": "Likely {team} · {n} match evidence",
+        "opp_suggest_apply": "Assign",
         "opp_confirm_unassign": "Unassign team from match #{n}?",
         "opp_merge_title": "Merge opponent players",
         "opp_merge_hint": "Shows only players with no team or garbled OCR names. If the same player is split under different names, merge them. One merge is learned permanently.",

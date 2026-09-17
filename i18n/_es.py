@@ -219,6 +219,8 @@ STRINGS = {
         "opp_source_match": "Auto (partido)",
         "opp_source_manual": "Script",
         "opp_session_expired": "Sesión caducada — inicia sesión de nuevo",
+        "opp_suggest_badge": "Probable {team} · {n} partidos de evidencia",
+        "opp_suggest_apply": "Asignar",
         "opp_confirm_unassign": "¿Desasignar el equipo del partido #{n}?",
         "opp_merge_title": "Fusionar jugadores rivales",
         "opp_merge_hint": "Muestra solo jugadores sin equipo o con nombres OCR ilegibles. Si el mismo jugador está dividido bajo distintos nombres, fúndelos. Una fusión se aprende para siempre.",

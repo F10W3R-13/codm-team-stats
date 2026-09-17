@@ -711,6 +711,13 @@ async def admin_remove_opponent_roster(payload: dict = Body(...)):
                                                   int(payload.get("player_id", 0)))
 
 
+@app.post("/admin/opponent/roster/assign")
+async def admin_assign_opponent_player(payload: dict = Body(...)):
+    """팀 없는 상대 선수를 추천 팀 로스터에 배정 (추론 적용)."""
+    return admin_write.assign_opponent_player_team(int(payload.get("player_id", 0)),
+                                                   int(payload.get("team_id", 0)))
+
+
 @app.post("/admin/opponent/match-unassign")
 async def admin_unassign_match_opponent(payload: dict = Body(...)):
     """매치의 팀 지정 해제 (스탯은 그대로)."""

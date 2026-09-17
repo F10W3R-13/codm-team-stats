@@ -121,6 +121,13 @@
             <td>{{ p.name }}
                 {% if p.no_team %}<span class="badge danger">{{ t.opp_no_team }}</span>{% endif %}
                 {% if p.ocr_suspect %}<span class="badge warning">{{ t.opp_ocr_suspect }}</span>{% endif %}
+                {% if p.no_team and p.suggest_team_id %}
+                <div class="suggest-box">
+                    <span class="badge">{{ t.opp_suggest_badge.replace('{team}', p.suggest_team).replace('{n}', p.suggest_n) }}</span>
+                    <button class="btn btn--sm suggest-apply-btn" data-player="{{ p.id }}"
+                            data-team="{{ p.suggest_team_id }}" type="button">{{ t.opp_suggest_apply }}</button>
+                </div>
+                {% endif %}
             </td>
             <td class="muted">{{ p.teams|join(', ') if p.teams else '—' }}</td>
             <td class="num">{{ p.stat_n }}</td>
@@ -179,6 +186,7 @@
 .filter-bar .input { flex: 1; min-width: 200px; }
 .team-head { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
 .team-head h2 { margin: 0; }
+.suggest-box { margin-top: var(--space-1); display: flex; gap: var(--space-2); align-items: center; flex-wrap: wrap; }
 .check { font-size: var(--fs-xs); color: var(--muted); display: inline-flex; gap: 0.35rem; align-items: center; }
 </style>
 <script>
@@ -337,6 +345,15 @@ document.querySelectorAll(".merge-btn").forEach((btn) => {
         feedback(await post("/admin/opponent/merge",
                             {src_player_id: Number(btn.dataset.src),
                              dst_player_id: Number(sel.value)}));
+    });
+});
+
+// 팀 없는 선수 추천 배정 — 추론(같은 매치 근거) 팀으로 원클릭 배정
+document.querySelectorAll(".suggest-apply-btn").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+        feedback(await post("/admin/opponent/roster/assign",
+                            {player_id: Number(btn.dataset.player),
+                             team_id: Number(btn.dataset.team)}));
     });
 });
 

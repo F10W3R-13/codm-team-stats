@@ -262,3 +262,67 @@ class TestRosterRowMerge:
                 ("rc RmSrc",)).fetchone()
         assert roster_n == 1  # dst만 남음
         assert learned["opponent_player_id"] == dst
+
+
+class TestTeamlessSuggestion:
+    def test_suggestion_from_cooccurrence(self, admin_client):
+        """팀 없는 선수 추론: 같은 매치 근거(매치 태그+동반 상대 소속) 2건 이상·
+        단독 최다 팀일 때만 추천. 1매치 우연 공동출전은 추천 없음."""
+        import admin_write
+        with db.get_conn() as conn:
+            tid = conn.execute_returning_id(
+                "INSERT INTO opponent_teams(name) VALUES (?)", ("sg Team",))
+            a = conn.execute_returning_id(
+                "INSERT INTO opponent_players(name) VALUES (?)", ("sgA",))
+            b = conn.execute_returning_id(
+                "INSERT INTO opponent_players(name) VALUES (?)", ("sgB",))
+            x = conn.execute_returning_id(
+                "INSERT INTO opponent_players(name) VALUES (?)", ("sgX",))   # 근거 2건
+            y = conn.execute_returning_id(
+                "INSERT INTO opponent_players(name) VALUES (?)", ("sgY",))   # 근거 1건
+            for pid_ in (a, b):
+                conn.execute(db._adapt_sql(
+                    "INSERT INTO opponent_team_rosters(team_id, player_id, source) "
+                    "VALUES (?, ?, 'registered')"), (tid, pid_))
+            # m1: 팀 태그 매치 — sgA/sgB/sgX 출전
+            m1 = conn.execute_returning_id(
+                "INSERT INTO matches(mode, match_date, season, opponent_team_id) "
+                "VALUES ('HP','2026-09-11','s2',?)", (tid,))
+            # m2: 팀 태그 매치 — sgA/sgX 출전
+            m2 = conn.execute_returning_id(
+                "INSERT INTO matches(mode, match_date, season, opponent_team_id) "
+                "VALUES ('HP','2026-09-12','s2',?)", (tid,))
+            # m3: 미태그 매치 — sgB/sgY 출전 (근거 1건: 동반 소속)
+            m3 = conn.execute_returning_id(
+                "INSERT INTO matches(mode, match_date, season) "
+                "VALUES ('HP','2026-09-13','s2')")
+            for mid, pids in [(m1, (a, b, x)), (m2, (a, x)), (m3, (b, y))]:
+                for pid_ in pids:
+                    conn.execute(db._adapt_sql(
+                        "INSERT INTO opponent_stats_hp(match_id, player_id, ign_raw, kills, deaths) "
+                        "VALUES (?,?,?,?,?)"), (mid, pid_, f"p{pid_}", 1, 1))
+        data = admin_write.opponent_admin_data()
+        by_name = {p["name"]: p for p in data["recent_opponents"]}
+        assert by_name["sgX"]["suggest_team"] == "sg Team"
+        assert by_name["sgX"]["suggest_n"] == 2
+        assert by_name["sgY"].get("suggest_team") is None   # 근거 1건 → 추천 없음
+
+    def test_apply_suggestion_route(self, admin_client):
+        """추천 배정 라우트 — 로스터에 source='match'로 추가."""
+        with db.get_conn() as conn:
+            tid = conn.execute_returning_id(
+                "INSERT INTO opponent_teams(name) VALUES (?)", ("sg ApplyTeam",))
+            x = conn.execute_returning_id(
+                "INSERT INTO opponent_players(name) VALUES (?)", ("sgApply",))
+        r = admin_client.post("/admin/opponent/roster/assign",
+                              json={"player_id": x, "team_id": tid})
+        assert r.json()["ok"] is True
+        with db.get_conn() as conn:
+            row = conn.execute(db._adapt_sql(
+                "SELECT source FROM opponent_team_rosters WHERE team_id=? AND player_id=?"),
+                (tid, x)).fetchone()
+        assert row is not None and row["source"] == "match"
+        # 중복 배정 거부
+        r2 = admin_client.post("/admin/opponent/roster/assign",
+                               json={"player_id": x, "team_id": tid})
+        assert r2.json()["ok"] is False
