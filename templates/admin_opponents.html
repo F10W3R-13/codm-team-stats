@@ -34,7 +34,7 @@
     </form>
     <div class="table-wrap">
     <table>
-        <thead><tr><th>{{ t.opp_player }}</th><th>{{ t.opp_source }}</th><th></th></tr></thead>
+        <thead><tr><th>{{ t.opp_player }}</th><th>{{ t.opp_source }}</th><th>{{ t.opp_merge_into }}</th><th></th></tr></thead>
         <tbody>
         {% for p in team.roster %}
         <tr>
@@ -42,9 +42,20 @@
             <td>{% if p.source == 'registered' %}{{ t.opp_source_registered }}
                 {% elif p.source == 'match' %}{{ t.opp_source_match }}
                 {% else %}{{ t.opp_source_manual }}{% endif %}</td>
-            <td><button class="btn btn--ghost btn--sm roster-remove-btn" data-team="{{ team.id }}"
+            <td>
+                <select class="select roster-merge-select" data-src="{{ p.id }}" aria-label="{{ t.opp_merge_into }}">
+                    <option value="">{{ t.opp_assign_player }}</option>
+                    {% for q in team.roster if q.id != p.id %}
+                    <option value="{{ q.id }}">{{ q.name }}</option>
+                    {% endfor %}
+                </select>
+            </td>
+            <td>
+                <button class="btn btn--sm roster-merge-btn" data-src="{{ p.id }}" data-name="{{ p.name }}" disabled>{{ t.opp_merge }}</button>
+                <button class="btn btn--ghost btn--sm roster-remove-btn" data-team="{{ team.id }}"
                         data-player="{{ p.id }}" data-name="{{ p.name }}" type="button"
-                        title="{{ t.opp_remove_roster }}" aria-label="{{ t.opp_remove_roster }} {{ p.name }}">✕</button></td>
+                        title="{{ t.opp_remove_roster }}" aria-label="{{ t.opp_remove_roster }} {{ p.name }}">✕</button>
+            </td>
         </tr>
         {% endfor %}
         </tbody>
@@ -290,6 +301,24 @@ document.querySelectorAll(".assign-btn").forEach((btn) => {
                              {match_id: Number(btn.dataset.match), team_id: teamId,
                               ignore_alias: ignoreAlias});
         if (feedback(r, false)) btn.closest("tr").remove();
+    });
+});
+
+// 로스터 행 병합 — 같은 팀 공식 멤버로 흡수 (병합 1회 영구 학습 → 이후 OCR 재유입 자동 귀속)
+document.querySelectorAll(".roster-merge-select").forEach((sel) => {
+    sel.addEventListener("change", () => {
+        sel.closest("tr").querySelector(".roster-merge-btn").disabled = !sel.value;
+    });
+});
+document.querySelectorAll(".roster-merge-btn").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+        const sel = btn.closest("tr").querySelector(".roster-merge-select");
+        const dstName = sel.options[sel.selectedIndex].text;
+        const msg = "{{ t.opp_confirm_merge }}".replace("{dst}", dstName);
+        if (!confirm(msg)) return;
+        feedback(await post("/admin/opponent/merge",
+                            {src_player_id: Number(btn.dataset.src),
+                             dst_player_id: Number(sel.value)}));
     });
 });
 

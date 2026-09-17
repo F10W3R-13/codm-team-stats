@@ -865,6 +865,16 @@ def resolve_opponent_player_id(conn, name: str, team_id: int = None,
             _learn_opponent_alias(conn, name, match[0])
         return match[0]
 
+    # 4.5) 전역 정확(정규화) — 팀 풀에서 못 찾은 이름이 전역에 이미 존재하면
+    # 신규 생성하지 않고 기존 선수 반환. 없이 INSERT하면 UNIQUE(name) 위반으로
+    # 저장/재매칭이 500으로 죽는다 (배포 실증 2026-09-17: "P4P4TACO", "Jim").
+    if team_id:
+        for r in conn.execute("SELECT id, name FROM opponent_players").fetchall():
+            if opponent_matching.norm_name(r["name"]) == target:
+                if create:
+                    _learn_opponent_alias(conn, name, r["id"])
+                return r["id"]
+
     # 5) 신규 생성 (admin 병합 대기) — create=False면 포기
     if not create:
         return None

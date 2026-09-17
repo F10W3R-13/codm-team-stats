@@ -219,3 +219,46 @@ class TestR3AdminUx:
         assert "rc SrcPlayer" in html
         # registered 원시 enum이 아닌 번역 표기가 렌더되어야 함
         assert i18n.get("ko")["opp_source_registered"] in html
+
+
+class TestRosterRowMerge:
+    def test_roster_row_merge_ui(self, admin_client):
+        """팀 소속 정상 표기 선수도 그 팀 로스터 안에서 바로 병합 가능해야 한다.
+
+        유즈케이스: uD 로스터를 공식 닉네임 6명만 남기기 — 변형 행을
+        공식 멤버로 병합(병합 1회 영구 학습으로 이후 OCR 재유입 자동 귀속).
+        """
+        tid = _mk_team("rc RmTeam")
+        for nm in ("rc RmOffi", "rc RmVariant"):
+            pid = _mk_opp_player(nm)
+            with db.get_conn() as conn:
+                conn.execute(db._adapt_sql(
+                    "INSERT INTO opponent_team_rosters(team_id, player_id, source) "
+                    "VALUES (?, ?, 'match')"), (tid, pid))
+        html = admin_client.get("/admin/opponents").text
+        assert "rc RmVariant" in html
+        assert "roster-merge-select" in html
+        assert "roster-merge-btn" in html
+
+    def test_merge_same_team_roster_works(self, admin_client):
+        """같은 팀 로스터에 둘 다 있는 상태의 병합 — dst 로스터 유지, src 행 정리."""
+        tid = _mk_team("rc RmTeam2")
+        dst = _mk_opp_player("rc RmDst")
+        src = _mk_opp_player("rc RmSrc")
+        with db.get_conn() as conn:
+            for pid in (dst, src):
+                conn.execute(db._adapt_sql(
+                    "INSERT INTO opponent_team_rosters(team_id, player_id, source) "
+                    "VALUES (?, ?, 'match')"), (tid, pid))
+        r = admin_client.post("/admin/opponent/merge",
+                              json={"src_player_id": src, "dst_player_id": dst})
+        assert r.json()["ok"] is True
+        with db.get_conn() as conn:
+            roster_n = conn.execute(db._adapt_sql(
+                "SELECT COUNT(*) c FROM opponent_team_rosters WHERE team_id=?"),
+                (tid,)).fetchone()["c"]
+            learned = conn.execute(db._adapt_sql(
+                "SELECT opponent_player_id FROM opponent_aliases WHERE ign = ?"),
+                ("rc RmSrc",)).fetchone()
+        assert roster_n == 1  # dst만 남음
+        assert learned["opponent_player_id"] == dst
