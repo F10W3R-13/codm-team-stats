@@ -53,6 +53,11 @@ def render(template_name: str, lang: str = "ko", **context) -> str:
     return tpl.render(lang=lang, t=t, languages=i18n.LANGUAGES, **context)
 
 
+# 시즌 쿼리 파라미터 — 화이트리스트 외 값은 422 거부 (조용한 폴백 금지).
+_SEASON_Q = Query(db.CURRENT_SEASON, pattern="^(s1|s2)$",
+                  description="season view: s1 archive / s2 current")
+
+
 def _heat_class(pct: float) -> str:
     """맵 히트맵 색 등급 (±% 기준). HP/SND 공용.
 
@@ -96,7 +101,8 @@ async def admin_auth_middleware(request: Request, call_next):
 # ── 페이지 ────────────────────────────────────────────────────────────────
 @app.get("/", response_class=HTMLResponse)
 async def coaching_hub_page(request: Request, lang: str = Query("ko"),
-                            recent: str = Query("10")):
+                            recent: str = Query("10"),
+                            season: str = _SEASON_Q):
     # recent: "5" | "10" | "season" — 이외값은 10으로 폴백
     if recent == "season":
         n = None
@@ -104,18 +110,19 @@ async def coaching_hub_page(request: Request, lang: str = Query("ko"),
         n = int(recent)
     else:
         n = 10
-    data = analytics.coaching_hub(recent_matches=n)
+    data = analytics.coaching_hub(recent_matches=n, season=season)
     # 코칭 노트 (관리자 전용 위젯)
     cookie_val = request.cookies.get(auth.COOKIE_NAME)
     is_admin = bool(cookie_val and auth.check_cookie(cookie_val))
     data["open_notes"] = queries.open_notes() if is_admin else []
     data["players_list"] = [
         {"id": p["id"], "name": p["name"]}
-        for p in queries.all_players_overview("HP")
+        for p in queries.all_players_overview("HP", season)
     ] if is_admin else []
     # 승패 미입력 경고 배지 (관리자 전용 — 입력은 코치의 몫이므로)
-    data["missing_result"] = queries.missing_result_count() if is_admin else 0
-    return render("coaching_hub.html", lang=lang, data=data, is_admin=is_admin)
+    data["missing_result"] = queries.missing_result_count(season) if is_admin else 0
+    return render("coaching_hub.html", lang=lang, data=data, is_admin=is_admin,
+                  season=season)
 
 
 @app.get("/players", response_class=HTMLResponse)
@@ -123,12 +130,13 @@ async def players_page(
     request: Request,
     mode: str = Query("HP", pattern="^(HP|SND)$"),
     lang: str = Query("ko"),
+    season: str = _SEASON_Q,
 ):
-    players = queries.all_players_overview(mode)
+    players = queries.all_players_overview(mode, season)
     # HP 모드: 역할 스펙트럼 데이터(slay/obj_score + 위치) 추가 — 허브와 동일 출처.
     if mode == "HP" and players:
         import metrics
-        roles = {r["name"]: r for r in queries.team_role_distribution()}
+        roles = {r["name"]: r for r in queries.team_role_distribution(season)}
         for p in players:
             r = roles.get(p["name"])
             if r:
@@ -136,16 +144,17 @@ async def players_page(
                 p["slay_score"] = r["slay_score"]
                 p["obj_score"] = r["obj_score"]
                 p["spectrum_pos"] = metrics.role_spectrum_pos(r["slay_score"], r["obj_score"])
-    return render("players.html", lang=lang, players=players, mode=mode)
+    return render("players.html", lang=lang, players=players, mode=mode, season=season)
 
 
 @app.get("/players/{name}", response_class=HTMLResponse)
-async def player_detail(request: Request, name: str, lang: str = Query("ko")):
+async def player_detail(request: Request, name: str, lang: str = Query("ko"),
+                        season: str = _SEASON_Q):
     pid = queries.get_player_id(name)
     if not pid:
         raise HTTPException(404, "선수를 찾을 수 없습니다")
-    stats = queries.player_overall_stats(pid)
-    team_hp = queries.team_averages("HP") if stats["hp"] else {}
+    stats = queries.player_overall_stats(pid, season)
+    team_hp = queries.team_averages("HP", season) if stats["hp"] else {}
     # key 비대칭 정규화: team_averages(all_players_overview)는 avg_ck를 쓰지만
     # player_overall_stats는 avg_capture를 씀. 통합 패널 루프를 위해 별칭 추가.
     if team_hp:
@@ -154,7 +163,7 @@ async def player_detail(request: Request, name: str, lang: str = Query("ko")):
     # 역할 스펙트럼 (HP 전용) — 허브와 동일 출처(team_role_distribution).
     if stats["hp"]:
         import metrics
-        roles = {r["name"]: r for r in queries.team_role_distribution()}
+        roles = {r["name"]: r for r in queries.team_role_distribution(season)}
         r = roles.get(stats["name"])
         if r:
             stats["hp"]["role"] = r["role"]
@@ -162,8 +171,8 @@ async def player_detail(request: Request, name: str, lang: str = Query("ko")):
             stats["hp"]["obj_score"] = r["obj_score"]
             stats["hp"]["spectrum_pos"] = metrics.role_spectrum_pos(r["slay_score"], r["obj_score"])
     # 맵별 성적 — HP(ZCS)/SND(RDS) 본인 평균 대비 강은/약한 맵
-    player_maps = queries.player_map_breakdown(pid, mode="HP", min_matches=5) if stats["hp"] else []
-    player_maps_snd = queries.player_map_breakdown(pid, mode="SND", min_matches=2) if stats["snd"] else []
+    player_maps = queries.player_map_breakdown(pid, mode="HP", min_matches=5, season=season) if stats["hp"] else []
+    player_maps_snd = queries.player_map_breakdown(pid, mode="SND", min_matches=2, season=season) if stats["snd"] else []
     # 히트맵 색 클래스 — metric_pct 크기에 비례한 5단계 (HP/SND 공용)
     for m in player_maps:
         m["heat_class"] = _heat_class(m["metric_pct"])
@@ -172,11 +181,13 @@ async def player_detail(request: Request, name: str, lang: str = Query("ko")):
     # AI 인사이트 — 캐시 hit 시에만 즉시 렌더. miss면 None (프런트가 fetch로 비동기 로드).
     cache_key = stats["name"] if stats["name"] else ""
     insight = insight_cache.get("player", cache_key, lang,
-                                fingerprint=coaching_brain_loader.fingerprint())
+                                fingerprint=coaching_brain_loader.fingerprint(),
+                                season=season)
     return render(
         "player_detail.html", lang=lang,
         stats=stats, team_hp=team_hp,
         insight=insight, player_maps=player_maps, player_maps_snd=player_maps_snd,
+        season=season,
     )
 
 
@@ -188,14 +199,15 @@ async def compare_page(
     b: str = Query(None),
     mode: str = Query("HP", pattern="^(HP|SND)$"),
     lang: str = Query("ko"),
+    season: str = _SEASON_Q,
 ):
     players = queries.list_players()
     data = None
     if a and b and a != b:
-        data = queries.compare_players(a, b, mode)
+        data = queries.compare_players(a, b, mode, season=season)
     return render(
         "compare.html", lang=lang,
-        players=players, a=a, b=b, mode=mode, data=data,
+        players=players, a=a, b=b, mode=mode, data=data, season=season,
     )
 
 
@@ -205,20 +217,21 @@ async def leaderboard_page(
     mode: str = Query("HP", pattern="^(HP|SND)$"),
     metric: str = Query("avg_kd"),
     lang: str = Query("ko"),
+    season: str = _SEASON_Q,
 ):
     custom_metrics = {"dpd", "dpk", "impact_delta", "ap_pct", "zcs", "rds"}
     if metric in custom_metrics:
-        rows = queries.advanced_leaderboard(metric, 20)
+        rows = queries.advanced_leaderboard(metric, 20, season=season)
     else:
-        rows = queries.leaderboard(mode, metric, 20)
+        rows = queries.leaderboard(mode, metric, 20, season=season)
     # 팀 평균 (±% 계산용) + 지표 방향 (DPK만 낮을수록 좋음)
-    team_avg = queries.team_averages(mode) if mode == "HP" else queries.team_averages(mode)
+    team_avg = queries.team_averages(mode, season)
     avg_value = team_avg.get(metric) if team_avg else None
     higher_better = metric != "dpk"
     return render(
         "leaderboard.html", lang=lang,
         rows=rows, mode=mode, metric=metric,
-        avg_value=avg_value, higher_better=higher_better,
+        avg_value=avg_value, higher_better=higher_better, season=season,
     )
 
 
@@ -228,17 +241,19 @@ async def matches_page(
     mode: str = Query("ALL", pattern="^(ALL|HP|SND)$"),
     page: int = Query(1, ge=1),
     lang: str = Query("ko"),
+    season: str = _SEASON_Q,
 ):
     mode_filter = None if mode == "ALL" else mode
     # 날짜 그룹 페이지네이션 — 한 페이지 = 최근 7일치 매치
-    data = queries.match_history_grouped(mode_filter, date_page=page, dates_per_page=7)
+    data = queries.match_history_grouped(mode_filter, date_page=page, dates_per_page=7,
+                                         season=season)
     # 코치 로그인 여부 → 날짜 헤더 '복기 편집' 링크 노출
     cookie_val = request.cookies.get(auth.COOKIE_NAME)
     is_admin = bool(cookie_val and auth.check_cookie(cookie_val))
     return render(
         "matches.html", lang=lang,
         data=data, mode=mode, page=data["date_page"], total_pages=data["total_date_pages"],
-        is_admin=is_admin,
+        is_admin=is_admin, season=season,
     )
 
 
@@ -271,30 +286,32 @@ async def match_detail(request: Request, match_id: int, lang: str = Query("ko"))
 
 # ── JSON API (차트용) ────────────────────────────────────────────────────
 @app.get("/api/player/{name}/timeseries")
-async def api_player_timeseries(name: str, mode: str = "HP", limit: int = 50):
+async def api_player_timeseries(name: str, mode: str = "HP", limit: int = 50,
+                                season: str = _SEASON_Q):
     """모든 지표 시계열 JSON (trends 차트용)."""
     pid = queries.get_player_id(name)
     if not pid:
         raise HTTPException(404, "선수 없음")
-    return queries.player_metric_timeseries(pid, mode, limit)
+    return queries.player_metric_timeseries(pid, mode, limit, season=season)
 
 
 # ── 인사이트 비동기 API (페이지는 즉시 렌더, 인사이트는 fetch로 로드) ───────
 # 캐시 hit 시 즉시 반환. miss면 run_in_executor로 GPT 호출 (이벤트 루프 블록 방지).
 @app.get("/api/insight/player/{name}")
-async def api_player_insight(name: str, lang: str = "ko"):
+async def api_player_insight(name: str, lang: str = "ko", season: str = _SEASON_Q):
     cache_key = name
     fp = coaching_brain_loader.fingerprint()
-    cached = insight_cache.get("player", cache_key, lang, fingerprint=fp)
+    cached = insight_cache.get("player", cache_key, lang, fingerprint=fp,
+                               season=season)
     if cached is not None:
         return {"insight": cached, "cached": True}
     pid = queries.get_player_id(name)
     if not pid:
         raise HTTPException(404, "선수 없음")
-    stats = queries.player_overall_stats(pid)
+    stats = queries.player_overall_stats(pid, season)
     if not (stats.get("hp") or stats.get("snd")):
         return {"insight": "", "cached": False}
-    team_hp = queries.team_averages("HP") if stats["hp"] else {}
+    team_hp = queries.team_averages("HP", season) if stats["hp"] else {}
     if team_hp:
         if "avg_capture" not in team_hp and "avg_ck" in team_hp:
             team_hp["avg_capture"] = team_hp["avg_ck"]
@@ -302,7 +319,8 @@ async def api_player_insight(name: str, lang: str = "ko"):
     insight = await loop.run_in_executor(
         None, lambda: analytics_insights.player_profile_insight(stats, team_hp, lang=lang))
     if insight:
-        insight_cache.set("player", cache_key, lang, insight, fingerprint=fp)
+        insight_cache.set("player", cache_key, lang, insight, fingerprint=fp,
+                          season=season)
     return {"insight": insight, "cached": False}
 
 
@@ -324,25 +342,28 @@ async def api_match_insight(match_id: int, lang: str = "ko"):
 
 
 @app.get("/api/insight/map/{map_name}")
-async def api_map_insight(map_name: str, mode: str = "HP", lang: str = "ko"):
+async def api_map_insight(map_name: str, mode: str = "HP", lang: str = "ko",
+                          season: str = _SEASON_Q):
     cache_key = f"{map_name}_{mode}"
     fp = coaching_brain_loader.fingerprint()
-    cached = insight_cache.get("map", cache_key, lang, fingerprint=fp)
+    cached = insight_cache.get("map", cache_key, lang, fingerprint=fp,
+                               season=season)
     if cached is not None:
         return {"insight": cached, "cached": True}
-    data = analytics.map_detail(map_name, mode)
+    data = analytics.map_detail(map_name, mode, season=season)
     if not data:
         raise HTTPException(404, "맵 데이터 없음")
     loop = asyncio.get_running_loop()
     advice = await loop.run_in_executor(
         None, lambda: analytics_insights.map_advice(data, lang=lang))
     if advice:
-        insight_cache.set("map", cache_key, lang, advice, fingerprint=fp)
+        insight_cache.set("map", cache_key, lang, advice, fingerprint=fp,
+                          season=season)
     return {"insight": advice, "cached": False}
 
 
 @app.get("/api/insight/briefing")
-async def api_briefing(recent: str = Query("10")):
+async def api_briefing(recent: str = Query("10"), season: str = _SEASON_Q):
     """코칭 허브 프리매치 브리핑 (코치 전용, ko 고정).
 
     버튼 클릭 시 호출. 캐시 키: ("briefing", recent, "ko").
@@ -350,12 +371,13 @@ async def api_briefing(recent: str = Query("10")):
     if recent not in ("5", "10", "season"):
         recent = "10"
     fp = coaching_brain_loader.fingerprint()
-    cached = insight_cache.get("briefing", recent, "ko", fingerprint=fp)
+    cached = insight_cache.get("briefing", recent, "ko", fingerprint=fp,
+                               season=season)
     if cached is not None:
         return {"insight": cached, "cached": True}
     n = None if recent == "season" else int(recent)
     try:
-        hub_data = analytics.coaching_hub(recent_matches=n)
+        hub_data = analytics.coaching_hub(recent_matches=n, season=season)
         hub_data["open_notes"] = queries.open_notes()
     except Exception as e:
         import traceback
@@ -365,7 +387,8 @@ async def api_briefing(recent: str = Query("10")):
     insight = await loop.run_in_executor(
         None, lambda: analytics_insights.briefing_insight(hub_data, lang="ko"))
     if insight:
-        insight_cache.set("briefing", recent, "ko", insight, fingerprint=fp)
+        insight_cache.set("briefing", recent, "ko", insight, fingerprint=fp,
+                          season=season)
     return {"insight": insight, "cached": False}
 
 
@@ -375,9 +398,10 @@ async def maps_page(
     request: Request,
     mode: str = Query("HP", pattern="^(HP|SND)$"),
     lang: str = Query("ko"),
+    season: str = _SEASON_Q,
 ):
-    maps = queries.map_team_stats(mode, min_matches=2)
-    return render("maps.html", lang=lang, maps=maps, mode=mode)
+    maps = queries.map_team_stats(mode, min_matches=2, season=season)
+    return render("maps.html", lang=lang, maps=maps, mode=mode, season=season)
 
 
 @app.get("/maps/{map_name}", response_class=HTMLResponse)
@@ -386,29 +410,33 @@ async def map_detail_page(
     map_name: str,
     mode: str = Query("HP", pattern="^(HP|SND)$"),
     lang: str = Query("ko"),
+    season: str = _SEASON_Q,
 ):
-    data = analytics.map_detail(map_name, mode)
+    data = analytics.map_detail(map_name, mode, season=season)
     if not data:
         raise HTTPException(404, "맵 데이터를 찾을 수 없습니다")
     # AI 간접 제언 — 캐시 hit 시에만 즉시 렌더. miss면 None (프런트 fetch).
     cache_key = f"{map_name}_{mode}"
     advice = insight_cache.get("map", cache_key, lang,
-                               fingerprint=coaching_brain_loader.fingerprint())
-    return render("map_detail.html", lang=lang, data=data, advice=advice)
+                               fingerprint=coaching_brain_loader.fingerprint(),
+                               season=season)
+    return render("map_detail.html", lang=lang, data=data, advice=advice, season=season)
 
 
 @app.get("/versus", response_class=HTMLResponse)
-async def versus_page(request: Request, lang: str = Query("ko")):
-    teams = queries.versus_overview()
-    return render("versus.html", lang=lang, teams=teams)
+async def versus_page(request: Request, lang: str = Query("ko"),
+                      season: str = _SEASON_Q):
+    teams = queries.versus_overview(season)
+    return render("versus.html", lang=lang, teams=teams, season=season)
 
 
 @app.get("/versus/{team_id}", response_class=HTMLResponse)
-async def versus_team_page(request: Request, team_id: int, lang: str = Query("ko")):
-    detail = queries.versus_team_detail(team_id)
+async def versus_team_page(request: Request, team_id: int, lang: str = Query("ko"),
+                           season: str = _SEASON_Q):
+    detail = queries.versus_team_detail(team_id, season)
     if not detail:
         raise HTTPException(404, "상대팀 없음")
-    return render("versus_team.html", lang=lang, d=detail)
+    return render("versus_team.html", lang=lang, d=detail, season=season)
 
 
 # ── 관리(Admin) 페이지 ───────────────────────────────────────────────────

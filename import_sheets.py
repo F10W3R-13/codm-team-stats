@@ -198,8 +198,9 @@ def insert_stat_rows(conn, rows, mode):
     for date_raw, map_hint, player_rows in group_matches(rows, mode):
         iso_date = parse_date(date_raw)
         match_id = conn.execute_returning_id(
-            "INSERT INTO matches(mode, map_name, match_date, raw_date) VALUES (?,?,?,?)",
-            (mode, map_hint, iso_date, date_raw or None),
+            "INSERT INTO matches(mode, map_name, match_date, raw_date, season) VALUES (?,?,?,?,?)",
+            (mode, map_hint, iso_date, date_raw or None,
+             db.season_for_date(iso_date)),
         )
         n_matches += 1
 

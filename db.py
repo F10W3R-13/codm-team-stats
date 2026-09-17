@@ -26,6 +26,29 @@ USE_POSTGRES = bool(DATABASE_URL)
 # SQLite 경로 (로컬 전용)
 DB_PATH = os.environ.get("CODM_DB_PATH", "codm.db")
 
+# ── 시즌 정책 (docs/plans/season-archive.plan.md) ──────────────────────────
+# 's1' = SEASON_CUTOFF 이전 아카이브 시즌, 's2' = 현재 시즌.
+# 다음 시즌 전환 시: CURRENT_SEASON='s3' + _BACKFILL_SEASON 분기 확장.
+CURRENT_SEASON = "s2"
+SEASON_CUTOFF = "2026-09-05"
+
+# 기존(미태그) 행 백필 — 멱등: season IS NULL만 건드린다.
+# match_date NULL(구글시트 마이그레이션分)은 NULL>=?가 UNKNOWN → ELSE 's1'.
+_BACKFILL_SEASON = (
+    "UPDATE matches SET season = CASE WHEN match_date >= ? THEN 's2' ELSE 's1' END "
+    "WHERE season IS NULL"
+)
+
+
+def season_for_date(match_date) -> str:
+    """경기 날짜 → 시즌값. 백필 SQL과 동일 규칙 (import_sheets 등 쓰기 경계 공용).
+
+    경계일(SEASON_CUTOFF) 이상 → 's2', 미만·NULL·빈값 → 's1'.
+    """
+    if match_date and match_date >= SEASON_CUTOFF:
+        return "s2"
+    return "s1"
+
 
 # ── 스키마 (SQLite 기본 작성, _adapt_sql이 Postgres로 변환) ───────────────
 SCHEMA = """
@@ -55,6 +78,7 @@ CREATE TABLE IF NOT EXISTS matches (
     coach_note          TEXT,
     vod_url             TEXT,
     transcript_summary  TEXT,
+    season              TEXT,
     created_at          TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
@@ -306,6 +330,10 @@ def init_db() -> None:
                     # 마이그레이션: matches.opponent_team_id (상대팀 H2H) + 의존 인덱스
                     cur.execute("ALTER TABLE matches ADD COLUMN IF NOT EXISTS opponent_team_id INTEGER")
                     cur.execute("CREATE INDEX IF NOT EXISTS idx_matches_opp_team ON matches(opponent_team_id)")
+                    # 마이그레이션: matches.season (시즌 아카이빙) + 백필 + 의존 인덱스
+                    cur.execute("ALTER TABLE matches ADD COLUMN IF NOT EXISTS season TEXT")
+                    cur.execute(_adapt_sql(_BACKFILL_SEASON), (SEASON_CUTOFF,))
+                    cur.execute("CREATE INDEX IF NOT EXISTS idx_matches_season ON matches(season)")
                     conn.commit()
                 finally:
                     cur.execute("SELECT pg_advisory_unlock(89473124)")
@@ -325,11 +353,15 @@ def init_db() -> None:
                               ("opponent_score", "INTEGER"),
                               ("coach_note", "TEXT"), ("vod_url", "TEXT"),
                               ("transcript_summary", "TEXT"),
-                              ("opponent_team_id", "INTEGER")]:
+                              ("opponent_team_id", "INTEGER"),
+                              ("season", "TEXT")]:
                 if col not in cols:
                     conn.execute(f"ALTER TABLE matches ADD COLUMN {col} {decl}")
             conn.execute("CREATE INDEX IF NOT EXISTS idx_matches_result ON matches(result)")
             conn.execute("CREATE INDEX IF NOT EXISTS idx_matches_opp_team ON matches(opponent_team_id)")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_matches_season ON matches(season)")
+            # 마이그레이션: 시즌 백필 (멱등 — season IS NULL만)
+            conn.execute(_BACKFILL_SEASON, (SEASON_CUTOFF,))
             # 마이그레이션: aliases.source 컬럼 (감사 추적 — Manual/OCR Auto)
             alias_cols = {row[1] for row in conn.execute("PRAGMA table_info(aliases)").fetchall()}
             if "source" not in alias_cols:

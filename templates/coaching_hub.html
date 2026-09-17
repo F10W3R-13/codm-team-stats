@@ -74,7 +74,7 @@
         btn.hidden = true;
         loading.hidden = false;
         result.hidden = true;
-        fetch('/api/insight/briefing?recent=' + encodeURIComponent(curRecent))
+        fetch('/api/insight/briefing?recent=' + encodeURIComponent(curRecent) + '&season={{ season }}')
             .then(function (r) { return r.json(); })
             .then(function (d) {
                 loading.hidden = true;

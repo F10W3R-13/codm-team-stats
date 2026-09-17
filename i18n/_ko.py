@@ -12,6 +12,9 @@ STRINGS = {
         "nav_timeseries": "시계열",
         "lang_label": "언어",
         "theme_toggle": "테마 전환",
+        "season_label": "시즌 보기",
+        "season_s1": "시즌 1 (아카이브)",
+        "season_s2": "시즌 2 (현재)",
 
         # 공통
         "mode_hp": "하드포인트",

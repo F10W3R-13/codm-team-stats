@@ -6,7 +6,8 @@
 #   - 새 매치 기록 시 관련 캐시 무효화 (stats_repo.save_match 호출 시)
 #   - 코칭 브레인 지문 연동: 저장 시점 지문 ≠ 현재 지문이면 캐시 미스
 #     (코치가 코칭 브레인 수정 → 옛날 지식이 캐시에서 서비스되는 것 방지)
-#   - 캐시 키 = 인사이트 종류 + 대상 ID + 언어
+#   - 캐시 키 = 인사이트 종류 + 대상 ID + 언어 + 시즌
+#     (시즌별 인사이트 분리 — s1 아카이브 인사이트가 s2에 흘러드는 것 방지)
 #
 # 단순 in-memory 캐시. 단일 프로세스 가정. (다중 워커면 Redis로 교체 필요)
 
@@ -18,19 +19,20 @@ from threading import Lock
 DEFAULT_TTL = 600
 
 _lock = Lock()
-# {(kind, target, lang): (insight_text, expire_timestamp, fingerprint)}
+# {(kind, target, lang, season): (insight_text, expire_timestamp, fingerprint)}
 # fingerprint = 저장 시점의 코칭 브레인 지문 (None이면 지문 검사 안 함)
 _cache = {}
 
 
 def get(kind: str, target: str, lang: str, ttl: int = DEFAULT_TTL,
-        fingerprint: str = None) -> str | None:
+        fingerprint: str = None, season: str = None) -> str | None:
     """캐시에서 인사이트 조회. 만료·지문 불일치·없으면 None.
 
     fingerprint: 현재 코칭 브레인 지문. None이면 지문 검사 생략 (기존 동작).
                  캐시에 저장된 지문과 다르면 캐시 미스 (코칭 브레인 변경 감지).
+    season: 시즌 뷰 ('s1'/'s2'). 미지정 호출(기존)은 season=None 키로 격리.
     """
-    key = (kind, target, lang)
+    key = (kind, target, lang, season)
     with _lock:
         entry = _cache.get(key)
         if entry is None:
@@ -48,11 +50,11 @@ def get(kind: str, target: str, lang: str, ttl: int = DEFAULT_TTL,
 
 
 def set(kind: str, target: str, lang: str, insight: str, ttl: int = DEFAULT_TTL,
-        fingerprint: str = None) -> None:
+        fingerprint: str = None, season: str = None) -> None:
     """인사이트를 캐시에 저장. fingerprint는 저장 시점 코칭 브레인 지문."""
     if not insight:
         return
-    key = (kind, target, lang)
+    key = (kind, target, lang, season)
     with _lock:
         _cache[key] = (insight, time.time() + ttl, fingerprint)
 

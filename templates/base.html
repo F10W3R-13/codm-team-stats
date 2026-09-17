@@ -513,6 +513,8 @@
             color: var(--on-accent);
             border-color: var(--accent);
         }
+        /* 시즌 토글 — lang-switcher 시각 체계 재사용, margin만 조정 */
+        .season-switcher { margin-left: 0.4rem; }
 
         /* ── 표 가로 스크롤 래퍼 ─────────────────────────── */
         .table-wrap {
@@ -689,19 +691,23 @@
     <nav class="nav" id="nav">
         <div class="nav-brand">{{ t.nav_brand }}</div>
         <div class="nav-links" id="navLinks">
-            <a href="/?lang={{ lang }}" class="{% block nav_dashboard %}{% endblock %}">{{ t.nav_hub }}</a>
-            <a href="/players?lang={{ lang }}" class="{% block nav_players %}{% endblock %}">{{ t.nav_players }}</a>
-            <a href="/leaderboard?lang={{ lang }}" class="{% block nav_leaderboard %}{% endblock %}">{{ t.nav_leaderboard }}</a>
-            <a href="/compare?lang={{ lang }}" class="{% block nav_compare %}{% endblock %}">{{ t.nav_compare }}</a>
-            <a href="/matches?lang={{ lang }}" class="{% block nav_matches %}{% endblock %}">{{ t.nav_matches }}</a>
-            <a href="/maps?lang={{ lang }}" class="{% block nav_maps %}{% endblock %}">{{ t.nav_maps }}</a>
-            <a href="/versus?lang={{ lang }}" class="{% block nav_versus %}{% endblock %}">{{ t.nav_versus }}</a>
+            <a href="/?lang={{ lang }}{% if season is defined %}&season={{ season }}{% endif %}" class="{% block nav_dashboard %}{% endblock %}">{{ t.nav_hub }}</a>
+            <a href="/players?lang={{ lang }}{% if season is defined %}&season={{ season }}{% endif %}" class="{% block nav_players %}{% endblock %}">{{ t.nav_players }}</a>
+            <a href="/leaderboard?lang={{ lang }}{% if season is defined %}&season={{ season }}{% endif %}" class="{% block nav_leaderboard %}{% endblock %}">{{ t.nav_leaderboard }}</a>
+            <a href="/compare?lang={{ lang }}{% if season is defined %}&season={{ season }}{% endif %}" class="{% block nav_compare %}{% endblock %}">{{ t.nav_compare }}</a>
+            <a href="/matches?lang={{ lang }}{% if season is defined %}&season={{ season }}{% endif %}" class="{% block nav_matches %}{% endblock %}">{{ t.nav_matches }}</a>
+            <a href="/maps?lang={{ lang }}{% if season is defined %}&season={{ season }}{% endif %}" class="{% block nav_maps %}{% endblock %}">{{ t.nav_maps }}</a>
+            <a href="/versus?lang={{ lang }}{% if season is defined %}&season={{ season }}{% endif %}" class="{% block nav_versus %}{% endblock %}">{{ t.nav_versus }}</a>
             <a href="/admin?lang={{ lang }}" class="nav-admin {% block nav_admin %}{% endblock %}">{{ t.nav_admin }}</a>
         </div>
         <div class="lang-switcher">
             <a href="?lang=ko" onclick="setLang('ko');return false;" class="{{ 'active' if lang == 'ko' else '' }}">한국어</a>
             <a href="?lang=en" onclick="setLang('en');return false;" class="{{ 'active' if lang == 'en' else '' }}">EN</a>
             <a href="?lang=es" onclick="setLang('es');return false;" class="{{ 'active' if lang == 'es' else '' }}">ES</a>
+        </div>
+        <div class="lang-switcher season-switcher" role="group" aria-label="{{ t.season_label if t.season_label is defined else 'Season' }}">
+            <a href="?season=s1" onclick="setSeason('s1');return false;" class="{{ 'active' if season is defined and season == 's1' else '' }}" title="{{ t.season_s1 if t.season_s1 is defined else 'S1' }}">S1</a>
+            <a href="?season=s2" onclick="setSeason('s2');return false;" class="{{ 'active' if season is not defined or season == 's2' else '' }}" title="{{ t.season_s2 if t.season_s2 is defined else 'S2' }}">S2</a>
         </div>
         <button class="theme-toggle" id="themeToggle" type="button" aria-label="{{ t.theme_toggle if t.theme_toggle is defined else 'toggle theme' }}" title="{{ t.theme_toggle if t.theme_toggle is defined else 'Toggle theme' }}">
             <span class="theme-toggle-icon theme-toggle-icon--sun" aria-hidden="true">☀</span>
@@ -719,6 +725,12 @@
     function setLang(lang) {
         const url = new URL(window.location.href);
         url.searchParams.set('lang', lang);
+        window.location.href = url.toString();
+    }
+    // 시즌 전환: 현재 URL의 season 파라미터만 교체 (lang 등 다른 파라미터 보존).
+    function setSeason(s) {
+        const url = new URL(window.location.href);
+        url.searchParams.set('season', s);
         window.location.href = url.toString();
     }
     // 토스트 알림 (admin 페이지 공통) — .toast 클래스 기반, 토큰 색 사용.

@@ -11,6 +11,9 @@ STRINGS = {
         "nav_timeseries": "Tendencias",
         "lang_label": "Idioma",
         "theme_toggle": "Cambiar tema",
+        "season_label": "Vista de temporada",
+        "season_s1": "Temporada 1 (archivo)",
+        "season_s2": "Temporada 2 (actual)",
 
         "mode_hp": "Punto Fuerte",
         "mode_snd": "Buscar y Destruir",

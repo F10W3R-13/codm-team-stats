@@ -129,7 +129,7 @@ def match_report(match_id: int) -> dict:
 
 
 # ── 주간 리포트 ────────────────────────────────────────────────────────────
-def weekly_report(days: int = 7) -> dict:
+def weekly_report(days: int = 7, season: str = None) -> dict:
     """최근 N일 트렌드 리포트 (최근 N일 평균 vs 전체 평균 비교).
 
     반환: {
@@ -139,13 +139,19 @@ def weekly_report(days: int = 7) -> dict:
         team_recent: {kd, kills}, team_overall: {kd, kills},
     }
     """
+    season = season or db.CURRENT_SEASON
     with db.get_conn() as conn:
         # 최근 N일 매치 수
         recent = conn.execute(
             f"""SELECT COUNT(*) c FROM matches
-                WHERE match_date >= date('now', '-{int(days)} days')"""
+                WHERE match_date >= date('now', '-{int(days)} days')
+                  AND (season=? OR season IS NULL)""",
+            (season,),
         ).fetchone()["c"]
-        total = conn.execute("SELECT COUNT(*) c FROM matches").fetchone()["c"]
+        total = conn.execute(
+            "SELECT COUNT(*) c FROM matches WHERE (season=? OR season IS NULL)",
+            (season,),
+        ).fetchone()["c"]
 
         result = {
             "period": f"최근 {days}일",
@@ -169,10 +175,10 @@ def weekly_report(days: int = 7) -> dict:
                     FROM {table} s
                     JOIN matches m ON m.id = s.match_id
                     JOIN players p ON p.id = s.player_id
-                    WHERE m.mode = ?
+                    WHERE m.mode = ? AND (m.season=? OR m.season IS NULL)
                     GROUP BY p.id
                     HAVING recent_matches > 0""",
-                (mode,),
+                (mode, season),
             ).fetchall()
 
             for r in rows:
@@ -199,7 +205,7 @@ def weekly_report(days: int = 7) -> dict:
 
 
 # ── 선수 트렌드 ────────────────────────────────────────────────────────────
-def player_trend(name: str, recent_n: int = 10) -> dict:
+def player_trend(name: str, recent_n: int = 10, season: str = None) -> dict:
     """특정 선수의 최근 N매치 vs 전체 평균 비교 (HP 기준, 없으면 SND).
 
     반환: {
@@ -208,6 +214,9 @@ def player_trend(name: str, recent_n: int = 10) -> dict:
         delta: {kd_pct, k_pct, ...}, last_matches: [{date, k, d, kd}],
     } 또는 None
     """
+    season = season or db.CURRENT_SEASON
+    _season_subq = ("match_id IN (SELECT id FROM matches "
+                    "WHERE season=? OR season IS NULL)")
     pid = None
     with db.get_conn() as conn:
         r = conn.execute(
@@ -221,7 +230,8 @@ def player_trend(name: str, recent_n: int = 10) -> dict:
     for mode, table in [("HP", "player_stats_hp"), ("SND", "player_stats_snd")]:
         with db.get_conn() as conn:
             total = conn.execute(
-                f"SELECT COUNT(*) c FROM {table} WHERE player_id=?", (pid,)
+                f"SELECT COUNT(*) c FROM {table} WHERE player_id=? AND {_season_subq}",
+                (pid, season),
             ).fetchone()["c"]
             if total < recent_n:
                 continue
@@ -232,16 +242,16 @@ def player_trend(name: str, recent_n: int = 10) -> dict:
                     f"""SELECT ROUND(AVG(kills),1) k, ROUND(AVG(deaths),1) d,
                                ROUND(AVG(kd_ratio),2) kd, ROUND(AVG(total_damage),0) dmg,
                                ROUND(AVG(score),0) score
-                        FROM {table} WHERE player_id=?""",
-                    (pid,),
+                        FROM {table} WHERE player_id=? AND {_season_subq}""",
+                    (pid, season),
                 ).fetchone()
             else:
                 o = conn.execute(
                     f"""SELECT ROUND(AVG(kills),1) k, ROUND(AVG(deaths),1) d,
                                ROUND(AVG(kd_ratio),2) kd, ROUND(AVG(adr),0) adr,
                                ROUND(AVG(score),0) score
-                        FROM {table} WHERE player_id=?""",
-                    (pid,),
+                        FROM {table} WHERE player_id=? AND {_season_subq}""",
+                    (pid, season),
                 ).fetchone()
 
             # 최근 N매치 평균 (최신 순)
@@ -250,16 +260,18 @@ def player_trend(name: str, recent_n: int = 10) -> dict:
                     f"""SELECT m.match_date, s.kills k, s.deaths d, s.kd_ratio kd,
                                s.total_damage dmg, s.score
                         FROM {table} s JOIN matches m ON m.id=s.match_id
-                        WHERE s.player_id=? ORDER BY m.id DESC LIMIT ?""",
-                    (pid, recent_n),
+                        WHERE s.player_id=? AND (m.season=? OR m.season IS NULL)
+                        ORDER BY m.id DESC LIMIT ?""",
+                    (pid, season, recent_n),
                 ).fetchall()
             else:
                 recent_rows = conn.execute(
                     f"""SELECT m.match_date, s.kills k, s.deaths d, s.kd_ratio kd,
                                s.adr, s.score
                         FROM {table} s JOIN matches m ON m.id=s.match_id
-                        WHERE s.player_id=? ORDER BY m.id DESC LIMIT ?""",
-                    (pid, recent_n),
+                        WHERE s.player_id=? AND (m.season=? OR m.season IS NULL)
+                        ORDER BY m.id DESC LIMIT ?""",
+                    (pid, season, recent_n),
                 ).fetchall()
 
             if not recent_rows:
@@ -312,23 +324,28 @@ def player_trend(name: str, recent_n: int = 10) -> dict:
     return None
 
 
-def last_match_id(mode: str = None) -> int:
+def last_match_id(mode: str = None, season: str = None) -> int:
     """가장 최근 매치 ID."""
+    season = season or db.CURRENT_SEASON
     with db.get_conn() as conn:
         if mode:
             r = conn.execute(
-                "SELECT id FROM matches WHERE mode=? ORDER BY id DESC LIMIT 1",
-                (mode,),
+                "SELECT id FROM matches WHERE mode=? AND (season=? OR season IS NULL) "
+                "ORDER BY id DESC LIMIT 1",
+                (mode, season),
             ).fetchone()
         else:
             r = conn.execute(
-                "SELECT id FROM matches ORDER BY id DESC LIMIT 1"
+                "SELECT id FROM matches WHERE (season=? OR season IS NULL) "
+                "ORDER BY id DESC LIMIT 1",
+                (season,),
             ).fetchone()
         return r["id"] if r else None
 
 
 # ── 맵 상세 ─────────────────────────────────────────────────────────────
-def map_detail(map_name: str, mode: str = "HP", days: int = 30) -> dict:
+def map_detail(map_name: str, mode: str = "HP", days: int = 30,
+               season: str = None) -> dict:
     """단일 맵의 종합 상세 데이터 조립 (맵 상세 페이지용).
 
     반환: {
@@ -341,15 +358,16 @@ def map_detail(map_name: str, mode: str = "HP", days: int = 30) -> dict:
     데이터가 없으면 None.
     """
     import queries
-    players = queries.map_player_stats(map_name, mode, min_matches=1)
+    season = season or db.CURRENT_SEASON
+    players = queries.map_player_stats(map_name, mode, min_matches=1, season=season)
     if not players:
         return None
 
-    win_loss = queries.map_win_loss(map_name, mode)
-    trend = queries.map_trend(map_name, mode, days)
+    win_loss = queries.map_win_loss(map_name, mode, season=season)
+    trend = queries.map_trend(map_name, mode, days, season=season)
 
     # 팀 전체 평균 — 선수별 vs ±% 계산용
-    team_players = queries.all_players_overview(mode)
+    team_players = queries.all_players_overview(mode, season)
     team_avg = {}
     if team_players:
         # HP: zcs/avg_k/avg_dmg/avg_obj/avg_ck, SND: avg_k/avg_adr
@@ -374,7 +392,7 @@ def map_detail(map_name: str, mode: str = "HP", days: int = 30) -> dict:
 
 # ── 코칭 허브 데이터 조립 ──────────────────────────────────────────────────
 
-def banpick_board(recent_matches=None) -> dict:
+def banpick_board(recent_matches=None, season: str = None) -> dict:
     """밴픽 우선순위 리스트 — 픽 1순위 → 밴 1순위 정렬.
 
     수축(shrinkage) 블렌딩으로 표본 부족 왜곡 방지:
@@ -389,6 +407,7 @@ def banpick_board(recent_matches=None) -> dict:
     import queries
 
     SHRINK_K = 3  # 시즌 가중치 (낮을수록 최근 민감, 높을수록 안정)
+    season = season or db.CURRENT_SEASON
 
     def _shrink(recent_val, season_val, n):
         if recent_val is None or season_val is None or n is None:
@@ -396,7 +415,7 @@ def banpick_board(recent_matches=None) -> dict:
         return (n * recent_val + SHRINK_K * season_val) / (n + SHRINK_K)
 
     def _mode_board(mode, recent_n):
-        season_maps = queries.map_team_stats(mode, min_matches=2)
+        season_maps = queries.map_team_stats(mode, min_matches=2, season=season)
         if not season_maps:
             return {"ranked": [], "no_data": []}
 
@@ -413,7 +432,7 @@ def banpick_board(recent_matches=None) -> dict:
         if recent_n is None:
             recent_by_name = {}  # 시즌 모드: 블렌딩 불필요
         else:
-            recent_maps = queries.map_team_stats_recent(mode, recent_n, min_matches=1)
+            recent_maps = queries.map_team_stats_recent(mode, recent_n, min_matches=1, season=season)
             recent_by_name = {m["map_name"]: m for m in recent_maps}
 
         ranked = []
@@ -483,7 +502,8 @@ def banpick_board(recent_matches=None) -> dict:
     }
 
 
-def coaching_hub(mode: str = "HP", recent_matches: int | None = 10) -> dict:
+def coaching_hub(mode: str = "HP", recent_matches: int | None = 10,
+                 season: str = None) -> dict:
     """코칭 허브(/ 홈)용 종합 데이터 — 액션/진단 중심.
 
     "다음 매치 전에 뭘 해야 하나"를 한눈에:
@@ -506,12 +526,13 @@ def coaching_hub(mode: str = "HP", recent_matches: int | None = 10) -> dict:
     """
     import queries
 
+    season = season or db.CURRENT_SEASON
     season_mode = (recent_matches is None)
     n = recent_matches if not season_mode else 10
-    win_loss = queries.win_loss_summary()
+    win_loss = queries.win_loss_summary(season=season)
 
     # 트렌드(매치 수 기반) — 요약 + ZCS 추이에 사용
-    trend = queries.team_trend_by_matches(n)
+    trend = queries.team_trend_by_matches(n, season=season)
     summary = {
         "period_zcs": trend["recent"].get("avg_zcs"),
         "season_zcs": trend["season"].get("avg_zcs"),
@@ -523,7 +544,7 @@ def coaching_hub(mode: str = "HP", recent_matches: int | None = 10) -> dict:
     }
 
     # ZCS 추이 spark (시즌 모드면 큰 수로 전체)
-    zcs_trend = queries.recent_zcs_trend(n if not season_mode else 100)
+    zcs_trend = queries.recent_zcs_trend(n if not season_mode else 100, season=season)
     for r in zcs_trend:
         if r.get("avg_zcs") is not None:
             r["avg_zcs"] = float(r["avg_zcs"])
@@ -532,12 +553,12 @@ def coaching_hub(mode: str = "HP", recent_matches: int | None = 10) -> dict:
     form_alerts = []
     form_up = []
     if not season_mode and n >= 3:
-        players = queries.all_players_overview(mode)
+        players = queries.all_players_overview(mode, season)
         for p in players:
             pid = queries.get_player_id(p["name"])
             if not pid:
                 continue
-            recent = queries.player_kd_trend(pid, mode, n)
+            recent = queries.player_kd_trend(pid, mode, n, season=season)
             if len(recent) < 3:
                 continue
             recent_vals = [r["kd"] for r in recent if r["kd"] is not None]
@@ -563,10 +584,10 @@ def coaching_hub(mode: str = "HP", recent_matches: int | None = 10) -> dict:
         form_up.sort(key=lambda x: x["delta_pct"], reverse=True)
 
     # 밴픽 우선순위 리스트 (수축 블렌딩 + 정규화 + PICK/BAN 배지)
-    banpick = banpick_board(recent_matches)
+    banpick = banpick_board(recent_matches, season=season)
 
     # 역할 스펙트럼 (HP 전용, 시즌 누적 기준)
-    roles = queries.team_role_distribution() if mode == "HP" else []
+    roles = queries.team_role_distribution(season=season) if mode == "HP" else []
 
     return {
         "mode": mode, "recent_matches": recent_matches,

@@ -17,6 +17,12 @@ PUBLIC_PAGES = [
     "/maps/Takeoff",
     "/maps/Firing%20Range?mode=SND",
     "/api/player/Shisui/timeseries",
+    # 시즌 아카이브 뷰 (?season=s1) — 필터 SQL/렌더 회귀 방지
+    "/?season=s1",
+    "/players?season=s1",
+    "/leaderboard?season=s1",
+    "/matches?season=s1",
+    "/maps?season=s1",
 ]
 
 

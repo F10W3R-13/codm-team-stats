@@ -64,6 +64,16 @@
 - GPT 프롬프트(`prompt.py`)와 커스텀 지표 공식(`metrics.py`)은 출처가 정해져 있어 함부로 수정 금지.
 - **프로젝트 스킬**: `.agents/skills/` (오픈 표준 위치, Codex 자동 인식). OCR 이름 매칭·alias 사전·퍼지 매칭 작업 시 `.agents/skills/ocr-alias-matching/SKILL.md`를 읽고 따를 것. 스킬 자동 인식이 없는 도구(Cursor 등)도 이 규칙으로 커버된다.
 
+### 시즌 아카이빙 (s1/s2) ⭐
+- `matches.season` ('s1' 아카이브 / 's2' 현재). 상수는 **db.py**: `CURRENT_SEASON='s2'`, `SEASON_CUTOFF='2026-09-05'`, 매핑 함수 `db.season_for_date()`. (2026-09-17 시즌 분할 — s1 438매치, 경계 id 441/442, 기록일 불일치 0건 검증 완료)
+- **백필은 init_db 마이그레이션이 멱등 수행** (`WHERE season IS NULL`, NULL 날짜→s1). 배포/기동 시 자동 태깅. 검증: `railway run --service Postgres python scripts/season_boundary_check.py --post-deploy` (NULL=0 확인).
+- **읽기 필터**: 모든 집계 조회는 기본 현시즌. 조건 문구 전역 통일 `(season=? OR season IS NULL)` — NULL=미태그 행은 양쪽 시즌 뷰에 노출(전환기 폴백, 운영에선 백필 후 0건). queries.py 헬퍼 `_season_cond(alias)`/`_season_subq()`.
+- **필터 예외 (시즌 필터 금지)**: match_id 점조회(`match_report`, `match_raw_stats`, `notes_for_match`, `match_by_date`), admin 전체 목록(`admin_match_list`, `matches_by_date`), `_elapsed_matches`(노트 경과 수 — 필터 시 경계 리셋).
+- **쓰기**: `stats_repo.save_match`가 `db.CURRENT_SEASON` 자동 태깅. 재업로드 병합(`_find_reupload_target`)은 동일 시즌만 후보 — 시즌 경계 복사본이 s1에 흡수되는 것 방지.
+- **웹**: 주요 GET 라우트에 `?season=s1|s2` (화이트리스트 외 422, `_SEASON_Q`). nav에 S1/S2 토글(base.html `setSeason()` — lang 보존). **봇은 현시즌 고정**(기본값 상속, 코드 무변경).
+- **insight_cache 키에 season 포함** `(kind, target, lang, season)` — 시즌별 인사이트 분리.
+- **다음 시즌(s3) 전환 절차**: db.py에서 `CURRENT_SEASON='s3'` + `_BACKFILL_SEASON` CASE 분기 확장 + `season_for_date` 상수 기준 갱신 + web `_SEASON_Q`/nav 토글에 s3 추가 + AGENTS.md 경계 기록 갱신.
+
 ### 핵심 지표: ZCS (Zone Control Score)
 - **ZCS는 이 프로젝트에서 가장 중요한 코칭 지표다.** K/D와 함께 병기하되, HP 컨텍스트에서는 ZCS를 제1 강조 지표로 다룬다.
 - 공식: `ZCS = max(0, 1.1·OBJ + 8·캡처킬 + 4.1·(킬−캡처킬) − 5·D)` (HP 전용 — SND엔 OBJ/캡처킬이 없어 계산 불가). 캡처킬은 게임이 킬 컬럼에 포함 집계하는 거점 안 킬이다(킬의 부분집합) — 거점 안 킬 8점, 거점 밖 킬 4.1점.
@@ -104,7 +114,7 @@ HP: ZCS 최우선 + 보조 지표들. SND: RDS 단일.
 ### AI 인사이트 정책
 - 매치 분석, 선수 프로필, 팀 허브, 맵 상세에서 AI 인사이트 노출.
 - **맵 상세 AI는 "간접적 수치 경향"만** — 직접 지시/전술 명령 금지 (예: "이 맵에서 팀 K/D 시즌 대비 -12%").
-- 캐싱: `insight_cache.py` (1시간 TTL, 매치 기록 시 무효화).
+- 캐싱: `insight_cache.py` (600초(10분) TTL, 매치 기록 시 무효화).
 
 ### 코칭 브레인 → AI 인사이트 연동
 - `coaching brain/knowledge/` (Obsidian 볼트)가 AI 인사이트의 코칭 지식 진실 공급원.
@@ -265,7 +275,7 @@ git push origin main
 - **코치용 = 한국어**, **선수용 = 영어/스페인어**.
 - **디스코드 봇**: 영어 고정 (선수들이 보는 채널).
 - **웹**: `?lang=ko|en|es` 전환. 3개국어 사전은 `i18n.py`.
-- **AI 인사이트**: `lang` 파라미터 따라 GPT 응답 언어 변경 (캐싱: `insight_cache.py`, TTL 1시간 + 매치 기록 시 무효화).
+- **AI 인사이트**: `lang` 파라미터 따라 GPT 응답 언어 변경 (캐싱: `insight_cache.py`, TTL 600초 + 매치 기록 시 무효화).
 - **로그(콘솔)**: 한국어.
 
 ## 12. 배포 (Railway)

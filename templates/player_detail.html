@@ -196,7 +196,7 @@
     (() => {
         const _name = {{ stats.name | tojson }};
         const _lang = "{{ lang }}";
-        fetch(`/api/insight/player/${encodeURIComponent(_name)}?lang=${_lang}`)
+        fetch(`/api/insight/player/${encodeURIComponent(_name)}?lang=${_lang}&season={{ season }}`)
             .then(r => r.json()).then(d => {
                 const el = document.getElementById('insightText');
                 if (d.insight) { el.textContent = d.insight; el.className = 'insight-text'; }
@@ -350,7 +350,7 @@ function switchMode(m) {
 }
 
 function loadSeries() {
-    fetch(`/api/player/${encodeURIComponent(playerName)}/timeseries?mode=${currentMode}&limit=50`)
+    fetch(`/api/player/${encodeURIComponent(playerName)}/timeseries?mode=${currentMode}&limit=50&season={{ season }}`)
         .then(r => r.json())
         .then(data => { seriesData = Array.isArray(data) ? data : []; renderChart(); })
         .catch(() => { seriesData = []; renderChart(); });

@@ -47,9 +47,10 @@ def save_match(mode: str, players: list, match_date: str, map_name: str = None,
             duplicate = True
         else:
             match_id = conn.execute_returning_id(
-                """INSERT INTO matches(mode, map_name, match_date, result, team_score, opponent_score)
-                   VALUES (?,?,?,?,?,?)""",
-                (mode, map_name, match_date, result, team_score, opponent_score),
+                """INSERT INTO matches(mode, map_name, match_date, result, team_score, opponent_score, season)
+                   VALUES (?,?,?,?,?,?,?)""",
+                (mode, map_name, match_date, result, team_score, opponent_score,
+                 db.CURRENT_SEASON),
             )
             _upsert_players(conn, mode, match_id, players)
             saved = len(players)
@@ -135,8 +136,9 @@ def _find_reupload_target(conn, mode: str, players: list, match_date: str, map_n
             """SELECT id FROM matches
                WHERE mode=? AND match_date=?
                  AND (map_name=? OR map_name IS NULL OR ? IS NULL)
+                 AND (season=? OR season IS NULL)
                ORDER BY id DESC"""),
-        (mode, match_date, map_name, map_name),
+        (mode, match_date, map_name, map_name, db.CURRENT_SEASON),
     ).fetchall()
     for c in cands:
         rows = conn.execute(

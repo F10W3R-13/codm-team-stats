@@ -7,6 +7,25 @@ import db
 import metrics
 
 
+def _norm_season(season):
+    """season 파라미터 정규화 — 미지정(봇 등)이면 현재 시즌."""
+    return season or db.CURRENT_SEASON
+
+
+def _season_cond(alias: str = "m") -> str:
+    """시즌 필터 SQL 조각 (? 파라미터 1개 소비). alias는 matches 별칭, ''=무별칭.
+
+    NULL(미태그) 행은 전환기 폴백으로 양쪽 시즌 뷰에 노출한다.
+    """
+    p = f"{alias}." if alias else ""
+    return f"({p}season=? OR {p}season IS NULL)"
+
+
+def _season_subq() -> str:
+    """player_stats_* 단독 조회용 시즌 필터 (? 파라미터 1개 소비)."""
+    return "match_id IN (SELECT id FROM matches WHERE season=? OR season IS NULL)"
+
+
 def _stddev(values: list, ndigits: int = 2):
     """표본표준편차(기복 지표). 값이 작을수록 폼이 일정. 1개 이하면 None."""
     if not values or len(values) < 2:
@@ -43,7 +62,7 @@ def list_players() -> list:
         return [r["name"] for r in rows]
 
 
-def player_overall_stats(player_id: int) -> dict:
+def player_overall_stats(player_id: int, season: str = None) -> dict:
     """선수의 HP/SND 종합 평균 스탯.
 
     반환: {
@@ -54,6 +73,7 @@ def player_overall_stats(player_id: int) -> dict:
                 avg_adr, avg_fk, avg_lww} or None,
     }
     """
+    season = _norm_season(season)
     result = {"name": None, "hp": None, "snd": None}
     with db.get_conn() as conn:
         # 이름
@@ -73,8 +93,8 @@ def player_overall_stats(player_id: int) -> dict:
                       ROUND(AVG(impact),0) avg_impact,
                       ROUND(AVG(total_damage),0) avg_dmg,
                       ROUND(AVG(capture_kill),1) avg_capture
-               FROM player_stats_hp WHERE player_id=?""",
-            (player_id,),
+               FROM player_stats_hp WHERE player_id=? AND """ + _season_subq(),
+            (player_id, season),
         ).fetchone()
         if r and r["matches"]:
             result["hp"] = dict(r)
@@ -84,8 +104,9 @@ def player_overall_stats(player_id: int) -> dict:
                     result["hp"][k] = float(v)
             # 기복(표준편차) 별도 계산 — 값이 작을수록 일정한 폼
             rows = conn.execute(
-                "SELECT kd_ratio, kills, total_damage FROM player_stats_hp WHERE player_id=?",
-                (player_id,),
+                "SELECT kd_ratio, kills, total_damage FROM player_stats_hp "
+                "WHERE player_id=? AND " + _season_subq(),
+                (player_id, season),
             ).fetchall()
             result["hp"]["std_kd"] = _stddev([x["kd_ratio"] for x in rows if x["kd_ratio"] is not None], 2)
             result["hp"]["std_kills"] = _stddev([x["kills"] for x in rows if x["kills"] is not None], 1)
@@ -104,8 +125,8 @@ def player_overall_stats(player_id: int) -> dict:
                       ROUND(AVG(adr),0) avg_adr,
                       ROUND(AVG(first_kill),2) avg_fk,
                       ROUND(AVG(lone_wolf_win),2) avg_lww
-               FROM player_stats_snd WHERE player_id=?""",
-            (player_id,),
+               FROM player_stats_snd WHERE player_id=? AND """ + _season_subq(),
+            (player_id, season),
         ).fetchone()
         if r and r["matches"]:
             result["snd"] = dict(r)
@@ -113,8 +134,9 @@ def player_overall_stats(player_id: int) -> dict:
                 if hasattr(v, "as_tuple"):
                     result["snd"][k] = float(v)
             rows = conn.execute(
-                "SELECT kd_ratio, kills FROM player_stats_snd WHERE player_id=?",
-                (player_id,),
+                "SELECT kd_ratio, kills FROM player_stats_snd "
+                "WHERE player_id=? AND " + _season_subq(),
+                (player_id, season),
             ).fetchall()
             result["snd"]["std_kd"] = _stddev([x["kd_ratio"] for x in rows if x["kd_ratio"] is not None], 2)
             result["snd"]["std_kills"] = _stddev([x["kills"] for x in rows if x["kills"] is not None], 1)
@@ -146,12 +168,12 @@ def player_overall_stats(player_id: int) -> dict:
     return result
 
 
-def team_averages(mode: str = "HP") -> dict:
+def team_averages(mode: str = "HP", season: str = None) -> dict:
     """팀 전체(모든 선수) 평균. 개인 대비 벤치마크용.
 
     반환: {avg_k, avg_d, avg_kd, ...} — all_players_overview의 평균.
     """
-    players = all_players_overview(mode)
+    players = all_players_overview(mode, season)
     if not players:
         return {}
     keys = [k for k in players[0].keys()
@@ -163,11 +185,13 @@ def team_averages(mode: str = "HP") -> dict:
     return avg
 
 
-def leaderboard(mode: str = "HP", metric: str = "avg_kd", limit: int = 10) -> list:
+def leaderboard(mode: str = "HP", metric: str = "avg_kd", limit: int = 10,
+                season: str = None) -> list:
     """모드별 순위표. metric: avg_kd/avg_k/avg_dmg/avg_score/avg_obj/avg_adr.
 
     반환: [{name, matches, <metric 값>}, ...]
     """
+    season = _norm_season(season)
     valid_hp = {"avg_kd", "avg_k", "avg_dmg", "avg_score", "avg_obj", "avg_ck"}
     valid_snd = {"avg_kd", "avg_k", "avg_d", "avg_a", "avg_score", "avg_adr", "avg_impact", "avg_fk", "avg_lww", "rds"}
 
@@ -186,6 +210,7 @@ def leaderboard(mode: str = "HP", metric: str = "avg_kd", limit: int = 10) -> li
                          COUNT(*) matches,
                          ROUND({expr},2) value
                   FROM player_stats_hp s JOIN players p ON p.id=s.player_id
+                  WHERE match_id IN (SELECT id FROM matches WHERE season=? OR season IS NULL)
                   GROUP BY p.id ORDER BY value DESC LIMIT ?"""
     else:
         if metric not in valid_snd:
@@ -206,24 +231,26 @@ def leaderboard(mode: str = "HP", metric: str = "avg_kd", limit: int = 10) -> li
                          COUNT(*) matches,
                          ROUND({expr},2) value
                   FROM player_stats_snd s JOIN players p ON p.id=s.player_id
+                  WHERE match_id IN (SELECT id FROM matches WHERE season=? OR season IS NULL)
                   GROUP BY p.id ORDER BY value DESC LIMIT ?"""
 
     with db.get_conn() as conn:
-        return [dict(r) for r in conn.execute(sql, (limit,)).fetchall()]
+        return [dict(r) for r in conn.execute(sql, (season, limit)).fetchall()]
 
 
-def last_match_summary(mode: str = None) -> dict:
+def last_match_summary(mode: str = None, season: str = None) -> dict:
     """가장 최근 매치 요약.
 
     mode: None(전체 최근), "HP", "SND"
     반환: {match_id, mode, map_name, match_date, players: [{name, ...스탯}]}
           또는 None
     """
-    where = ""
-    params = ()
+    season = _norm_season(season)
+    where = f"WHERE {_season_cond('')}"
+    params = (season,)
     if mode:
-        where = "WHERE mode=?"
-        params = (mode,)
+        where += " AND mode=?"
+        params = params + (mode,)
 
     with db.get_conn() as conn:
         m = conn.execute(
@@ -331,15 +358,18 @@ def match_by_date(date_str: str, mode: str = None) -> list:
 
 # ── 웹 대시보드용 쿼리 ────────────────────────────────────────────────────
 
-def player_kd_trend(player_id: int, mode: str = "HP", limit: int = 30) -> list:
+def player_kd_trend(player_id: int, mode: str = "HP", limit: int = 30,
+                    season: str = None) -> list:
     """선수의 매치별 K/D 시계열 (최신 limit개, 시간순). 차트용."""
+    season = _norm_season(season)
     table = "player_stats_hp" if mode == "HP" else "player_stats_snd"
     with db.get_conn() as conn:
         rows = conn.execute(
             f"""SELECT m.match_date, s.kd_ratio, s.kills, s.deaths
                 FROM {table} s JOIN matches m ON m.id=s.match_id
-                WHERE s.player_id=? ORDER BY m.id DESC LIMIT ?""",
-            (player_id, limit),
+                WHERE s.player_id=? AND {_season_cond('m')}
+                ORDER BY m.id DESC LIMIT ?""",
+            (player_id, season, limit),
         ).fetchall()
         # 시간순(과거→최신)으로 뒤집기
         return [
@@ -351,8 +381,9 @@ def player_kd_trend(player_id: int, mode: str = "HP", limit: int = 30) -> list:
         ]
 
 
-def all_players_overview(mode: str = "HP") -> list:
+def all_players_overview(mode: str = "HP", season: str = None) -> list:
     """모든 선수의 모드별 평균 스탯 (선수 페이지용). HP는 커스텀 지표 포함."""
+    season = _norm_season(season)
     if mode == "HP":
         sql = """SELECT p.id, p.name,
                         COUNT(*) matches,
@@ -365,6 +396,7 @@ def all_players_overview(mode: str = "HP") -> list:
                         ROUND(AVG(s.impact),0) avg_impact,
                         ROUND(AVG(s.capture_kill),1) avg_ck
                  FROM player_stats_hp s JOIN players p ON p.id=s.player_id
+                 WHERE match_id IN (SELECT id FROM matches WHERE season=? OR season IS NULL)
                  GROUP BY p.id ORDER BY avg_kd DESC"""
     else:
         sql = """SELECT p.id, p.name,
@@ -379,9 +411,10 @@ def all_players_overview(mode: str = "HP") -> list:
                         ROUND(AVG(s.first_kill),2) avg_fk,
                         ROUND(AVG(s.lone_wolf_win),2) avg_lww
                  FROM player_stats_snd s JOIN players p ON p.id=s.player_id
+                 WHERE match_id IN (SELECT id FROM matches WHERE season=? OR season IS NULL)
                  GROUP BY p.id ORDER BY avg_kd DESC"""
     with db.get_conn() as conn:
-        rows = [dict(r) for r in conn.execute(sql).fetchall()]
+        rows = [dict(r) for r in conn.execute(sql, (season,)).fetchall()]
 
     # Postgres는 ROUND(numeric)이 Decimal 반환 → metrics 계산을 위해 float 변환
     for r in rows:
@@ -409,16 +442,18 @@ def all_players_overview(mode: str = "HP") -> list:
     return rows
 
 
-def advanced_leaderboard(metric: str = "dpd", limit: int = 20) -> list:
+def advanced_leaderboard(metric: str = "dpd", limit: int = 20,
+                         season: str = None) -> list:
     """커스텀 지표 기준 리더보드. metric: dpd/dpk/impact_delta/ap_pct/zcs(HP), rds(SND).
 
     반환: [{name, matches, value}, ...] (rds는 내림차순, dpk는 오름차순)
     """
+    season = _norm_season(season)
     # rds는 SND, 나머지는 HP
     if metric == "rds":
-        players = all_players_overview("SND")
+        players = all_players_overview("SND", season)
     else:
-        players = all_players_overview("HP")
+        players = all_players_overview("HP", season)
         if metric not in {"dpd", "dpk", "impact_delta", "ap_pct", "zcs"}:
             metric = "dpd"
     # 값이 있는 선수만, 해당 지표 기준 정렬
@@ -433,7 +468,8 @@ def advanced_leaderboard(metric: str = "dpd", limit: int = 20) -> list:
     return ranked[:limit]
 
 
-def player_metric_timeseries(player_id: int, mode: str = "HP", limit: int = 50) -> list:
+def player_metric_timeseries(player_id: int, mode: str = "HP", limit: int = 50,
+                             season: str = None) -> list:
     """선수의 매치별 모든 지표(기본+커스텀) 시계열. 최신 limit개, 시간순(과거→최신).
 
     반환: [{date, kills, deaths, kd, obj, score, impact, dmg, cap,
@@ -441,21 +477,24 @@ def player_metric_timeseries(player_id: int, mode: str = "HP", limit: int = 50) 
           [{date, kills, deaths, assists, kd, score, impact, adr,
             fk, lww}, ...]  (SND)
     """
+    season = _norm_season(season)
     if mode == "HP":
-        sql = """SELECT m.match_date date, s.kills, s.deaths, s.kd_ratio kd,
+        sql = f"""SELECT m.match_date date, s.kills, s.deaths, s.kd_ratio kd,
                         s.obj_time obj, s.score, s.impact, s.total_damage dmg,
                         s.capture_kill cap
                  FROM player_stats_hp s JOIN matches m ON m.id=s.match_id
-                 WHERE s.player_id=? ORDER BY m.id DESC LIMIT ?"""
+                 WHERE s.player_id=? AND {_season_cond('m')}
+                 ORDER BY m.id DESC LIMIT ?"""
     else:
-        sql = """SELECT m.match_date date, s.kills, s.deaths, s.assists,
+        sql = f"""SELECT m.match_date date, s.kills, s.deaths, s.assists,
                         s.kd_ratio kd, s.score, s.impact, s.adr,
                         s.first_kill fk, s.lone_wolf_win lww
                  FROM player_stats_snd s JOIN matches m ON m.id=s.match_id
-                 WHERE s.player_id=? ORDER BY m.id DESC LIMIT ?"""
+                 WHERE s.player_id=? AND {_season_cond('m')}
+                 ORDER BY m.id DESC LIMIT ?"""
 
     with db.get_conn() as conn:
-        rows = [dict(r) for r in conn.execute(sql, (player_id, limit)).fetchall()]
+        rows = [dict(r) for r in conn.execute(sql, (player_id, season, limit)).fetchall()]
 
     # 시간순(과거→최신)으로 뒤집기 + HP는 커스텀 지표 계산 추가
     rows.reverse()
@@ -481,21 +520,23 @@ def player_metric_timeseries(player_id: int, mode: str = "HP", limit: int = 50) 
     return rows
 
 
-def match_history(limit: int = 50, offset: int = 0, mode: str = None) -> dict:
+def match_history(limit: int = 50, offset: int = 0, mode: str = None,
+                  season: str = None) -> dict:
     """매치 히스토리 (평면 페이지네이션, 레거시 호환용).
 
     반환: {matches: [...], total: int, limit, offset}
     """
-    where = ""
-    params = []
+    season = _norm_season(season)
+    where = f"WHERE {_season_cond('')}"
+    params = [season]
     if mode:
-        where = "WHERE mode=?"
+        where += " AND mode=?"
         params.append(mode)
     params.extend([limit, offset])
 
     with db.get_conn() as conn:
         total = conn.execute(
-            f"SELECT COUNT(*) c FROM matches {where}", params[:1] if mode else []
+            f"SELECT COUNT(*) c FROM matches {where}", params[:len(params) - 2]
         ).fetchone()["c"]
 
         rows = conn.execute(
@@ -532,17 +573,18 @@ def match_history(limit: int = 50, offset: int = 0, mode: str = None) -> dict:
 
 
 def match_history_grouped(mode: str = None, date_page: int = 1,
-                          dates_per_page: int = 7) -> dict:
+                          dates_per_page: int = 7, season: str = None) -> dict:
     """매치 히스토리를 날짜 단위로 그룹화 (한 페이지 = 최근 N일).
 
     - match_date NULL은 "날짜 미상" 그룹으로 묶어 항상 마지막에 표시.
     - 같은 날짜의 매치들을 하나의 그룹으로 묶음.
     - 반환: {groups: [{date, matches:[...]}], total_date_pages, date_page}
     """
-    where = ""
-    params = []
+    season = _norm_season(season)
+    where = f"WHERE {_season_cond('')}"
+    params = [season]
     if mode:
-        where = "WHERE mode=?"
+        where += " AND mode=?"
         params.append(mode)
 
     with db.get_conn() as conn:
@@ -571,6 +613,7 @@ def match_history_grouped(mode: str = None, date_page: int = 1,
         # mode 필터: 첫 번째(날짜 목록) 쿼리에서 이미 필터링됐지만, 같은 날짜에 다른 모드
         # 매치가 섞여 있으면 여기서 걸러지지 않으므로 두 번째 SELECT에도 mode 조건 적용.
         mode_cond = " AND m.mode=?" if mode else ""
+        season_cond = f" AND {_season_cond('m')}"
 
         sql = f"""SELECT m.id, m.mode, m.map_name, m.match_date, m.result,
                          m.team_score, m.opponent_score,
@@ -586,9 +629,9 @@ def match_history_grouped(mode: str = None, date_page: int = 1,
                   FROM matches m
                   WHERE ({('m.match_date IN (%s)' % placeholders) if placeholders else 'FALSE'}
                   {(' OR ' if placeholders and has_null else '') + ('m.match_date IS NULL' if has_null else '')})
-                  {mode_cond}
+                  {mode_cond}{season_cond}
                   ORDER BY is_null, m.match_date DESC, m.id DESC"""
-        qp = [d for d in page_dates if d is not None] + ([mode] if mode else [])
+        qp = [d for d in page_dates if d is not None] + ([mode] if mode else []) + [season]
         rows = conn.execute(db._adapt_sql(sql), qp).fetchall()
 
         # 날짜 단위 복기 데이터(match_day_notes) 일괄 조회 (커넥션 열려있을 때)
@@ -639,7 +682,7 @@ def match_history_grouped(mode: str = None, date_page: int = 1,
 
 # ── 팀 인사이트용 통계 ────────────────────────────────────────────────────
 
-def team_trend(days: int = 30) -> dict:
+def team_trend(days: int = 30, season: str = None) -> dict:
     """팀 전체 추세 — 최근 N일 vs 시즌 전체 평균 (HP 기준).
 
     반환: {
@@ -648,6 +691,7 @@ def team_trend(days: int = 30) -> dict:
         delta_pct: {kd, k, dmg},
     }
     """
+    season = _norm_season(season)
     with db.get_conn() as conn:
         # 최근 N일 팀 평균
         # SQLite: date('now','-N days'). Postgres: CURRENT_DATE - INTERVAL (TEXT 비교를 위해 ::text 캐스팅)
@@ -661,40 +705,45 @@ def team_trend(days: int = 30) -> dict:
                        ROUND(AVG(s.kills),1) avg_k,
                        ROUND(AVG(s.total_damage),0) avg_dmg
                 FROM player_stats_hp s JOIN matches m ON m.id=s.match_id
-                WHERE {date_cond}"""
+                WHERE {date_cond} AND {_season_cond('m')}""",
+            (season,),
         ).fetchone()
         recent = dict(r) if r else {}
 
         # 시즌 전체 팀 평균
         s = conn.execute(
-            """SELECT COUNT(*) matches,
+            f"""SELECT COUNT(*) matches,
                       ROUND(AVG(s.kd_ratio),2) avg_kd,
                       ROUND(AVG(s.kills),1) avg_k,
                       ROUND(AVG(s.total_damage),0) avg_dmg
-               FROM player_stats_hp s JOIN matches m ON m.id=s.match_id"""
+               FROM player_stats_hp s JOIN matches m ON m.id=s.match_id
+               WHERE {_season_cond('m')}""",
+            (season,),
         ).fetchone()
-        season = dict(s) if s else {}
+        season_agg = dict(s) if s else {}
 
     delta = {}
     for k in ("avg_kd", "avg_k", "avg_dmg"):
         rv = recent.get(k)
-        sv = season.get(k)
+        sv = season_agg.get(k)
         if rv is not None and sv and sv != 0:
             delta[k] = round((rv - sv) / sv * 100, 1)
         else:
             delta[k] = None
 
-    return {"recent": recent, "season": season, "delta_pct": delta, "period_days": days}
+    return {"recent": recent, "season": season_agg, "delta_pct": delta, "period_days": days}
 
 
-def map_team_stats(mode: str = "HP", min_matches: int = 2) -> list:
+def map_team_stats(mode: str = "HP", min_matches: int = 2, season: str = None) -> list:
     """맵별 팀 성적 (평균 K/D, 킬, 딜, 매치 수).
 
     min_matches 미만 맵은 노이즈라 제외.
     반환: [{map_name, matches, avg_kd, avg_k, avg_dmg}, ...] avg_kd 내림차순
     """
+    season = _norm_season(season)
+    cond = _season_cond('m')
     if mode == "HP":
-        sql = """SELECT LOWER(m.map_name) map_name,
+        sql = f"""SELECT LOWER(m.map_name) map_name,
                         COUNT(*) n_matches,
                         ROUND(AVG(s.kd_ratio),2) avg_kd,
                         ROUND(AVG(s.kills),1) avg_k,
@@ -702,11 +751,12 @@ def map_team_stats(mode: str = "HP", min_matches: int = 2) -> list:
                         ROUND(AVG(MAX(0, 1.1*s.obj_time + 8*s.capture_kill + 4.1*(s.kills - s.capture_kill) - 5*s.deaths)),1) avg_zcs
                  FROM player_stats_hp s JOIN matches m ON m.id=s.match_id
                  WHERE m.map_name IS NOT NULL AND m.map_name != '' AND m.mode='HP'
+                   AND {cond}
                  GROUP BY LOWER(m.map_name)
                  HAVING COUNT(*) >= ?
                  ORDER BY avg_kd DESC"""
     else:
-        sql = """SELECT LOWER(m.map_name) map_name,
+        sql = f"""SELECT LOWER(m.map_name) map_name,
                         COUNT(*) n_matches,
                         ROUND(AVG(s.kd_ratio),2) avg_kd,
                         ROUND(AVG(s.kills),1) avg_k,
@@ -714,11 +764,12 @@ def map_team_stats(mode: str = "HP", min_matches: int = 2) -> list:
                         ROUND(AVG(MAX(0, 4.1*s.kills + 3.5*s.assists + 14*s.first_kill + 20*s.lone_wolf_win + 0.12*s.adr - 5*s.deaths)),1) avg_rds
                  FROM player_stats_snd s JOIN matches m ON m.id=s.match_id
                  WHERE m.map_name IS NOT NULL AND m.map_name != '' AND m.mode='SND'
+                   AND {cond}
                  GROUP BY LOWER(m.map_name)
                  HAVING COUNT(*) >= ?
                  ORDER BY avg_kd DESC"""
     with db.get_conn() as conn:
-        rows = [dict(r) for r in conn.execute(sql, (min_matches,)).fetchall()]
+        rows = [dict(r) for r in conn.execute(sql, (season, min_matches)).fetchall()]
     # 맵 이름 Title Case 정규화 (n_matches → matches 별칭)
     for r in rows:
         r["matches"] = r.pop("n_matches")
@@ -727,22 +778,24 @@ def map_team_stats(mode: str = "HP", min_matches: int = 2) -> list:
 
 
 def map_team_stats_recent(mode: str = "HP", recent_matches: int = 10,
-                          min_matches: int = 2) -> list:
+                          min_matches: int = 2, season: str = None) -> list:
     """맵별 팀 성적 — 최근 N매치 기준 (코칭 허브 밴픽보드용).
 
     전체 매치 풀에서 최근 N매치(match id DESC)만 추려 그 안에서 맵별 집계.
     시즌 전체용은 map_team_stats() 사용.
     반환: map_team_stats()와 동일 키 [{map_name, matches, avg_kd, avg_k, avg_dmg, avg_zcs}]
     """
+    season = _norm_season(season)
     if recent_matches is None:
-        return map_team_stats(mode, min_matches)
+        return map_team_stats(mode, min_matches, season)
     # mode 화이트리스트 강제 — recent_ids 서브쿼리에 문자열 보간되므로 인젝션 방어.
     if mode not in ("HP", "SND"):
         raise ValueError(f"map_team_stats_recent: invalid mode={mode!r}")
     if recent_matches <= 0:
         recent_matches = 10
     # 최근 N매치 id 서브쿼리 (mode 고정) — SQLite/Postgres 공통
-    recent_ids = f"SELECT id FROM matches WHERE mode='{mode}' ORDER BY id DESC LIMIT {int(recent_matches)}"
+    recent_ids = (f"SELECT id FROM matches WHERE mode='{mode}' AND {_season_cond('')} "
+                  f"ORDER BY id DESC LIMIT {int(recent_matches)}")
     if mode == "HP":
         sql = f"""SELECT LOWER(m.map_name) map_name,
                         COUNT(*) n_matches,
@@ -770,14 +823,14 @@ def map_team_stats_recent(mode: str = "HP", recent_matches: int = 10,
                  HAVING COUNT(*) >= ?
                  ORDER BY avg_kd DESC"""
     with db.get_conn() as conn:
-        rows = [dict(r) for r in conn.execute(db._adapt_sql(sql), (min_matches,)).fetchall()]
+        rows = [dict(r) for r in conn.execute(db._adapt_sql(sql), (season, min_matches)).fetchall()]
     for r in rows:
         r["matches"] = r.pop("n_matches")
         r["map_name"] = r["map_name"].strip().title()
     return rows
 
 
-def team_trend_by_matches(recent_matches: int = 10) -> dict:
+def team_trend_by_matches(recent_matches: int = 10, season: str = None) -> dict:
     """팀 전체 추세 — 최근 N매치 vs 시즌 전체 (HP 기준, 매치 수 기반).
 
     coaching_hub용. 기존 team_trend(days)와 달리 날짜가 아닌 매치 수 기준.
@@ -791,7 +844,9 @@ def team_trend_by_matches(recent_matches: int = 10) -> dict:
         recent_matches = 10
     if recent_matches <= 0:
         recent_matches = 10
-    recent_ids = f"SELECT id FROM matches WHERE mode='HP' ORDER BY id DESC LIMIT {int(recent_matches)}"
+    season = _norm_season(season)
+    recent_ids = (f"SELECT id FROM matches WHERE mode='HP' AND {_season_cond('')} "
+                  f"ORDER BY id DESC LIMIT {int(recent_matches)}")
     zcs_expr = "MAX(0, 1.1*s.obj_time + 8*s.capture_kill + 4.1*(s.kills - s.capture_kill) - 5*s.deaths)"
     with db.get_conn() as conn:
         r = conn.execute(db._adapt_sql(f"""SELECT COUNT(*) matches,
@@ -800,34 +855,38 @@ def team_trend_by_matches(recent_matches: int = 10) -> dict:
                        ROUND(AVG(s.total_damage),0) avg_dmg,
                        ROUND(AVG({zcs_expr}),1) avg_zcs
                 FROM player_stats_hp s JOIN matches m ON m.id=s.match_id
-                WHERE m.id IN ({recent_ids})""")).fetchone()
+                WHERE m.id IN ({recent_ids})"""), (season,)).fetchone()
         recent = dict(r) if r else {}
         s = conn.execute(db._adapt_sql(f"""SELECT COUNT(*) matches,
                       ROUND(AVG(s.kd_ratio),2) avg_kd,
                       ROUND(AVG(s.kills),1) avg_k,
                       ROUND(AVG(s.total_damage),0) avg_dmg,
                       ROUND(AVG({zcs_expr}),1) avg_zcs
-               FROM player_stats_hp s JOIN matches m ON m.id=s.match_id""")).fetchone()
-        season = dict(s) if s else {}
+               FROM player_stats_hp s JOIN matches m ON m.id=s.match_id
+               WHERE {_season_cond('m')}"""), (season,)).fetchone()
+        season_agg = dict(s) if s else {}
     delta = {}
     for k in ("avg_kd", "avg_k", "avg_dmg", "avg_zcs"):
         rv = recent.get(k)
-        sv = season.get(k)
+        sv = season_agg.get(k)
         if rv is not None and sv and sv != 0:
             delta[k] = round((rv - sv) / sv * 100, 1)
         else:
             delta[k] = None
-    return {"recent": recent, "season": season, "delta_pct": delta,
+    return {"recent": recent, "season": season_agg, "delta_pct": delta,
             "recent_matches": recent_matches}
 
 
-def map_player_stats(map_name: str, mode: str = "HP", min_matches: int = 2) -> list:
+def map_player_stats(map_name: str, mode: str = "HP", min_matches: int = 2,
+                     season: str = None) -> list:
     """특정 맵에서의 선수별 성적.
 
     반환: [{player_name, matches, avg_kd, avg_k, avg_dmg}, ...] avg_kd 내림차순
     """
+    season = _norm_season(season)
+    cond = _season_cond('m')
     if mode == "HP":
-        sql = """SELECT p.name player_name,
+        sql = f"""SELECT p.name player_name,
                         COUNT(*) matches,
                         ROUND(AVG(s.kd_ratio),2) avg_kd,
                         ROUND(AVG(s.kills),1) avg_k,
@@ -838,12 +897,12 @@ def map_player_stats(map_name: str, mode: str = "HP", min_matches: int = 2) -> l
                  FROM player_stats_hp s
                  JOIN matches m ON m.id=s.match_id
                  JOIN players p ON p.id=s.player_id
-                 WHERE LOWER(m.map_name)=LOWER(?) AND m.mode='HP'
+                 WHERE LOWER(m.map_name)=LOWER(?) AND m.mode='HP' AND {cond}
                  GROUP BY p.id, p.name
                  HAVING COUNT(*) >= ?
                  ORDER BY avg_kd DESC"""
     else:
-        sql = """SELECT p.name player_name,
+        sql = f"""SELECT p.name player_name,
                         COUNT(*) matches,
                         ROUND(AVG(s.kd_ratio),2) avg_kd,
                         ROUND(AVG(s.kills),1) avg_k,
@@ -854,12 +913,12 @@ def map_player_stats(map_name: str, mode: str = "HP", min_matches: int = 2) -> l
                  FROM player_stats_snd s
                  JOIN matches m ON m.id=s.match_id
                  JOIN players p ON p.id=s.player_id
-                 WHERE LOWER(m.map_name)=LOWER(?) AND m.mode='SND'
+                 WHERE LOWER(m.map_name)=LOWER(?) AND m.mode='SND' AND {cond}
                  GROUP BY p.id, p.name
                  HAVING COUNT(*) >= ?
                  ORDER BY avg_kd DESC"""
     with db.get_conn() as conn:
-        rows = [dict(r) for r in conn.execute(sql, (map_name, min_matches)).fetchall()]
+        rows = [dict(r) for r in conn.execute(sql, (map_name, season, min_matches)).fetchall()]
     # Postgres Decimal → float
     for r in rows:
         for k, v in list(r.items()):
@@ -868,7 +927,8 @@ def map_player_stats(map_name: str, mode: str = "HP", min_matches: int = 2) -> l
     return rows
 
 
-def player_map_breakdown(player_id: int, mode: str = "HP", min_matches: int = 5) -> list:
+def player_map_breakdown(player_id: int, mode: str = "HP", min_matches: int = 5,
+                         season: str = None) -> list:
     """특정 선수의 맵별 성적 — 본인 전체 평균 대비 ±%.
 
     mode="HP": ZCS(=max(0, 1.1·obj_time + 8·capture_kill + 4.1·(kills - capture_kill) - 5·deaths)) 기준.
@@ -877,37 +937,39 @@ def player_map_breakdown(player_id: int, mode: str = "HP", min_matches: int = 5)
     반환: [{map_name, matches, metric, metric_pct}, ...]
       metric: 그 맵에서의 평균 ZCS(HP) 또는 RDS(SND)
       metric_pct: 본인 전체 평균 대비 % (양수=강함, 음수=약함)
-    min_matches 미만 맵은 신뢰도 낮아 제외.
-    히트맵 색은 web_api의 _heat_class()가 metric_pct 크기로 부여.
+      min_matches 미만 맵은 신뢰도 낮아 제외.
+      히트맵 색은 web_api의 _heat_class()가 metric_pct 크기로 부여.
     """
+    season = _norm_season(season)
+    cond = _season_cond('m')
     if mode == "SND":
-        sql = """SELECT LOWER(m.map_name) map_name,
+        sql = f"""SELECT LOWER(m.map_name) map_name,
                         COUNT(*) matches,
                         ROUND(AVG(MAX(0, 4.1*s.kills + 3.5*s.assists + 14*s.first_kill
                                     + 20*s.lone_wolf_win + 0.12*s.adr - 5*s.deaths)),1) metric
                  FROM player_stats_snd s
                  JOIN matches m ON m.id=s.match_id
                  WHERE s.player_id=? AND m.map_name IS NOT NULL AND m.map_name != ''
-                   AND m.mode='SND'
+                   AND m.mode='SND' AND {cond}
                  GROUP BY LOWER(m.map_name)
                  HAVING COUNT(*) >= ?
                  ORDER BY metric DESC"""
-        overall = _player_overall_rds(player_id)
+        overall = _player_overall_rds(player_id, season)
     else:  # HP (기본)
-        sql = """SELECT LOWER(m.map_name) map_name,
+        sql = f"""SELECT LOWER(m.map_name) map_name,
                         COUNT(*) matches,
                         ROUND(AVG(MAX(0, 1.1*s.obj_time + 8*s.capture_kill + 4.1*(s.kills - s.capture_kill) - 5*s.deaths)),1) metric
                  FROM player_stats_hp s
                  JOIN matches m ON m.id=s.match_id
                  WHERE s.player_id=? AND m.map_name IS NOT NULL AND m.map_name != ''
-                   AND m.mode='HP'
+                   AND m.mode='HP' AND {cond}
                  GROUP BY LOWER(m.map_name)
                  HAVING COUNT(*) >= ?
                  ORDER BY metric DESC"""
-        overall = _player_overall_zcs(player_id)
+        overall = _player_overall_zcs(player_id, season)
 
     with db.get_conn() as conn:
-        rows = [dict(r) for r in conn.execute(db._adapt_sql(sql), (player_id, min_matches)).fetchall()]
+        rows = [dict(r) for r in conn.execute(db._adapt_sql(sql), (player_id, season, min_matches)).fetchall()]
     # Postgres Decimal → float
     for r in rows:
         for k, v in list(r.items()):
@@ -930,55 +992,60 @@ def player_map_breakdown(player_id: int, mode: str = "HP", min_matches: int = 5)
     return out
 
 
-def _player_overall_zcs(player_id: int) -> float:
+def _player_overall_zcs(player_id: int, season: str = None) -> float:
     """선수의 전체 평균 ZCS (player_map_breakdown 내부용)."""
-    sql = "SELECT ROUND(AVG(MAX(0, 1.1*obj_time + 8*capture_kill + 4.1*(kills - capture_kill) - 5*deaths)),1) zcs FROM player_stats_hp WHERE player_id=?"
+    season = _norm_season(season)
+    sql = ("SELECT ROUND(AVG(MAX(0, 1.1*obj_time + 8*capture_kill + 4.1*(kills - capture_kill) - 5*deaths)),1) zcs "
+           "FROM player_stats_hp WHERE player_id=? AND " + _season_subq())
     with db.get_conn() as conn:
-        r = conn.execute(db._adapt_sql(sql), (player_id,)).fetchone()
+        r = conn.execute(db._adapt_sql(sql), (player_id, season)).fetchone()
     if r and r["zcs"] is not None:
         v = r["zcs"]
         return float(v) if hasattr(v, "as_tuple") else v
     return None
 
 
-def _player_overall_rds(player_id: int) -> float:
+def _player_overall_rds(player_id: int, season: str = None) -> float:
     """선수의 전체 평균 RDS (player_map_breakdown SND 내부용).
 
     RDS = max(0, 4.1·kills + 3.5·assists + 14·first_kill + 20·lone_wolf_win
               + 0.12·adr - 5·deaths)
     """
+    season = _norm_season(season)
     sql = ("SELECT ROUND(AVG(MAX(0, 4.1*kills + 3.5*assists + 14*first_kill "
            "+ 20*lone_wolf_win + 0.12*adr - 5*deaths)),1) rds "
-           "FROM player_stats_snd WHERE player_id=?")
+           "FROM player_stats_snd WHERE player_id=? AND " + _season_subq())
     with db.get_conn() as conn:
-        r = conn.execute(db._adapt_sql(sql), (player_id,)).fetchone()
+        r = conn.execute(db._adapt_sql(sql), (player_id, season)).fetchone()
     if r and r["rds"] is not None:
         v = r["rds"]
         return float(v) if hasattr(v, "as_tuple") else v
     return None
 
 
-def map_win_loss(map_name: str, mode: str = "HP") -> dict:
+def map_win_loss(map_name: str, mode: str = "HP", season: str = None) -> dict:
     """특정 맵의 승패 요약.
 
     반환: {total, wins, losses, draw, none, win_rate}
     """
+    season = _norm_season(season)
+    cond = _season_cond('')
     with db.get_conn() as conn:
         total = conn.execute(
-            "SELECT COUNT(*) c FROM matches WHERE LOWER(map_name)=LOWER(?) AND mode=?",
-            (map_name, mode),
+            f"SELECT COUNT(*) c FROM matches WHERE LOWER(map_name)=LOWER(?) AND mode=? AND {cond}",
+            (map_name, mode, season),
         ).fetchone()["c"]
         wins = conn.execute(
-            "SELECT COUNT(*) c FROM matches WHERE LOWER(map_name)=LOWER(?) AND mode=? AND result='WIN'",
-            (map_name, mode),
+            f"SELECT COUNT(*) c FROM matches WHERE LOWER(map_name)=LOWER(?) AND mode=? AND result='WIN' AND {cond}",
+            (map_name, mode, season),
         ).fetchone()["c"]
         losses = conn.execute(
-            "SELECT COUNT(*) c FROM matches WHERE LOWER(map_name)=LOWER(?) AND mode=? AND result='LOSS'",
-            (map_name, mode),
+            f"SELECT COUNT(*) c FROM matches WHERE LOWER(map_name)=LOWER(?) AND mode=? AND result='LOSS' AND {cond}",
+            (map_name, mode, season),
         ).fetchone()["c"]
         draw = conn.execute(
-            "SELECT COUNT(*) c FROM matches WHERE LOWER(map_name)=LOWER(?) AND mode=? AND result='DRAW'",
-            (map_name, mode),
+            f"SELECT COUNT(*) c FROM matches WHERE LOWER(map_name)=LOWER(?) AND mode=? AND result='DRAW' AND {cond}",
+            (map_name, mode, season),
         ).fetchone()["c"]
     none_r = total - wins - losses - draw
     decided = wins + losses
@@ -987,7 +1054,8 @@ def map_win_loss(map_name: str, mode: str = "HP") -> dict:
             "draw": draw, "none": none_r, "win_rate": win_rate}
 
 
-def map_trend(map_name: str, mode: str = "HP", days: int = 30) -> dict:
+def map_trend(map_name: str, mode: str = "HP", days: int = 30,
+              season: str = None) -> dict:
     """특정 맵의 최근 N일 vs 시즌 전체 평균 (모든 HP 지표 포함).
 
     HP: K/D, ZCS, 킬, 데스, 딜, OBJ, 캡처, Impact, DPD, DPK, ID, AP% 전부.
@@ -1000,13 +1068,15 @@ def map_trend(map_name: str, mode: str = "HP", days: int = 30) -> dict:
     """
     import metrics as _metrics
 
+    season = _norm_season(season)
+    cond = _season_cond('m')
     if db.USE_POSTGRES:
         date_cond = f"m.match_date >= (CURRENT_DATE - INTERVAL '{int(days)} days')::text"
     else:
         date_cond = f"m.match_date >= date('now', '-{int(days)} days')"
 
     def _q(extra_where):
-        wh = "WHERE LOWER(m.map_name)=LOWER(?) AND m.mode=?"
+        wh = f"WHERE LOWER(m.map_name)=LOWER(?) AND m.mode=? AND {cond}"
         if extra_where:
             wh += f" AND {extra_where}"
         if mode == "HP":
@@ -1035,12 +1105,12 @@ def map_trend(map_name: str, mode: str = "HP", days: int = 30) -> dict:
         return out
 
     with db.get_conn() as conn:
-        recent = _d(conn.execute(_q(date_cond), (map_name, mode)).fetchone())
-        season = _d(conn.execute(_q(None), (map_name, mode)).fetchone())
+        recent = _d(conn.execute(_q(date_cond), (map_name, mode, season)).fetchone())
+        season_agg = _d(conn.execute(_q(None), (map_name, mode, season)).fetchone())
 
     # HP: 커스텀 지표(ZCS/DPD/DPK/ID/AP%)를 평균 raw 값으로부터 계산해 추가
     if mode == "HP":
-        for block in (recent, season):
+        for block in (recent, season_agg):
             if block.get("matches"):
                 m = _metrics.all_hp_metrics(
                     block.get("avg_k"), block.get("avg_d"), block.get("avg_obj"),
@@ -1053,7 +1123,7 @@ def map_trend(map_name: str, mode: str = "HP", days: int = 30) -> dict:
                 block["impact_delta"] = m["impact_delta"]
                 block["ap_pct"] = m["ap_pct"]
     else:  # SND: RDS 계산 추가
-        for block in (recent, season):
+        for block in (recent, season_agg):
             if block.get("matches"):
                 m = _metrics.all_snd_metrics(
                     block.get("avg_k"), block.get("avg_a"),
@@ -1093,7 +1163,7 @@ def map_trend(map_name: str, mode: str = "HP", days: int = 30) -> dict:
     delta = {}
     metrics_meta = {}
     for key, higher, label_key in metric_defs:
-        rv, sv = recent.get(key), season.get(key)
+        rv, sv = recent.get(key), season_agg.get(key)
         if rv is not None and sv and sv != 0:
             delta[key] = round((rv - sv) / sv * 100, 1)
         else:
@@ -1101,7 +1171,7 @@ def map_trend(map_name: str, mode: str = "HP", days: int = 30) -> dict:
         metrics_meta[key] = {"higher_better": higher, "label_key": label_key}
 
     return {
-        "recent": recent, "season": season,
+        "recent": recent, "season": season_agg,
         "delta_pct": delta, "metrics_meta": metrics_meta,
         "period_days": days,
     }
@@ -1109,16 +1179,18 @@ def map_trend(map_name: str, mode: str = "HP", days: int = 30) -> dict:
 
 # ── 승패(W/L) 통계 ──────────────────────────────────────────────────────────
 
-def missing_result_count() -> int:
-    """승패(result)이 미입력(NULL)인 매치 수 — 허브 경고 배지용."""
+def missing_result_count(season: str = None) -> int:
+    """승패(result)이 미입력(NULL)인 매치 수 — 허브 경고 배지용. 현시즌 기준."""
+    season = _norm_season(season)
     with db.get_conn() as conn:
         r = conn.execute(
-            db._adapt_sql("SELECT COUNT(*) c FROM matches WHERE result IS NULL")
+            db._adapt_sql(f"SELECT COUNT(*) c FROM matches WHERE result IS NULL AND {_season_cond('')}"),
+            (season,),
         ).fetchone()
     return r["c"] if r else 0
 
 
-def win_loss_summary(mode: str = None) -> dict:
+def win_loss_summary(mode: str = None, season: str = None) -> dict:
     """팀 승패 요약.
 
     mode: None(전체), "HP", "SND".
@@ -1129,8 +1201,13 @@ def win_loss_summary(mode: str = None) -> dict:
     result 값: 'WIN' / 'LOSS' / 'DRAW' / NULL(미입력).
     win_rate = wins / (wins+losses) * 100 (무승부 제외).
     """
-    where = "WHERE mode=?" if mode else ""
-    params = (mode,) if mode else ()
+    season = _norm_season(season)
+    cond = _season_cond('')
+    where = f"WHERE {cond}"
+    params = (season,)
+    if mode:
+        where += " AND mode=?"
+        params = params + (mode,)
 
     def _count(conn, w, p):
         return conn.execute(
@@ -1156,8 +1233,10 @@ def win_loss_summary(mode: str = None) -> dict:
             # mode=None: 단일 GROUP BY 쿼리로 HP/SND 각각 집계 (재귀 호출 제거)
             by_mode = {}
             rows = conn.execute(
-                "SELECT mode, result, COUNT(*) c FROM matches "
-                "WHERE mode IN ('HP','SND') GROUP BY mode, result"
+                db._adapt_sql(f"SELECT mode, result, COUNT(*) c FROM matches "
+                              f"WHERE mode IN ('HP','SND') AND {cond} "
+                              f"GROUP BY mode, result"),
+                (season,),
             ).fetchall()
             mode_counts = {}
             for r in rows:
@@ -1179,15 +1258,19 @@ def win_loss_summary(mode: str = None) -> dict:
         return out
 
 
-def recent_results(limit: int = 10, mode: str = None) -> list:
+def recent_results(limit: int = 10, mode: str = None, season: str = None) -> list:
     """최근 N매치 승패 흐름 (시간순: 과거→최신). 차트용.
 
     반환: [{id, mode, result, score_text}, ...]
     result: 'WIN' / 'LOSS' / 'DRAW' / None.
     score_text: "3-2" 형태 (스코어 없으면 None).
     """
-    where = "WHERE mode=?" if mode else ""
-    params = (mode,) if mode else ()
+    season = _norm_season(season)
+    where = f"WHERE {_season_cond('')}"
+    params = (season,)
+    if mode:
+        where += " AND mode=?"
+        params = params + (mode,)
     with db.get_conn() as conn:
         rows = conn.execute(
             f"""SELECT id, mode, match_date, result, team_score, opponent_score
@@ -1207,19 +1290,20 @@ def recent_results(limit: int = 10, mode: str = None) -> list:
     return out
 
 
-def recent_zcs_trend(limit: int = 10) -> list:
+def recent_zcs_trend(limit: int = 10, season: str = None) -> list:
     """최근 N HP 매치의 팀 평균 ZCS 시계열 (과거→최신). 허브/대시보드 차트용.
 
     반환: [{id, match_date, avg_zcs}, ...]
     """
+    season = _norm_season(season)
     with db.get_conn() as conn:
         rows = conn.execute(
-            """SELECT m.id, m.match_date,
+            db._adapt_sql(f"""SELECT m.id, m.match_date,
                        (SELECT ROUND(AVG(MAX(0, 1.1*obj_time + 8*capture_kill + 4.1*(kills - capture_kill) - 5*deaths)),1)
                         FROM player_stats_hp WHERE match_id=m.id) avg_zcs
-                FROM matches m WHERE m.mode='HP'
-                ORDER BY m.id DESC LIMIT ?""",
-            (limit,),
+                FROM matches m WHERE m.mode='HP' AND {_season_cond('m')}
+                ORDER BY m.id DESC LIMIT ?"""),
+            (season, limit),
         ).fetchall()
     return [
         {"id": r["id"], "match_date": r["match_date"], "avg_zcs": r["avg_zcs"]}
@@ -1258,7 +1342,8 @@ _COMPARE_SND = [
 ]
 
 
-def compare_players(name_a: str, name_b: str, mode: str = "HP") -> dict:
+def compare_players(name_a: str, name_b: str, mode: str = "HP",
+                    season: str = None) -> dict:
     """두 선수의 모드별 평균 스탯 비교.
 
     반환: {
@@ -1268,13 +1353,14 @@ def compare_players(name_a: str, name_b: str, mode: str = "HP") -> dict:
         chart: [{metric, a, b}],  # 레이더 차트용 (정규화된 값)
     }
     """
+    season = _norm_season(season)
     pid_a = get_player_id(name_a)
     pid_b = get_player_id(name_b)
     if not pid_a or not pid_b:
         return None
 
-    stats_a = player_overall_stats(pid_a)
-    stats_b = player_overall_stats(pid_b)
+    stats_a = player_overall_stats(pid_a, season)
+    stats_b = player_overall_stats(pid_b, season)
 
     block_a = stats_a.get("hp" if mode == "HP" else "snd") or {}
     block_b = stats_b.get("hp" if mode == "HP" else "snd") or {}
@@ -1316,7 +1402,7 @@ def compare_players(name_a: str, name_b: str, mode: str = "HP") -> dict:
 
 # ── 팀 역할(Role) 분포 ──────────────────────────────────────────────────────
 
-def team_role_distribution() -> list:
+def team_role_distribution(season: str = None) -> list:
     """HP 기준 팀 전체 선수의 역할 분포.
 
     반환: [{name, role, slay_score, obj_score, avg_k, avg_obj, avg_dmg, avg_capture}, ...]
@@ -1326,7 +1412,8 @@ def team_role_distribution() -> list:
       (slay_score - obj_score)/(slay_score + obj_score) → -1(순obj)~+1(순slay).
     """
     import metrics
-    players = all_players_overview("HP")
+    season = _norm_season(season)
+    players = all_players_overview("HP", season)
     team_avg = {}
     if players:
         for k_src, k_dst in (("avg_k", "avg_k"), ("avg_obj", "avg_obj"),
@@ -1423,19 +1510,20 @@ def notes_for_match(match_id: int) -> list:
     return rows
 
 
-def versus_overview() -> list:
+def versus_overview(season: str = None) -> list:
     """팀별 상대전적 요약 (spec §7) — 승패 미입력 매치는 wins/losses에 미포함."""
+    season = _norm_season(season)
     with db.get_conn() as conn:
-        rows = conn.execute(db._adapt_sql("""
+        rows = conn.execute(db._adapt_sql(f"""
             SELECT t.id, t.name,
                    COUNT(m.id) AS match_n,
                    SUM(CASE WHEN m.result = 'WIN' THEN 1 ELSE 0 END) AS wins,
                    SUM(CASE WHEN m.result = 'LOSS' THEN 1 ELSE 0 END) AS losses,
                    AVG(m.team_score - m.opponent_score) AS avg_margin
             FROM opponent_teams t
-            LEFT JOIN matches m ON m.opponent_team_id = t.id
+            LEFT JOIN matches m ON m.opponent_team_id = t.id AND {_season_cond('m')}
             GROUP BY t.id, t.name
-            ORDER BY match_n DESC, t.name""")).fetchall()
+            ORDER BY match_n DESC, t.name"""), (season,)).fetchall()
         out = []
         for r in rows:
             out.append({
@@ -1447,22 +1535,24 @@ def versus_overview() -> list:
         return out
 
 
-def versus_team_detail(team_id: int) -> dict:
+def versus_team_detail(team_id: int, season: str = None) -> dict:
     """팀 상세: 매치 히스토리 + H2H 매트릭스 (spec §7).
 
     H2H 정의: 같은 매치에 양쪽 다 출전한 경우에 한해 집계.
     셀 = {"matches": n, "kd_diff": Σ(우리 K-D) - Σ(상대 K-D),
           "metric_diff": Σ(ZCS|HP) or Σ(RDS|SND) diff}
     """
+    season = _norm_season(season)
     with db.get_conn() as conn:
         team = conn.execute(db._adapt_sql(
             "SELECT id, name FROM opponent_teams WHERE id = ?"), (team_id,)).fetchone()
         if not team:
             return None
-        matches = conn.execute(db._adapt_sql("""
+        matches = conn.execute(db._adapt_sql(f"""
             SELECT id, match_date, mode, map_name, result, team_score, opponent_score
-            FROM matches WHERE opponent_team_id = ? ORDER BY match_date DESC, id DESC"""),
-            (team_id,)).fetchall()
+            FROM matches WHERE opponent_team_id = ? AND {_season_cond('')}
+            ORDER BY match_date DESC, id DESC"""),
+            (team_id, season)).fetchall()
         mlist = [dict(m) for m in matches]
 
         # 매치별 양쪽 스탯 로드 → H2H 누적

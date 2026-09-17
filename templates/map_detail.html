@@ -83,7 +83,7 @@
     const _mapName = {{ data.map_name | tojson }};
     const _mode = {{ data.mode | tojson }};
     const _lang = "{{ lang }}";
-    fetch(`/api/insight/map/${encodeURIComponent(_mapName)}?mode=${_mode}&lang=${_lang}`)
+    fetch(`/api/insight/map/${encodeURIComponent(_mapName)}?mode=${_mode}&lang=${_lang}&season={{ season }}`)
         .then(r => r.json()).then(d => {
             const el = document.getElementById('adviceText');
             if (d.insight) { el.textContent = d.insight; el.className = 'insight-text'; }

@@ -11,6 +11,9 @@ STRINGS = {
         "nav_timeseries": "Trends",
         "lang_label": "Language",
         "theme_toggle": "Toggle theme",
+        "season_label": "Season view",
+        "season_s1": "Season 1 (archive)",
+        "season_s2": "Season 2 (current)",
 
         "mode_hp": "Hardpoint",
         "mode_snd": "Search & Destroy",
