@@ -123,7 +123,7 @@
                 {% if p.ocr_suspect %}<span class="badge warning">{{ t.opp_ocr_suspect }}</span>{% endif %}
                 {% if p.no_team and p.suggest_team_id %}
                 <div class="suggest-box">
-                    <span class="badge">{{ t.opp_suggest_badge.replace('{team}', p.suggest_team).replace('{n}', p.suggest_n) }}</span>
+                    <span class="badge">{{ t.opp_suggest_badge.replace('{team}', p.suggest_team).replace('{n}', p.suggest_n|string) }}</span>
                     <button class="btn btn--sm suggest-apply-btn" data-player="{{ p.id }}"
                             data-team="{{ p.suggest_team_id }}" type="button">{{ t.opp_suggest_apply }}</button>
                 </div>

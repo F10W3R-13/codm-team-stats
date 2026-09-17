@@ -326,3 +326,31 @@ class TestTeamlessSuggestion:
         r2 = admin_client.post("/admin/opponent/roster/assign",
                                json={"player_id": x, "team_id": tid})
         assert r2.json()["ok"] is False
+
+    def test_page_renders_with_suggestion(self, admin_client):
+        """추천 존재 상태에서 페이지 렌더 500 방지 (배포 사고: replace에 int 전달)."""
+        import admin_write
+        # 추천 1건 보장 — sg Team 근거 2매치 선수
+        with db.get_conn() as conn:
+            tid = conn.execute_returning_id(
+                "INSERT INTO opponent_teams(name) VALUES (?)", ("sg Render",))
+            a = conn.execute_returning_id(
+                "INSERT INTO opponent_players(name) VALUES (?)", ("sgRA",))
+            x = conn.execute_returning_id(
+                "INSERT INTO opponent_players(name) VALUES (?)", ("sgRX",))
+            conn.execute(db._adapt_sql(
+                "INSERT INTO opponent_team_rosters(team_id, player_id, source) "
+                "VALUES (?, ?, 'registered')"), (tid, a))
+            for day in ("2026-09-11", "2026-09-12"):
+                mid = conn.execute_returning_id(
+                    "INSERT INTO matches(mode, match_date, season, opponent_team_id) "
+                    "VALUES ('HP', ?, 's2', ?)", (day, tid))
+                for pid_ in (a, x):
+                    conn.execute(db._adapt_sql(
+                        "INSERT INTO opponent_stats_hp(match_id, player_id, ign_raw) "
+                        "VALUES (?,?,?)"), (mid, pid_, f"r{pid_}"))
+        data = admin_write.opponent_admin_data()
+        assert any(p.get("suggest_team") for p in data["recent_opponents"])
+        r = admin_client.get("/admin/opponents")
+        assert r.status_code == 200
+        assert "추정" in r.text  # 배지 렌더 확인
