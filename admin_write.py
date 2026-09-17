@@ -8,7 +8,6 @@
 # 분리 이유: "봇·웹이 동시에 DB를 만질 때 위험한 함수"가 한곳에 모여
 # 코드 리뷰·감사가 쉽도록.
 
-import re
 
 import db
 import insight_cache
@@ -369,16 +368,9 @@ def get_note_status(note_id: int) -> str | None:
 # ── 상대팀 관리 (opponent teams) ────────────────────────────────────────────
 
 def _ocr_suspect(name: str) -> bool:
-    """OCR로 이름이 깨져 보이는 표기 휴리스틱 — 관리자 확인 대기 판별용.
-    대괄호 garbage([386yLR...), 단일 숫자 토큰(EXCL 4), null류, 알파벳숫자 1글자 미만."""
-    n = (name or "").strip()
-    if not n or "[" in n or "]" in n:
-        return True
-    if n.lower() in ("null", "none", "unknown", "n/a"):
-        return True
-    if len(re.sub(r"[^a-z0-9]", "", n.lower())) < 2:
-        return True
-    return any(len(tok) == 1 and tok.isdigit() for tok in n.split())
+    """OCR로 이름이 깨져 보이는 표기 휴리스틱 — opponent_matching.is_ocr_suspect 위임."""
+    import opponent_matching
+    return opponent_matching.is_ocr_suspect(name)
 
 
 def opponent_admin_data() -> dict:
@@ -396,17 +388,27 @@ def opponent_admin_data() -> dict:
                 FROM opponent_team_rosters r
                 JOIN opponent_players p ON p.id = r.player_id
                 WHERE r.team_id = ? ORDER BY p.name"""), (t["id"],)).fetchall()
+            # 팀 지정 해제(unassign)용 최근 매치 — admin 전체 조회(시즌 필터 없음) 정책 유지
+            recent = conn.execute(db._adapt_sql(
+                "SELECT id, match_date, mode FROM matches "
+                "WHERE opponent_team_id = ? ORDER BY id DESC LIMIT 10"),
+                (t["id"],)).fetchall()
             result.append({"id": t["id"], "name": t["name"],
-                           "match_n": t["match_n"], "roster": [dict(r) for r in roster]})
-        pending = conn.execute(db._adapt_sql("""
-            SELECT m.id, m.match_date, m.mode, m.map_name, m.result,
-                   m.team_score, m.opponent_score
+                           "match_n": t["match_n"], "roster": [dict(r) for r in roster],
+                           "recent_matches": [dict(m) for m in recent]})
+        pending_where = """
             FROM matches m
             WHERE m.opponent_team_id IS NULL
               AND EXISTS (SELECT 1 FROM opponent_stats_hp h WHERE h.match_id = m.id
                           UNION ALL
-                          SELECT 1 FROM opponent_stats_snd s WHERE s.match_id = m.id)
-            ORDER BY m.id DESC LIMIT 50""")).fetchall()
+                          SELECT 1 FROM opponent_stats_snd s WHERE s.match_id = m.id)"""
+        pending = conn.execute(db._adapt_sql(
+            f"SELECT m.id, m.match_date, m.mode, m.map_name, m.result, "
+            f"       m.team_score, m.opponent_score {pending_where} "
+            f"ORDER BY m.id DESC LIMIT 50")).fetchall()
+        # 큐 전체 규모 — 50건 초과 시 "외 N건" 안내용
+        pending_total = conn.execute(db._adapt_sql(
+            f"SELECT COUNT(*) c {pending_where}")).fetchone()["c"]
 
         # 확인 필요 선수: 팀 없음 or OCR 의심. 소속·스탯행·alias 수를 함께 노출해
         # 병합/재분류 판단 재료로 쓴다. 등록+정상 표기 선수는 목록에서 제외.
@@ -438,9 +440,16 @@ def opponent_admin_data() -> dict:
 
         allp = conn.execute(db._adapt_sql(
             "SELECT id, name FROM opponent_players ORDER BY name")).fetchall()
+        aliases = conn.execute(db._adapt_sql(
+            "SELECT a.ign, p.name AS player_name, a.source "
+            "FROM opponent_aliases a "
+            "JOIN opponent_players p ON p.id = a.opponent_player_id "
+            "ORDER BY p.name, a.ign")).fetchall()
         return {"teams": result, "pending": [dict(p) for p in pending],
+                "pending_total": pending_total,
                 "recent_opponents": attention,
-                "all_opponent_players": [dict(a) for a in allp]}
+                "all_opponent_players": [dict(a) for a in allp],
+                "aliases": [dict(a) for a in aliases]}
 
 
 def add_opponent_team(name: str) -> dict:
@@ -448,13 +457,97 @@ def add_opponent_team(name: str) -> dict:
     if not name:
         return {"ok": False, "message": "팀 이름이 필요합니다"}
     with db.get_conn() as conn:
-        row = conn.execute(db._adapt_sql(
-            "SELECT id FROM opponent_teams WHERE name = ?"), (name,)).fetchone()
-        if row:
-            return {"ok": False, "message": "이미 등록된 팀입니다"}
+        if _norm_team_exists(conn, name) is not None:
+            return {"ok": False, "message": "이미 등록된 팀입니다 (표기만 다른 중복 포함)"}
         tid = conn.execute_returning_id(
             "INSERT INTO opponent_teams(name) VALUES (?)", (name,))
     return {"ok": True, "team_id": tid}
+
+
+def _norm_team_exists(conn, name: str, exclude_id=None):
+    """norm_name 기반 팀 중복 검사 (D3) — 'GodL'/'godl '/'GOD L'을 같은 팀으로 본다.
+
+    반환: 중복 팀 id (없으면 None). exclude_id는 자기 자신 제외용(rename).
+    팀 수가 수십 개 수준이라 SQL이 아닌 Python 비교 — LOWER()는
+    SQLite/Postgres 콜레이션 차이가 있어 쓰지 않는다.
+    """
+    import opponent_matching
+    target = opponent_matching.norm_name(name)
+    if not target:
+        return None  # norm이 빈 문자열이면 판단 불가 → 통과
+    for row in conn.execute(db._adapt_sql(
+            "SELECT id, name FROM opponent_teams")).fetchall():
+        if exclude_id is not None and row["id"] == exclude_id:
+            continue
+        if opponent_matching.norm_name(row["name"]) == target:
+            return row["id"]
+    return None
+
+
+def rename_opponent_team(team_id: int, new_name: str) -> dict:
+    """팀 이름 변경 — alias/로스터/스탯은 team_id 기반이라 자동 유지."""
+    new_name = (new_name or "").strip()
+    if not new_name:
+        return {"ok": False, "message": "팀 이름이 필요합니다"}
+    with db.get_conn() as conn:
+        t = conn.execute(db._adapt_sql(
+            "SELECT id FROM opponent_teams WHERE id = ?"), (team_id,)).fetchone()
+        if not t:
+            return {"ok": False, "message": "없는 팀입니다"}
+        if _norm_team_exists(conn, new_name, exclude_id=team_id) is not None:
+            return {"ok": False, "message": "이미 등록된 팀과 표기가 겹칩니다"}
+        conn.execute(db._adapt_sql(
+            "UPDATE opponent_teams SET name=? WHERE id=?"), (new_name, team_id))
+    insight_cache.invalidate_all()
+    return {"ok": True}
+
+
+def delete_opponent_team(team_id: int) -> dict:
+    """팀 삭제 — 매치 태그만 해제하고 상대 선수·스탯은 보존 (실수 복구 가능).
+
+    정책: matches.opponent_team_id → NULL, 해당 로스터 행 삭제,
+    opponent_players·opponent_stats_*는 유지(팀 소속만 해제).
+    """
+    with db.get_conn() as conn:
+        t = conn.execute(db._adapt_sql(
+            "SELECT id FROM opponent_teams WHERE id = ?"), (team_id,)).fetchone()
+        if not t:
+            return {"ok": False, "message": "없는 팀입니다"}
+        conn.execute(db._adapt_sql(
+            "UPDATE matches SET opponent_team_id=NULL WHERE opponent_team_id=?"), (team_id,))
+        conn.execute(db._adapt_sql(
+            "DELETE FROM opponent_team_rosters WHERE team_id=?"), (team_id,))
+        conn.execute(db._adapt_sql(
+            "DELETE FROM opponent_teams WHERE id=?"), (team_id,))
+    insight_cache.invalidate_all()
+    return {"ok": True}
+
+
+def remove_opponent_roster_row(team_id: int, player_id: int) -> dict:
+    """로스터에서 선수 1명 제거 (팀-선수 연결만 해제, 선수·스탯 유지)."""
+    with db.get_conn() as conn:
+        n = conn.execute(db._adapt_sql(
+            "SELECT COUNT(*) c FROM opponent_team_rosters "
+            "WHERE team_id=? AND player_id=?"), (team_id, player_id)).fetchone()["c"]
+        if not n:
+            return {"ok": False, "message": "해당 로스터 행이 없습니다"}
+        conn.execute(db._adapt_sql(
+            "DELETE FROM opponent_team_rosters WHERE team_id=? AND player_id=?"),
+            (team_id, player_id))
+    return {"ok": True}
+
+
+def unassign_match_opponent(match_id: int) -> dict:
+    """매치의 팀 지정 해제 — 태그만 NULL (스탯 재매칭 없음, 재지정은 assign 담당)."""
+    with db.get_conn() as conn:
+        m = conn.execute(db._adapt_sql(
+            "SELECT id FROM matches WHERE id = ?"), (match_id,)).fetchone()
+        if not m:
+            return {"ok": False, "message": "없는 매치입니다"}
+        conn.execute(db._adapt_sql(
+            "UPDATE matches SET opponent_team_id=NULL WHERE id=?"), (match_id,))
+    insight_cache.invalidate_all()
+    return {"ok": True}
 
 
 def set_opponent_roster(team_id: int, names_text: str) -> dict:
@@ -477,10 +570,13 @@ def set_opponent_roster(team_id: int, names_text: str) -> dict:
     return {"ok": True, "added": added}
 
 
-def assign_match_opponent(match_id: int, team_id: int) -> dict:
+def assign_match_opponent(match_id: int, team_id: int,
+                          ignore_alias: bool = False) -> dict:
     """미확정 매치에 팀 지정 + 그 매치의 상대 선수 재매칭 (spec §6.2).
 
     팀이 정해지면 후보 풀이 그 팀 로스터로 좁아져 퍼지 재확률 상승.
+    ignore_alias=True: 잘못 학습된 alias를 무시하고 팀 로스터 기준으로 재매칭 —
+    기존 alias(norm 일치)를 purge 후 올바른 선수로 재학습한다(D1 교정).
     """
     with db.get_conn() as conn:
         m = conn.execute(db._adapt_sql(
@@ -495,7 +591,10 @@ def assign_match_opponent(match_id: int, team_id: int) -> dict:
         rows = conn.execute(db._adapt_sql(
             f"SELECT id, ign_raw FROM {tbl} WHERE match_id = ?"), (match_id,)).fetchall()
         for r in rows:
-            pid = db.resolve_opponent_player_id(conn, r["ign_raw"] or "", team_id=team_id)
+            if ignore_alias:
+                db.purge_opponent_alias_variants(conn, r["ign_raw"] or "")
+            pid = db.resolve_opponent_player_id(conn, r["ign_raw"] or "", team_id=team_id,
+                                                ignore_alias=ignore_alias)
             conn.execute(db._adapt_sql(
                 f"UPDATE {tbl} SET player_id = ? WHERE id = ?"), (pid, r["id"]))
             conn.upsert("opponent_team_rosters",

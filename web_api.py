@@ -675,9 +675,13 @@ async def admin_set_opponent_roster(payload: dict = Body(...)):
 
 @app.post("/admin/opponent/match-team")
 async def admin_assign_match_opponent(payload: dict = Body(...)):
-    """미확정 매치에 팀 지정 — 그 매치 상대 선수를 팀 로스터로 재매칭."""
+    """미확정 매치에 팀 지정 — 그 매치 상대 선수를 팀 로스터로 재매칭.
+
+    ignore_alias: 잘못 학습된 alias를 무시하고 팀 로스터 기준 재매칭(D1 교정).
+    """
     return admin_write.assign_match_opponent(int(payload.get("match_id", 0)),
-                                             int(payload.get("team_id", 0)))
+                                             int(payload.get("team_id", 0)),
+                                             bool(payload.get("ignore_alias", False)))
 
 
 @app.post("/admin/opponent/merge")
@@ -685,6 +689,45 @@ async def admin_merge_opponent(payload: dict = Body(...)):
     """같은 선수의 분리된 이름을 하나로 병합 (병합 1회 영구 학습)."""
     return admin_write.merge_opponent(int(payload.get("src_player_id", 0)),
                                       int(payload.get("dst_player_id", 0)))
+
+
+@app.post("/admin/opponent/team/rename")
+async def admin_rename_opponent_team(payload: dict = Body(...)):
+    """팀 이름 변경 (alias/로스터/스탯은 유지)."""
+    return admin_write.rename_opponent_team(int(payload.get("team_id", 0)),
+                                            payload.get("name", ""))
+
+
+@app.post("/admin/opponent/team/delete")
+async def admin_delete_opponent_team(payload: dict = Body(...)):
+    """팀 삭제 — 매치 태그 해제·로스터 삭제, 선수·스탯은 보존."""
+    return admin_write.delete_opponent_team(int(payload.get("team_id", 0)))
+
+
+@app.post("/admin/opponent/roster/remove")
+async def admin_remove_opponent_roster(payload: dict = Body(...)):
+    """로스터에서 선수 1명 제거."""
+    return admin_write.remove_opponent_roster_row(int(payload.get("team_id", 0)),
+                                                  int(payload.get("player_id", 0)))
+
+
+@app.post("/admin/opponent/match-unassign")
+async def admin_unassign_match_opponent(payload: dict = Body(...)):
+    """매치의 팀 지정 해제 (스탯은 그대로)."""
+    return admin_write.unassign_match_opponent(int(payload.get("match_id", 0)))
+
+
+@app.post("/admin/opponent/alias")
+async def admin_add_opponent_alias(payload: dict = Body(...)):
+    """상대 선수 alias 수동 등록 (기존 선수 대상)."""
+    return db.add_opponent_alias(payload.get("ign", ""),
+                                 payload.get("player_name", ""))
+
+
+@app.delete("/admin/opponent/alias")
+async def admin_remove_opponent_alias(ign: str = Query(...)):
+    """상대 선수 alias 삭제."""
+    return db.remove_opponent_alias(ign)
 
 
 # ── 코칭 노트 (액션 아이템) ──────────────────────────────────────────────────

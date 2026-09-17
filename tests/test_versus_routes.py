@@ -79,3 +79,69 @@ def test_versus_team_page_200(client):
 def test_versus_team_page_404(client):
     r = client.get("/versus/99999999")
     assert r.status_code == 404
+
+
+# ── R4: versus 화면 강화 (docs/plans/opponent-remake.plan.md) ──────────────
+
+def _rv4_fixture():
+    """요약/로스터 검증용 팀: HP 2매치(1승1패) + 상대 rv4 Ace 스탯 2행."""
+    import db
+    with db.get_conn() as conn:
+        tid = conn.execute_returning_id(
+            "INSERT INTO opponent_teams(name) VALUES (?)", ("rv4 Team",))
+        pid = conn.execute_returning_id(
+            "INSERT INTO opponent_players(name) VALUES (?)", ("rv4 Ace",))
+        conn.execute(db._adapt_sql(
+            "INSERT INTO opponent_team_rosters(team_id, player_id, source) "
+            "VALUES (?, ?, 'registered')"), (tid, pid))
+        for res, ts, os_, k, d in [("WIN", 3, 2, 5, 2), ("LOSS", 2, 3, 3, 4)]:
+            mid = conn.execute_returning_id(
+                "INSERT INTO matches(mode, map_name, match_date, season, result, "
+                "team_score, opponent_score, opponent_team_id) "
+                "VALUES ('HP','Summit','2026-09-11','s2',?,?,?,?)",
+                (res, ts, os_, tid))
+            conn.execute(db._adapt_sql(
+                "INSERT INTO opponent_stats_hp(match_id, player_id, ign_raw, kills, deaths) "
+                "VALUES (?,?,?,?,?)"), (mid, pid, "rv4 Ace", k, d))
+    return tid, pid
+
+
+def test_versus_team_detail_summary_and_roster(client):
+    import queries
+    tid, pid = _rv4_fixture()
+    d = queries.versus_team_detail(tid)
+    s = d["summary"]
+    assert s["total"] == 2 and s["wins"] == 1 and s["losses"] == 1
+    assert s["win_rate"] == 50.0
+    assert s["by_mode"]["HP"] == {"wins": 1, "losses": 1}
+    ace = next(r for r in d["roster"] if r["name"] == "rv4 Ace")
+    assert ace["games"] == 2 and ace["kills"] == 8 and ace["deaths"] == 6
+    assert ace["source"] == "registered"
+
+
+def test_versus_detail_null_score_renders_dash(client):
+    import db
+    with db.get_conn() as conn:
+        tid = conn.execute_returning_id(
+            "INSERT INTO opponent_teams(name) VALUES (?)", ("rv4 NullTeam",))
+        pid = conn.execute_returning_id(
+            "INSERT INTO opponent_players(name) VALUES (?)", ("rv4 NullAce",))
+        mid = conn.execute_returning_id(
+            "INSERT INTO matches(mode, map_name, match_date, season, opponent_team_id) "
+            "VALUES ('HP','Summit','2026-09-12','s2',?)", (tid,))
+        conn.execute(db._adapt_sql(
+            "INSERT INTO opponent_stats_hp(match_id, player_id, ign_raw, kills, deaths) "
+            "VALUES (?,?,?,?,?)"), (mid, pid, "rv4 NullAce", 1, 1))
+    html = client.get(f"/versus/{tid}").text
+    assert "None : None" not in html
+    assert "—" in html
+    import i18n
+    assert i18n.get("ko")["versus_no_result"] in html
+
+
+def test_versus_card_season_and_margin_label(client):
+    import i18n
+    html = client.get("/versus").text
+    # 카드 링크 season 승계 + avg_margin 라벨
+    assert "&season=" in html
+    assert i18n.get("ko")["versus_avg_margin"] in html

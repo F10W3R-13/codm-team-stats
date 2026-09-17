@@ -3,9 +3,50 @@
 {% block nav_versus %}active{% endblock %}
 
 {% block content %}
+<a href="/versus?lang={{ lang }}&season={{ season }}" class="back-link">← {{ t.versus_back }}</a>
 <h1>{{ t.versus_title }} — {{ d.team.name }}</h1>
 
+{% if d.summary.total > 0 %}
+<div class="card section">
+    <div class="stat-label">{{ t.versus_record }}</div>
+    <div class="stat-card-value">{{ d.summary.wins }}<span class="muted">W</span> — {{ d.summary.losses }}<span class="muted">L</span>
+        {% if d.summary.win_rate is not none %} · {{ t.versus_win_rate }} {{ d.summary.win_rate }}%{% endif %}
+    </div>
+    <p class="muted">
+        {% for mode, bm in d.summary.by_mode.items() %}
+        {{ mode }} {{ bm.wins }}W-{{ bm.losses }}L{{ ", " if not loop.last }}
+        {% endfor %}
+    </p>
+</div>
+{% endif %}
+
+{% if d.roster %}
+<div class="card section">
+    <h2>{{ t.versus_opp_player }}</h2>
+    <div class="table-wrap">
+    <table>
+        <thead><tr><th>{{ t.opp_player }}</th><th>{{ t.opp_source }}</th>
+            <th>{{ t.versus_games }}</th><th>K — D</th></tr></thead>
+        <tbody>
+        {% for r in d.roster %}
+        <tr>
+            <td>{{ r.name }}</td>
+            <td class="muted">{% if r.source == 'registered' %}{{ t.opp_source_registered }}
+                {% elif r.source == 'match' %}{{ t.opp_source_match }}
+                {% elif r.source == 'manual' %}{{ t.opp_source_manual }}
+                {% else %}—{% endif %}</td>
+            <td class="num">{{ r.games }}</td>
+            <td class="num">{{ r.kills }} — {{ r.deaths }}</td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    </div>
+</div>
+{% endif %}
+
 <h2>{{ t.versus_match_history }}</h2>
+{% if d.matches %}
 <div class="table-wrap">
 <table>
     <thead><tr><th>{{ t.opp_date }}</th><th>{{ t.opp_mode }}</th><th>{{ t.opp_map }}</th>
@@ -14,17 +55,25 @@
     {% for m in d.matches %}
     <tr>
         <td><a href="/matches/{{ m.id }}?lang={{ lang }}">{{ m.match_date }}</a></td>
-        <td>{{ m.mode }}</td><td>{{ m.map_name or "-" }}</td>
+        <td>{{ m.mode }}</td><td>{{ m.map_name or "—" }}</td>
         <td>{% if m.result == 'WIN' %}<span class="win-badge">W</span>
-            {% elif m.result == 'LOSS' %}<span class="loss-badge">L</span>{% endif %}</td>
-        <td>{{ m.team_score }} : {{ m.opponent_score }}</td>
+            {% elif m.result == 'LOSS' %}<span class="loss-badge">L</span>
+            {% else %}<span class="badge">{{ t.versus_no_result }}</span>{% endif %}</td>
+        <td>{{ m.team_score if m.team_score is not none else '—' }} : {{ m.opponent_score if m.opponent_score is not none else '—' }}</td>
     </tr>
     {% endfor %}
     </tbody>
 </table>
 </div>
+{% else %}
+{% if not d.roster %}
+<div class="card"><p class="muted">{{ t.versus_empty_hint }}
+    <a href="/admin/opponents?lang={{ lang }}">{{ t.admin_tab_opponents }} →</a></p></div>
+{% endif %}
+{% endif %}
 
 <h2>{{ t.versus_h2h }}</h2>
+{% if d.h2h.our_players %}
 <div class="table-wrap">
 <table>
     <thead><tr><th>{{ t.versus_our_player }}</th>
@@ -49,4 +98,14 @@
     </tbody>
 </table>
 </div>
+{% else %}
+<div class="card"><p class="muted">{{ t.versus_pending_hint }}</p></div>
+{% endif %}
+
+<style>
+/* 목록 복귀 링크 — admin_players .back-link 선례와 동일 패턴 */
+.back-link { display: inline-block; font-size: var(--fs-sm); color: var(--text-2); text-decoration: none; margin-bottom: var(--space-2); }
+.back-link:hover { color: var(--accent); }
+.stat-card-value { font-size: 1.6rem; font-weight: var(--fw-bold); letter-spacing: -0.02em; }
+</style>
 {% endblock %}

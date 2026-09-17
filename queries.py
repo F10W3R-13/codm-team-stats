@@ -1557,9 +1557,25 @@ def versus_team_detail(team_id: int, season: str = None) -> dict:
             (team_id, season)).fetchall()
         mlist = [dict(m) for m in matches]
 
-        # 매치별 양쪽 스탯 로드 → H2H 누적
+        # 팀 요약 (W-L-승률·모드별) — result NULL은 승패 불포함 (versus_overview 정책과 동일)
+        summary = {"total": len(mlist), "wins": 0, "losses": 0, "win_rate": None,
+                   "by_mode": {}}
+        for m in mlist:
+            bm = summary["by_mode"].setdefault(
+                m["mode"], {"wins": 0, "losses": 0})
+            if m["result"] == "WIN":
+                summary["wins"] += 1
+                bm["wins"] += 1
+            elif m["result"] == "LOSS":
+                summary["losses"] += 1
+                bm["losses"] += 1
+        decided = summary["wins"] + summary["losses"]
+        summary["win_rate"] = round(summary["wins"] / decided * 100, 1) if decided else None
+
+        # 매치별 양쪽 스탯 로드 → H2H 누적 + 상대 로스터 집계
         h2h = {}
         our_names, opp_names = {}, {}
+        roster_acc = {}
         for m in mlist:
             tbl_o = "player_stats_hp" if m["mode"] == "HP" else "player_stats_snd"
             tbl_e = "opponent_stats_hp" if m["mode"] == "HP" else "opponent_stats_snd"
@@ -1571,6 +1587,14 @@ def versus_team_detail(team_id: int, season: str = None) -> dict:
                 f"SELECT s.*, p.name AS pname FROM {tbl_e} s "
                 f"JOIN opponent_players p ON p.id = s.player_id WHERE s.match_id = ?"),
                 (m["id"],)).fetchall()
+            for e in theirs:
+                # 상대 로스터 통계 — 이 매치에서 실제 기록한 경기수·K/D
+                r = roster_acc.setdefault(e["player_id"], {
+                    "name": e["pname"], "source": None,
+                    "games": 0, "kills": 0, "deaths": 0})
+                r["games"] += 1
+                r["kills"] += e["kills"] or 0
+                r["deaths"] += e["deaths"] or 0
             for o in ours:
                 our_names[o["player_id"]] = o["pname"]
                 if m["mode"] == "HP":
@@ -1600,8 +1624,17 @@ def versus_team_detail(team_id: int, season: str = None) -> dict:
                                     - ((e["kills"] or 0) - (e["deaths"] or 0))
                     c["metric_diff"] += o_metric - e_metric
 
+        # 로스터 소속 출처 일괄 조회 (registered/match/manual) + games 내림차순
+        for r in conn.execute(db._adapt_sql(
+                "SELECT player_id, source FROM opponent_team_rosters "
+                "WHERE team_id = ?"), (team_id,)).fetchall():
+            if r["player_id"] in roster_acc:
+                roster_acc[r["player_id"]]["source"] = r["source"]
+        roster = sorted(roster_acc.values(), key=lambda r: -r["games"])
+
         return {
             "team": dict(team), "matches": mlist,
+            "summary": summary, "roster": roster,
             "h2h": {
                 "our_players": [{"id": pid, "name": nm} for pid, nm in
                                 sorted(our_names.items(), key=lambda kv: kv[1])],

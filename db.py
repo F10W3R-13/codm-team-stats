@@ -654,6 +654,50 @@ def list_aliases(player_name: str = None, source: str = None) -> list:
                 for r in rows]
 
 
+# ── 상대 선수 alias 관리 (admin) — 우리팀 add_alias/remove_alias 대칭 ──────
+
+
+def add_opponent_alias(ign: str, player_name: str) -> dict:
+    """상대 선수 alias 수동 등록. 신규 상대 선수 생성은 하지 않는다 —
+    봇 저장·병합 흐름에서만 생성된다 (봇이 못 본 선수를 여기서 만들면
+    스탯 없는 유령이 생김)."""
+    ign = (ign or "").strip()
+    player_name = (player_name or "").strip()
+    if not ign or not player_name:
+        return {"ok": False, "message": "IGN과 선수 이름을 모두 입력하세요"}
+    with get_conn() as conn:
+        row = conn.execute(_adapt_sql(
+            "SELECT id FROM opponent_players WHERE name = ?"), (player_name,)).fetchone()
+        if not row:
+            return {"ok": False,
+                    "message": f"상대 선수 `{player_name}` 이(가) 없습니다"}
+        try:
+            conn.execute(_adapt_sql(
+                "INSERT INTO opponent_aliases(ign, opponent_player_id, source) "
+                "VALUES (?, ?, 'Manual')"), (ign, row["id"]))
+        except Exception as e:
+            log.warning(f"[add_opponent_alias] {ign} 등록 실패: {e}")
+            return {"ok": False,
+                    "message": f"`{ign}` 등록 충돌 (이미 존재하거나 DB 오류)"}
+    return {"ok": True, "message": f"✅ `{ign}` → `{player_name}` 등록 완료"}
+
+
+def remove_opponent_alias(ign: str) -> dict:
+    """상대 선수 alias 삭제."""
+    ign = (ign or "").strip()
+    if not ign:
+        return {"ok": False, "message": "IGN을 입력하세요"}
+    with get_conn() as conn:
+        row = conn.execute(_adapt_sql(
+            "SELECT p.name AS player_name FROM opponent_aliases a "
+            "JOIN opponent_players p ON p.id = a.opponent_player_id "
+            "WHERE a.ign = ?"), (ign,)).fetchone()
+        if not row:
+            return {"ok": False, "message": f"`{ign}` 은 등록된 alias가 없습니다"}
+        conn.execute(_adapt_sql("DELETE FROM opponent_aliases WHERE ign = ?"), (ign,))
+    return {"ok": True, "message": f"🗑️ `{ign}` (→ {row['player_name']}) 삭제 완료"}
+
+
 # ── 선수 병합 (게스트 → 정식 선수, 또는 선수 → 선수) ──────────────────
 # 미매칭 닉네임 전용 뷰는 선수관리 탭(/admin/players)으로 통합되었다.
 # list_unmatched_players/ROSTER_NAMES 는 제거 — 동일 병합 엔진을 선수관리 탭에서 재사용.
@@ -753,8 +797,27 @@ def _learn_opponent_alias(conn, ign: str, player_id: int, source: str = "Auto"):
         log.warning(f"[_learn_opponent_alias] {ign} → {player_id} 학습 실패: {e}")
 
 
+def purge_opponent_alias_variants(conn, name: str) -> int:
+    """norm_name(name)과 일치하는 alias 행 전부 삭제 — 재매칭 전 오학습 초기화.
+
+    alias 학습이 INSERT OR IGNORE라 기존 오답 행을 덮어쓰지 못한다.
+    ignore_alias 재매칭 경로에서 호출 → 직후 resolve의 재학습이
+    올바른 선수로 사전을 다시 심는다(rebound).
+    반환: 삭제된 행 수. alias 테이블이 작아 Python 스캔(SQLite/Postgres 동일 동작).
+    """
+    target = opponent_matching.norm_name(name)
+    if not target:
+        return 0
+    ids = [r["id"] for r in conn.execute(
+        "SELECT id, ign FROM opponent_aliases").fetchall()
+        if opponent_matching.norm_name(r["ign"]) == target]
+    for i in ids:
+        conn.execute(_adapt_sql("DELETE FROM opponent_aliases WHERE id = ?"), (i,))
+    return len(ids)
+
+
 def resolve_opponent_player_id(conn, name: str, team_id: int = None,
-                               create: bool = True):
+                               create: bool = True, ignore_alias: bool = False):
     """상대 선수 resolve (spec §5.1): alias 사전 → 풀 내 정확 → 퍼지 → 신규 생성.
 
     team_id가 있으면 그 팀 로스터 풀에서 넉넉한 임계값(0.75)으로,
@@ -762,16 +825,19 @@ def resolve_opponent_player_id(conn, name: str, team_id: int = None,
     create=False면 학습(alias)·생성 없이 조회만 하고 미발견 시 None을 반환한다
     (팀 투표 등 읽기 전용 용도 — 식별 단계에서 사전이 오염되면 직후 저장 단계
     resolve가 유사 무명 선수를 오병합할 수 있다).
+    ignore_alias=True면 1단계 alias 사전을 건너뛴다 — 잘못 학습된 alias를
+    팀 로스터 기준으로 재매칭하는 admin 경로(D1 교정). 학습은 정상 수행.
     반환: opponent_players.id (create=True, 항상 존재 — 신규 생성 포함).
           create=False면 미발견 시 None.
     """
     name = (name or "").strip() or "Unknown"
     target = opponent_matching.norm_name(name)
 
-    # 1) alias 사전 (학습 우선, 풀 무관)
-    for r in conn.execute("SELECT ign, opponent_player_id FROM opponent_aliases").fetchall():
-        if opponent_matching.norm_name(r["ign"]) == target:
-            return r["opponent_player_id"]
+    # 1) alias 사전 (학습 우선, 풀 무관) — ignore_alias 재매칭 시 우회
+    if not ignore_alias:
+        for r in conn.execute("SELECT ign, opponent_player_id FROM opponent_aliases").fetchall():
+            if opponent_matching.norm_name(r["ign"]) == target:
+                return r["opponent_player_id"]
 
     # 2) 후보 풀: 팀 로스터 or 전역
     if team_id:

@@ -106,7 +106,8 @@ HP: ZCS 최우선 + 보조 지표들. SND: RDS 단일.
 - `/compare` — 두 선수 비교 (레이더+표, HP는 ZCS 첫 행, SND는 RDS 첫 행).
 - `/matches`, `/matches/{id}` — 승패 배지 + ZCS + AI 매치 분석.
 - `/maps`, `/maps/{name}` — **맵 탭**: ZCS 중심 카드 그리드 → 맵 상세(승률/전지표 최근vs시즌/AI 수치경향/선수별).
-- `/admin` — 관리 (승패·스코어·선수·날짜 복기 입력). 서브탭: 매치/별명/선수 관리.
+- `/versus`, `/versus/{team_id}` — **상대전적**: 팀 카드 그리드(W-L·평균 득실차) → 상세(요약 헤더·상대 로스터·매치 히스토리·H2H 매트릭스). 스코어 NULL은 "—", result NULL은 미입력 배지. `?season=` 지원.
+- `/admin` — 관리 (승패·스코어·선수·날짜 복기 입력). 서브탭: 매치/별명/선수/**상대팀** 관리.
 - **`/admin/unmatched` 삭제됨** (미매칭 닉네임 탭 제거, 선수 관리 탭으로 통합). `db.list_unmatched_players()`/`ROSTER_NAMES`/`admin_unmatched.html` 및 `unmatched_*` i18n 키도 함께 삭제됨. 선수 관리 탭의 병합 엔진(`db.merge_player`)은 그대로 재사용 — alias 카운트 컬럼만 이관.
 - **`/trends` 삭제됨** (시계열은 `/players/{name}` 선수 상세에 통합). `/api/player/{name}/timeseries` JSON API만 남음.
 - **`/insights` 삭제됨** (팀 인사이트 탭 제거, 맵 탭으로 통합). `team_insights_data()`/`team_insight()` 함수 및 관련 i18n 키도 함께 삭제됨.
@@ -265,6 +266,7 @@ git push origin main
 
 ## 10. 데이터 모델 특이점 (핵심)
 
+- **상대팀 관리 정책 (2026-09-17 리메이크)**: `/admin/opponents`에서 팀 CRUD(생성·이름변경·삭제)·로스터 제거·매치 지정/해제·상대 alias 관리·선수 병합 가능. 팀 삭제는 매치 태그만 NULL화하고 로스터만 삭제(선수·스탯 보존 — 실수 복구 가능). 팀 중복 검사는 `norm_name` 기반(D3). 재매칭 `ignore_alias` 옵션은 기존 alias를 `purge_opponent_alias_variants`(norm 일치 삭제) 후 올바른 선수로 재학습(rebound) — alias 학습이 INSERT OR IGNORE라 덮어쓰기 불가하기 때문. OCR 의심 표기(`opponent_matching.is_ocr_suspect`)는 스탯만 저장하고 로스터 자동 축적 제외.
 - **매치 분할 규칙**: 구글 시트에 match_id가 없어서 "이전 매치에 이미 등장한 선수가 다시 나오면 새 매치 시작"으로 분할 (`import_sheets.py`의 `group_matches()`). 단순 행수(4/5)로 자르면 안 됨.
 - **ZCS 시트 오류 정정**: 구글 시트 Dashboard의 "ZCS" 열에 Total Damage 값이 잘못 배치되어 있었음. ZCS는 `metrics.py` 공식 `max(0, 1.1·OBJ+8·CK+4.1·K−5·D)`으로 재계산한 값이 정답.
 - **이름 정규화**: 대소문자 섞임 (`Unravel`/`unravel`) → `import_sheets.py`의 `normalize_name()`으로 통일.

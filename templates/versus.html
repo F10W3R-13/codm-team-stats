@@ -10,14 +10,14 @@
 {% else %}
 <div class="grid grid-3 section">
     {% for team in teams %}
-    <a href="/versus/{{ team.id }}?lang={{ lang }}" class="card entity-card">
+    <a href="/versus/{{ team.id }}?lang={{ lang }}&season={{ season }}" class="card entity-card">
         <div class="entity-card__name">⚔️ {{ team.name }}</div>
         <div class="muted entity-card__matches">{{ t.versus_matches }}: {{ team.match_n }}</div>
         <div class="stat-label">W — L</div>
         <div class="entity-card__value">{{ team.wins }}<span class="muted">W</span> — {{ team.losses }}<span class="muted">L</span></div>
         {% if team.avg_margin is not none %}
         <div class="entity-card__sub {% if team.avg_margin > 0 %}delta-up{% elif team.avg_margin < 0 %}delta-down{% else %}delta-flat{% endif %}">
-            {{ "%.1f"|format(team.avg_margin) }}
+            {{ t.versus_avg_margin }} {{ "%+.1f"|format(team.avg_margin) }}
         </div>
         {% endif %}
     </a>

@@ -7,6 +7,7 @@
 import logging
 
 import db
+import opponent_matching
 
 log = logging.getLogger(__name__)
 
@@ -219,13 +220,15 @@ def _save_opponent_stats(conn, match_id: int, mode: str, enemy_players: list) ->
         pid = db.resolve_opponent_player_id(conn, name, team_id=team_id)
         resolved.append((pid, p))
     # 2차 패스: 스탯 저장 + 로스터 축적(source='match'). 사전이 자라나는 지점.
+    # OCR 의심 표기는 로스터에 축적하지 않는다(투표 오염 방지) — 스탯만 저장.
     saved = 0
     for pid, p in resolved:
+        name = (p.get("name") or "").strip()
         if mode == "HP":
             _insert_opp_hp(conn, match_id, pid, p)
         else:
             _insert_opp_snd(conn, match_id, pid, p)
-        if team_id:
+        if team_id and not opponent_matching.is_ocr_suspect(name):
             conn.upsert("opponent_team_rosters",
                         ["team_id", "player_id", "source"], (team_id, pid, "match"),
                         conflict_col="team_id, player_id")

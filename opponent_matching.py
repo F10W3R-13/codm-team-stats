@@ -20,6 +20,23 @@ def norm_name(s: str) -> str:
     return re.sub(r"[^a-z0-9]+", "", s.lower())
 
 
+def is_ocr_suspect(name: str) -> bool:
+    """OCR로 이름이 깨져 보이는 표기 휴리스틱 — 관리자 확인 대기 판별용.
+
+    대괄호 garbage([386yLR...), 단일 숫자 토큰(EXCL 4), null류,
+    알파벳숫자 1글자 미만. admin_write 화면 판별과 저장부 로스터 축적
+    가드가 공유한다 (단일 진실).
+    """
+    n = (name or "").strip()
+    if not n or "[" in n or "]" in n:
+        return True
+    if n.lower() in ("null", "none", "unknown", "n/a"):
+        return True
+    if len(re.sub(r"[^a-z0-9]", "", n.lower())) < 2:
+        return True
+    return any(len(tok) == 1 and tok.isdigit() for tok in n.split())
+
+
 def similarity(a: str, b: str) -> float:
     """정규화 후 유사도 (0~1). 어느 쪽이든 빈 문자열이면 0."""
     na, nb = norm_name(a), norm_name(b)
