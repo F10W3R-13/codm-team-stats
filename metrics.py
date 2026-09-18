@@ -22,7 +22,7 @@ def compute_impact(kills, deaths, obj_time, total_damage) -> float:
 
 def compute_dpd(total_damage, deaths) -> float:
     """Damage Per Death = Total Damage / Deaths."""
-    if not deaths:
+    if total_damage is None or not deaths:
         return None
     return round(total_damage / deaths, 2)
 

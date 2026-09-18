@@ -148,3 +148,9 @@ def test_role_spectrum_scale_x200():
     assert metrics.role_spectrum_pos(0.99, 0.83) == pytest.approx(67.6, abs=0.15)  # s1 Kingz
     assert metrics.role_spectrum_pos(1.14, 1.20) == pytest.approx(44.9, abs=0.15)  # s1 Shisui
     assert metrics.role_spectrum_pos(1.14, 0.89) == pytest.approx(74.6, abs=0.15)  # s2 Cartels
+
+def test_compute_dpd_null_damage_safe():
+    """NULL 스탯 방어 — 2026-09-18 배포 사고: OCR로 total_damage가 누락된 행이
+    compute_dpd(None, d)에서 TypeError로 홈페이지 500. 공식은 불변."""
+    assert metrics.compute_dpd(None, 5) is None
+    assert metrics.compute_dpd(1500, 5) == 300.0
