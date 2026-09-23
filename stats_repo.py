@@ -81,6 +81,37 @@ def save_match(mode: str, players: list, match_date: str, map_name: str = None,
                 "opponent": enemy_info}
 
 
+def swap_sides(players: list, enemy_players: list, result: str = None,
+               team_score=None, opponent_score=None) -> dict:
+    """GPT가 잡은 우리팀/상대팀을 뒤집는다 — 코치가 반대쪽을 ours로 확정할 때.
+
+    GPT는 우리팀으로 식별한 쪽 이름을 로스터 표준명으로 '정규화'해서 주므로,
+    그 행들은 ign_raw(화면 원본)가 있으면 name을 원본으로 되돌려 상대팀으로
+    보낸다. 원본이 없는 정규화 이름은 어쩔 수 없이 그대로 간다(상대팀 관리에서
+    병합으로 정리). 우리팀이 될 쪽(enemy_players)은 원본 이름이라 그대로 쓴다.
+    승패/점수도 기준 팀이 바뀌므로 함께 뒤집는다.
+
+    반환: {"players", "enemy_players", "result", "team_score", "opponent_score"}
+    """
+    new_enemy = []
+    for p in players:
+        q = dict(p)
+        raw = (q.get("ign_raw") or "").strip()
+        if raw and raw != (q.get("name") or "").strip():
+            q["name"] = raw
+        new_enemy.append(q)
+    flipped = result
+    if result == "WIN":
+        flipped = "LOSS"
+    elif result == "LOSS":
+        flipped = "WIN"
+    return {"players": [dict(p) for p in enemy_players],
+            "enemy_players": new_enemy,
+            "result": flipped,
+            "team_score": opponent_score,
+            "opponent_score": team_score}
+
+
 def _upsert_players(conn, mode: str, match_id: int, players: list) -> None:
     if mode == "HP":
         for p in players:

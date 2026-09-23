@@ -270,6 +270,7 @@ git push origin main
 - **매치 분할 규칙**: 구글 시트에 match_id가 없어서 "이전 매치에 이미 등장한 선수가 다시 나오면 새 매치 시작"으로 분할 (`import_sheets.py`의 `group_matches()`). 단순 행수(4/5)로 자르면 안 됨.
 - **ZCS 시트 오류 정정**: 구글 시트 Dashboard의 "ZCS" 열에 Total Damage 값이 잘못 배치되어 있었음. ZCS는 `metrics.py` 공식 `max(0, 1.1·OBJ+8·CK+4.1·K−5·D)`으로 재계산한 값이 정답.
 - **이름 정규화**: 대소문자 섞임 (`Unravel`/`unravel`) → `import_sheets.py`의 `normalize_name()`으로 통일.
+- **우리팀 판별 = 코치 확정 단계 (2026-09-23)**: GPT 비전이 좌/우 우리팀을 자동 추측하다 용병·닉변으로 오판, 상대 선수(uD 등)가 `players` 테이블까지 흡수돼 로스터 힌트를 오염시키는 자기강화 루프가 발생했다. 이제 봇은 분석 후 **저장 전 디스코드 버튼(Team A/B is ours)으로 업로더가 우리팀을 확정**하며, 반대쪽 선택 시 `stats_repo.swap_sides()`가 승패/점수 반전 + ign_raw 기반 GPT 정규화 이름 되돌리기를 수행한다. `bot.load_roster()`는 상대팀과 동명(norm)인 이름을 GPT 힌트에서 제외(`db.opponent_name_norms`). 이름 기반 자동 차단은 용병과 충돌하므로 하지 않는다(사람이 결정).
 - **DB 수정 시**: 봇/웹을 먼저 중지하고 백업 후 수정 (SQLite 동시 쓰기 취약).
 
 ## 11. 언어/i18n 정책

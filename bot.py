@@ -57,12 +57,20 @@ bot = commands.Bot(command_prefix="!", intents=intents, max_messages=200)  # 메
 
 # ── 헬퍼 ──────────────────────────────────────────────────────────────────
 def load_roster() -> list:
-    """DB에서 현재 로스터(players.name)를 로드. 실패/비어있으면 DEFAULT_ROSTER 폴백."""
+    """DB players 테이블 로드. 상대팀에 동명(norm 일치)이 존재하는 이름은 제외 —
+    오염 이름이 GPT 로스터 힌트로 주입되면 상대쪽을 우리팀으로 식별하는
+    자기강화 오염이 생긴다(2026-09-23 uD 선수 유입 실증)."""
     try:
         with db.get_conn() as conn:
             rows = conn.execute("SELECT name FROM players ORDER BY id").fetchall()
-            roster = [r["name"] for r in rows if r["name"]]
-            return roster or list(DEFAULT_ROSTER)
+            names = [r["name"] for r in rows if r["name"]]
+            if names:
+                import opponent_matching
+                opp_norms = db.opponent_name_norms(conn)
+                roster = [n for n in names
+                          if opponent_matching.norm_name(n) not in opp_norms]
+                return roster or names
+            return list(DEFAULT_ROSTER)
     except Exception:
         log.exception("로스터 로드 실패 — DEFAULT_ROSTER 폴백")
         return list(DEFAULT_ROSTER)
@@ -137,6 +145,173 @@ def write_to_db(mode: str, players: list, date_str: str,
         team_score=team_score, opponent_score=opponent_score,
         enemy_players=enemy_players,
     )
+
+
+# ── 우리팀 방향 확인 플로우 ────────────────────────────────────────────────
+# GPT 비전이 좌/우 어느 쪽이 우리팀인지 추측하지만, 용병·닉네임 변경으로 오판이
+# 잦아 상대 선수 스탯이 우리팀으로 흡수되는 사고가 반복됐다(2026-09-23 uD 사례).
+# 저장 전에 코치가 버튼으로 어느 쪽이 우리팀인지 확정한다 — 사람이 결정하므로
+# 타팀 선수가 용병으로 와도 자유롭게 우리팀에 들어올 수 있다.
+TEAM_CONFIRM_TIMEOUT = 600  # 초 — 이 시간 내 미응답 시 저장 없이 만료
+
+
+def _side_display(players: list) -> str:
+    """한쪽 팀 선수명 표시 — 정규화명과 화면 원본(ign_raw)이 다르면 병기."""
+    parts = []
+    for p in players:
+        nm = (p.get("name") or "").strip() or "?"
+        raw = (p.get("ign_raw") or "").strip()
+        if raw and raw != nm:
+            parts.append(f"{nm} ({raw})")
+        else:
+            parts.append(nm)
+    return ", ".join(parts) if parts else "-"
+
+
+async def _save_and_reply(confirm_msg: discord.Message, upload_message: discord.Message,
+                          mode: str, players: list, enemy_players: list,
+                          match_result: str, team_score, opponent_score,
+                          map_name, date_str: str) -> None:
+    """확정된 방향으로 저장하고, 확인 메시지를 완료 요약로 교체 + 리포트 임베드."""
+    result_info = write_to_db(
+        mode, players, date_str,
+        map_name=map_name, result=match_result,
+        team_score=team_score, opponent_score=opponent_score,
+        enemy_players=enemy_players,
+    )
+
+    names = ", ".join(p.get("name", "?") for p in players) or "-"
+    if result_info.get("duplicate"):
+        if result_info["saved"] > 0:
+            head = (
+                f"♻️ **{mode}** re-upload merged into match #{result_info['match_id']} "
+                f"(+{result_info['saved']} players)"
+            )
+        else:
+            head = (
+                f"♻️ **{mode}** duplicate — already recorded as "
+                f"match #{result_info['match_id']}, nothing saved"
+            )
+    else:
+        head = (
+            f"✅ **{mode}** analysis complete — {result_info['saved']} players saved "
+            f"(match #{result_info['match_id']})"
+        )
+    summary = (
+        f"{head}\n"
+        f"Players: {names}\n"
+        f"Date: {date_str}"
+    )
+    if len(players) < 5:
+        summary += (
+            f"\n⚠️ Only {len(players)} players detected. "
+            "Re-upload the same screenshots to auto-merge missing players, "
+            "or fix it in /admin."
+        )
+    extras = []
+    if match_result:
+        score_str = ""
+        if team_score is not None and opponent_score is not None:
+            score_str = f" ({team_score}:{opponent_score})"
+        extras.append(f"Result: **{match_result}**{score_str}")
+    if map_name:
+        extras.append(f"Map: {map_name}")
+    if extras:
+        summary += "\n" + " · ".join(extras)
+    await confirm_msg.edit(content=summary)
+
+    # Auto match report (right after analysis completes)
+    try:
+        import report_embeds
+        # 내부에서 동기 GPT 인사이트 호출(최대 15s) — executor로 위임
+        embed = await asyncio.get_running_loop().run_in_executor(
+            None, report_embeds.build_match_report_embed, result_info["match_id"])
+        if embed:
+            await upload_message.channel.send(embed=embed)
+    except Exception:
+        log.exception("Auto match report generation failed (record was saved)")
+
+
+class TeamConfirmView(discord.ui.View):
+    """Team A(GPT 추정 우리팀)/Team B 중 어느 쪽이 우리팀인지 업로더가 확정."""
+
+    def __init__(self, upload_message: discord.Message, analysis: dict):
+        super().__init__(timeout=TEAM_CONFIRM_TIMEOUT)
+        self.upload_message = upload_message
+        self.analysis = analysis
+        self.message = None  # 확인 요청 메시지 (타임아웃 시 비활성화용)
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        if interaction.user.id != self.upload_message.author.id:
+            await interaction.response.send_message(
+                "Only the uploader can confirm this match.", ephemeral=True)
+            return False
+        return True
+
+    @discord.ui.button(label="Team A is ours", style=discord.ButtonStyle.primary)
+    async def pick_a(self, interaction: discord.Interaction,
+                     button: discord.ui.Button):
+        await self._save(interaction, swap=False)
+
+    @discord.ui.button(label="Team B is ours", style=discord.ButtonStyle.secondary)
+    async def pick_b(self, interaction: discord.Interaction,
+                     button: discord.ui.Button):
+        await self._save(interaction, swap=True)
+
+    async def _save(self, interaction: discord.Interaction, swap: bool):
+        self.stop()
+        a = self.analysis
+        players, enemy = a["players"], a["enemy_players"]
+        result, ts, osc = a["result"], a["team_score"], a["opponent_score"]
+        if swap:
+            flipped = stats_repo.swap_sides(players, enemy, result, ts, osc)
+            players, enemy = flipped["players"], flipped["enemy_players"]
+            result, ts, osc = (flipped["result"], flipped["team_score"],
+                               flipped["opponent_score"])
+        await interaction.response.edit_message(view=None)
+        try:
+            await _save_and_reply(
+                interaction.message, self.upload_message, a["mode"], players, enemy,
+                result, ts, osc, a["map"], a["date"])
+        except Exception as e:
+            log.exception("DB write failed")
+            await interaction.followup.send(f"❌ Error saving to database: `{e}`")
+
+    async def on_timeout(self):
+        if self.message is None:
+            return
+        for child in self.children:
+            child.disabled = True
+        try:
+            await self.message.edit(
+                content=self.message.content +
+                        "\n⏱️ Confirmation timed out — nothing saved. "
+                        "Re-upload the screenshots to try again.",
+                view=self)
+        except Exception:
+            log.exception("타임아웃 처리 실패")
+
+
+async def _ask_team_confirmation(message: discord.Message, mode: str,
+                                 players: list, enemy_players: list,
+                                 match_result: str, team_score, opponent_score,
+                                 map_name, date_str: str, gpt_side=None):
+    """저장 전 확인 단계 — Team A/B 목록을 보여주고 업로더의 버튼 클릭을 기다린다."""
+    gpt_mark = f" (GPT guess: {gpt_side})" if gpt_side else " (GPT guess)"
+    map_part = f" · {map_name}" if map_name else ""
+    text = (
+        f"🎮 **{mode}**{map_part} — which team is ours?\n"
+        f"**Team A**{gpt_mark}: {_side_display(players)}\n"
+        f"**Team B**: {_side_display(enemy_players)}\n"
+        f"_Nothing is saved until you confirm "
+        f"(timeout {TEAM_CONFIRM_TIMEOUT // 60} min)._"
+    )
+    view = TeamConfirmView(message, {
+        "mode": mode, "players": players, "enemy_players": enemy_players,
+        "result": match_result, "team_score": team_score,
+        "opponent_score": opponent_score, "map": map_name, "date": date_str,
+    })
+    view.message = await message.reply(text, view=view)
 
 
 # ── 봇 이벤트 ─────────────────────────────────────────────────────────────
@@ -254,70 +429,11 @@ async def on_message(message: discord.Message):
             return
 
         date_str = date_str_from_message(message)
-        try:
-            result_info = write_to_db(
-                mode, players, date_str,
-                map_name=map_name, result=match_result,
-                team_score=team_score, opponent_score=opponent_score,
-                enemy_players=enemy_players,
-            )
-        except Exception as e:
-            log.exception("DB write failed")
-            await message.reply(f"❌ Error saving to database: `{e}`")
-            return
-
-        # Completion summary (승패/점수/맵 표시)
-        names = ", ".join(p.get("name", "?") for p in players)
-        if result_info.get("duplicate"):
-            if result_info["saved"] > 0:
-                head = (
-                    f"♻️ **{mode}** re-upload merged into match #{result_info['match_id']} "
-                    f"(+{result_info['saved']} players)"
-                )
-            else:
-                head = (
-                    f"♻️ **{mode}** duplicate — already recorded as "
-                    f"match #{result_info['match_id']}, nothing saved"
-                )
-        else:
-            head = (
-                f"✅ **{mode}** analysis complete — {result_info['saved']} players saved "
-                f"(match #{result_info['match_id']})"
-            )
-        summary = (
-            f"{head}\n"
-            f"Players: {names}\n"
-            f"Date: {date_str}"
-        )
-        if len(players) < 5:
-            summary += (
-                f"\n⚠️ Only {len(players)} players detected. "
-                "Re-upload the same screenshots to auto-merge missing players, "
-                "or fix it in /admin."
-            )
-        # 승패/점수/맵이 추출됐으면 추가
-        extras = []
-        if match_result:
-            score_str = ""
-            if team_score is not None and opponent_score is not None:
-                score_str = f" ({team_score}:{opponent_score})"
-            extras.append(f"Result: **{match_result}**{score_str}")
-        if map_name:
-            extras.append(f"Map: {map_name}")
-        if extras:
-            summary += "\n" + " · ".join(extras)
-        await message.reply(summary)
-
-        # Auto match report (right after analysis completes)
-        try:
-            import report_embeds
-            # 내부에서 동기 GPT 인사이트 호출(최대 15s) — executor로 위임
-            embed = await asyncio.get_running_loop().run_in_executor(
-                None, report_embeds.build_match_report_embed, result_info["match_id"])
-            if embed:
-                await message.channel.send(embed=embed)
-        except Exception:
-            log.exception("Auto match report generation failed (record was saved)")
+        # 저장 전 확인 단계 — 코치가 Team A/B 중 우리팀을 버튼으로 확정하면 저장된다.
+        await _ask_team_confirmation(
+            message, mode, players, enemy_players, match_result,
+            team_score, opponent_score, map_name, date_str,
+            gpt_side=result.get("our_team_side"))
 
 
 def main():

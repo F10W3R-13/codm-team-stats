@@ -79,7 +79,7 @@
 <div class="card card--warning">
     <h2>{{ t.opp_pending_title }}</h2>
     {% if data.pending_total > data.pending|length %}
-    <p class="muted">{{ t.opp_pending_more.replace('{n}', data.pending_total - (data.pending|length)) }}</p>
+    <p class="muted">{{ t.opp_pending_more.replace('{n}', (data.pending_total - (data.pending|length))|string) }}</p>
     {% endif %}
     <div class="table-wrap">
     <table>

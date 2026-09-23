@@ -574,6 +574,24 @@ def _learn_alias(conn, ign: str, player_id: int, source: str = "OCR Auto"):
         # UNIQUE 충돌 등 — 이미 학습됐거나 다른 선수에게 할당됨. 부수 기능이라 삼킴.
 
 
+def opponent_name_norms(conn) -> set:
+    """상대팀 선수명+alias의 norm 집합 (봇 로스터 힌트 정화용).
+
+    players 테이블에 상대 선수가 섞여 들어오면(오분류·용병 재유입) 그 이름이
+    GPT 로스터 힌트로 주입돼 상대쪽을 우리팀으로 식별하는 자기강화 오염이
+    생긴다(2026-09-23 uD 선수 유입 실증). 힌트에서 걸러내는 데 쓴다.
+    """
+    import opponent_matching
+
+    norms = set()
+    for r in conn.execute("SELECT name FROM opponent_players").fetchall():
+        norms.add(opponent_matching.norm_name(r["name"]))
+    for r in conn.execute("SELECT ign FROM opponent_aliases").fetchall():
+        norms.add(opponent_matching.norm_name(r["ign"]))
+    norms.discard("")
+    return norms
+
+
 def add_alias(ign: str, player_name: str) -> dict:
     """새 닉네임(IGN) → 선수 매핑 등록."""
     ign = ign.strip()

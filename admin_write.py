@@ -193,10 +193,20 @@ def add_player_to_match(match_id: int, mode: str, player_id: int, **stats) -> bo
 
 
 def delete_match(match_id: int) -> bool:
-    """매치와 그 매치의 모든 스탯 행을 삭제. 반환: 성공 여부."""
+    """매치와 그 매치의 모든 스탯 행을 삭제. 반환: 성공 여부.
+
+    Postgres는 matches를 참조하는 자식 행이 남으면 FK 위반으로 삭제가 500으로
+    죽는다 (2026-09-23 배포 실증: DELETE /admin/match/482 opponent_stats FK).
+    스탯 4개 테이블은 행 삭제, coaching_notes는 매치 태그만 NULL로 끊어
+    코치 노트 자체는 보존한다(팀 삭제의 선수·스탯 보존 철학과 동일).
+    """
     with db.get_conn() as conn:
         conn.execute("DELETE FROM player_stats_hp WHERE match_id=?", (match_id,))
         conn.execute("DELETE FROM player_stats_snd WHERE match_id=?", (match_id,))
+        conn.execute("DELETE FROM opponent_stats_hp WHERE match_id=?", (match_id,))
+        conn.execute("DELETE FROM opponent_stats_snd WHERE match_id=?", (match_id,))
+        conn.execute(db._adapt_sql(
+            "UPDATE coaching_notes SET match_id=NULL WHERE match_id=?"), (match_id,))
         cur = conn.execute("DELETE FROM matches WHERE id=?", (match_id,))
         return cur.rowcount > 0
 
