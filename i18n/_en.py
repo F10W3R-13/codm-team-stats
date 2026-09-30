@@ -17,6 +17,7 @@ STRINGS = {
 
         "mode_hp": "Hardpoint",
         "mode_snd": "Search & Destroy",
+        "mode_ctrl": "Control",
         "all": "All",
         "date": "Date",
         "map": "Map",
@@ -47,6 +48,7 @@ STRINGS = {
 
         "hp_section": "🎯 Hardpoint",
         "snd_section": "🔍 Search & Destroy",
+        "ctrl_section": "🛡️ Control",
         "games": "matches",
         "avg_kd": "Avg K / D",
         "obj_seconds": "Avg OBJ",
@@ -73,6 +75,7 @@ STRINGS = {
         "player_maps_title": "🗺️ Map Performance",
         "player_maps_help": "vs personal avg",
         "player_maps_help_snd": "This player's RDS by SND map (vs own average)",
+        "player_maps_help_ctrl": "This player's K/D by Control map (vs own average)",
         "player_maps_no_data_hp": "Not enough HP map data for this player",
         "player_maps_no_data_snd": "Not enough SND map data for this player",
         "player_maps_strong": "Strong",

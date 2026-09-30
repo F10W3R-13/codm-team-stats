@@ -35,9 +35,10 @@ _METRIC_DEFINITIONS = """# CODM Metric Definitions (authoritative — matches me
 You are advising a competitive Call of Duty Mobile (CODM) team. Use this domain knowledge to ground every insight in real game understanding.
 
 ## Game & Modes
-CODM competitive uses two modes:
+CODM competitive uses three modes:
 - HP (Hardpoint / 거점): capture rotating hills P1→P2→P3→P4, ~60s each. OBJ = hill time in seconds (higher = better). CapKill = kills scored inside the active hill (OCR raw value; the game also counts them in K, so CapKill ⊆ K). "hill"/"언덕" = the current active point.
 - SND (Search & Destroy / 폭파): alternating attack/defense, round-based. FK = First Blood (first kill), LWW = Lone Wolf Win, ADR = avg damage per round.
+- CTRL (Control / 컨트롤): capture/defend sites A-B, ticket(생명수)-based rounds. CapKill = CAPTURE KILL(S) 열 — HP와 동일한 캡처킬 (사이트 안 킬, K의 부분집합). NET KILL 열은 K−D라 따로 저장하지 않는다. No dedicated metric yet — interpret via K/D + basic stats (kills, deaths, assists, damage, capture_kill).
 
 ## Key Metric Definitions (don't recompute — interpret the numbers provided)
 - ZCS (HP only) = max(0, 1.1·OBJ + 8·CapKill + 4.1·(K−CapKill) − 5·D). Team avg ~120 (deploy DB measured); 200+ = ace-level zone control; <80 = low impact.

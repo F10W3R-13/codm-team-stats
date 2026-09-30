@@ -8,6 +8,7 @@
 <div class="filters">
     <a href="/players?mode=HP&lang={{ lang }}" class="{{ 'active' if mode == 'HP' else '' }}">🎯 {{ t.mode_hp }}</a>
     <a href="/players?mode=SND&lang={{ lang }}" class="{{ 'active' if mode == 'SND' else '' }}">🔍 {{ t.mode_snd }}</a>
+    <a href="/players?mode=CTRL&lang={{ lang }}" class="{{ 'active' if mode == 'CTRL' else '' }}">🛡️ {{ t.mode_ctrl }}</a>
 </div>
 
 {% if not players %}
@@ -34,10 +35,14 @@
         <div class="stat-label">{{ t.zcs_label }}</div>
         <div class="player-card__value player-card__value--hp">{{ p.zcs if p.zcs is not none else '-' }}</div>
         <div class="muted player-card__sub">{{ t.kd }} {{ p.avg_kd }} · {{ t.m_kills }} {{ p.avg_k }} · {{ t.m_dmg }} {{ p.avg_dmg }}</div>
-        {% else %}
+        {% elif mode == 'SND' %}
         <div class="stat-label">{{ t.rds_label }}</div>
         <div class="player-card__value player-card__value--snd">{{ p.rds if p.rds is not none else '-' }}</div>
         <div class="muted player-card__sub">{{ t.kd }} {{ p.avg_kd }} · {{ t.m_kills }} {{ p.avg_k }}</div>
+        {% else %}
+        <div class="stat-label">{{ t.kd }}</div>
+        <div class="player-card__value">{{ p.avg_kd if p.avg_kd is not none else '-' }}</div>
+        <div class="muted player-card__sub">{{ t.m_kills }} {{ p.avg_k }} · {{ t.m_dmg }} {{ p.avg_dmg }} · {{ t.m_cap }} {{ p.avg_ck if p.avg_ck is defined else '-' }}</div>
         {% endif %}
     </a>
     {% endfor %}

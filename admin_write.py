@@ -33,11 +33,13 @@ def list_players_admin() -> list:
             """SELECT p.id, p.name,
                       (SELECT COUNT(*) FROM player_stats_hp WHERE player_id=p.id) hp_matches,
                       (SELECT COUNT(*) FROM player_stats_snd WHERE player_id=p.id) snd_matches,
+                      (SELECT COUNT(*) FROM player_stats_ctrl WHERE player_id=p.id) ctrl_matches,
                       (SELECT COUNT(*) FROM aliases WHERE player_id=p.id) aliases
                FROM players p ORDER BY p.name"""
         ).fetchall()
         return [{"id": r["id"], "name": r["name"],
                  "hp_matches": r["hp_matches"], "snd_matches": r["snd_matches"],
+                 "ctrl_matches": r["ctrl_matches"],
                  "aliases": r["aliases"]} for r in rows]
 
 
@@ -48,6 +50,7 @@ def delete_player(player_id: int) -> bool:
     with db.get_conn() as conn:
         conn.execute("DELETE FROM player_stats_hp WHERE player_id=?", (player_id,))
         conn.execute("DELETE FROM player_stats_snd WHERE player_id=?", (player_id,))
+        conn.execute("DELETE FROM player_stats_ctrl WHERE player_id=?", (player_id,))
         conn.execute("DELETE FROM aliases WHERE player_id=?", (player_id,))
         cur = conn.execute("DELETE FROM players WHERE id=?", (player_id,))
         return cur.rowcount > 0
@@ -72,9 +75,20 @@ def match_raw_stats(match_id: int) -> dict:
 
         match = dict(m)
         mode = match["mode"]
-        table = "player_stats_hp" if mode == "HP" else "player_stats_snd"
+        table = {"HP": "player_stats_hp", "SND": "player_stats_snd",
+                 "CTRL": "player_stats_ctrl"}.get(mode, "player_stats_snd")
 
-        if mode == "HP":
+        if mode == "CTRL":
+            rows = conn.execute(
+                f"""SELECT s.id stat_id, s.player_id player_id, p.name player_name,
+                           s.kills, s.deaths,
+                           s.assists, s.kd_ratio, s.score, s.impact,
+                           s.total_damage, s.capture_kill
+                    FROM {table} s JOIN players p ON p.id=s.player_id
+                    WHERE s.match_id=? ORDER BY s.kills DESC""",
+                (match_id,),
+            ).fetchall()
+        elif mode == "HP":
             rows = conn.execute(
                 f"""SELECT s.id stat_id, s.player_id player_id, p.name player_name,
                            s.kills, s.deaths,
@@ -131,6 +145,10 @@ def update_player_stat(stat_id: int, mode: str, **fields) -> bool:
         allowed = {"player_id", "kills", "deaths", "kd_ratio", "obj_time", "score",
                    "impact", "total_damage", "capture_kill"}
         table = "player_stats_hp"
+    elif mode == "CTRL":
+        allowed = {"player_id", "kills", "deaths", "assists", "kd_ratio", "score",
+                   "impact", "total_damage", "capture_kill"}
+        table = "player_stats_ctrl"
     else:
         allowed = {"player_id", "kills", "deaths", "assists", "kd_ratio", "score",
                    "impact", "adr", "first_kill", "lone_wolf_win"}
@@ -164,6 +182,10 @@ def add_player_to_match(match_id: int, mode: str, player_id: int, **stats) -> bo
         allowed = {"kills", "deaths", "kd_ratio", "obj_time", "score",
                    "impact", "total_damage", "capture_kill"}
         table = "player_stats_hp"
+    elif mode == "CTRL":
+        allowed = {"kills", "deaths", "assists", "kd_ratio", "score",
+                   "impact", "total_damage", "capture_kill"}
+        table = "player_stats_ctrl"
     else:
         allowed = {"kills", "deaths", "assists", "kd_ratio", "score",
                    "impact", "adr", "first_kill", "lone_wolf_win"}
@@ -203,8 +225,10 @@ def delete_match(match_id: int) -> bool:
     with db.get_conn() as conn:
         conn.execute("DELETE FROM player_stats_hp WHERE match_id=?", (match_id,))
         conn.execute("DELETE FROM player_stats_snd WHERE match_id=?", (match_id,))
+        conn.execute("DELETE FROM player_stats_ctrl WHERE match_id=?", (match_id,))
         conn.execute("DELETE FROM opponent_stats_hp WHERE match_id=?", (match_id,))
         conn.execute("DELETE FROM opponent_stats_snd WHERE match_id=?", (match_id,))
+        conn.execute("DELETE FROM opponent_stats_ctrl WHERE match_id=?", (match_id,))
         conn.execute(db._adapt_sql(
             "UPDATE coaching_notes SET match_id=NULL WHERE match_id=?"), (match_id,))
         cur = conn.execute("DELETE FROM matches WHERE id=?", (match_id,))
@@ -238,7 +262,8 @@ def admin_match_list(limit: int = 50, offset: int = 0, mode: str = None,
         rows = conn.execute(
             f"""SELECT id, mode, map_name, match_date, result, team_score, opponent_score,
                        (SELECT COUNT(*) FROM player_stats_hp WHERE match_id=m.id) +
-                       (SELECT COUNT(*) FROM player_stats_snd WHERE match_id=m.id) as players
+                       (SELECT COUNT(*) FROM player_stats_snd WHERE match_id=m.id) +
+                       (SELECT COUNT(*) FROM player_stats_ctrl WHERE match_id=m.id) as players
                 FROM matches m {where}
                 ORDER BY id DESC LIMIT ? OFFSET ?""",
             params,
@@ -317,7 +342,8 @@ def matches_by_date(match_date: str) -> list:
         rows = conn.execute(
             """SELECT id, mode, map_name, result, team_score, opponent_score,
                       (SELECT COUNT(*) FROM player_stats_hp WHERE match_id=m.id) +
-                      (SELECT COUNT(*) FROM player_stats_snd WHERE match_id=m.id) as players
+                      (SELECT COUNT(*) FROM player_stats_snd WHERE match_id=m.id) +
+                      (SELECT COUNT(*) FROM player_stats_ctrl WHERE match_id=m.id) as players
                FROM matches m WHERE match_date=? ORDER BY id DESC""",
             (match_date,),
         ).fetchall()

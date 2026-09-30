@@ -15,8 +15,9 @@ def build_match_report_embed(match_id: int, include_insight: bool = True) -> dis
     if not r:
         return None
 
-    mode_name = "Hardpoint" if r["mode"] == "HP" else "Search & Destroy"
-    mode_emoji = "🎯" if r["mode"] == "HP" else "🔍"
+    mode_name = {"HP": "Hardpoint", "SND": "Search & Destroy",
+                 "CTRL": "Control"}.get(r["mode"], r["mode"])
+    mode_emoji = {"HP": "🎯", "SND": "🔍", "CTRL": "🛡️"}.get(r["mode"], "🎯")
     embed = discord.Embed(
         title=f"{mode_emoji} Match Report #{match_id} — {mode_name}",
         color=0x9B59B6,
@@ -48,6 +49,15 @@ def build_match_report_embed(match_id: int, include_insight: bool = True) -> dis
             ),
             inline=False,
         )
+    elif r["mode"] == "CTRL":
+        embed.add_field(
+            name="📊 Team Average",
+            value=(
+                f"Kills {t.get('kills',0)/n:.1f} · Deaths {t.get('deaths',0)/n:.1f} · "
+                f"Assists {t.get('assists',0)/n:.1f} · Cap Kills {t.get('cap',0)/n:.1f}"
+            ),
+            inline=False,
+        )
     else:
         embed.add_field(
             name="📊 Team Average",
@@ -65,6 +75,13 @@ def build_match_report_embed(match_id: int, include_insight: bool = True) -> dis
         text += "-" * 48 + "\n"
         for p in r["players"]:
             text += f"{p['name']:<10}{p['k']:>4}{p['d']:>4}{str(p['kd']):>6}{p['dmg']:>7}{p['obj']:>6}{p['score']:>8}\n"
+        text += "```"
+    elif r["mode"] == "CTRL":
+        text = "```\n"
+        text += f"{'Player':<10}{'K':>4}{'D':>4}{'A':>4}{'K/D':>6}{'DMG':>7}{'Cap':>5}\n"
+        text += "-" * 44 + "\n"
+        for p in r["players"]:
+            text += f"{p['name']:<10}{p['k']:>4}{p['d']:>4}{p['a']:>4}{str(p['kd']):>6}{p['dmg']:>7}{p['cap']:>5}\n"
         text += "```"
     else:
         text = "```\n"
@@ -120,7 +137,8 @@ def build_trend_embed(name: str, recent_n: int = 10, include_insight: bool = Tru
     if not t:
         return None
 
-    mode_name = "Hardpoint" if t["mode"] == "HP" else "Search & Destroy"
+    mode_name = {"HP": "Hardpoint", "SND": "Search & Destroy",
+                 "CTRL": "Control"}.get(t["mode"], t["mode"])
     d = t["delta"]
     kd_trend = "📈" if d["kd_pct"] > 3 else ("📉" if d["kd_pct"] < -3 else "➡️")
     embed = discord.Embed(
@@ -131,7 +149,7 @@ def build_trend_embed(name: str, recent_n: int = 10, include_insight: bool = Tru
 
     rec = t["recent"]
     ovr = t["overall"]
-    if t["mode"] == "HP":
+    if t["mode"] in ("HP", "CTRL"):
         text = "```\n"
         text += f"{'Metric':<8}{'Recent':>8}{'Overall':>8}{'Change':>8}\n"
         text += "-" * 34 + "\n"

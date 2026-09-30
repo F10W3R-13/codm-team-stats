@@ -21,7 +21,8 @@ def _domains_for_match(mode: str, map_name: str = None, extra: list = None) -> l
     extra: 추가 영역 (예: ['team','mechanics-terms']).
     """
     d = ["principles", "mechanics-core"]
-    mode_key = {"HP": "mode-hp", "SND": "mode-snd", "Control": "mode-control"}.get(mode)
+    mode_key = {"HP": "mode-hp", "SND": "mode-snd", "CTRL": "mode-control",
+                "Control": "mode-control"}.get(mode)
     if mode_key:
         d.append(mode_key)
     if map_name:
@@ -38,6 +39,8 @@ def _domains_for_player(stats: dict) -> list:
         d.append("mode-hp")
     if stats.get("snd"):
         d.append("mode-snd")
+    if stats.get("ctrl"):
+        d.append("mode-control")
     return d
 
 
@@ -186,13 +189,14 @@ def player_profile_insight(stats: dict, team_hp: dict = None, lang: str = "ko") 
     강점/약점(팀 평균 대비), 플레이 스타일 치우침, 안정성 등을
     자연어로 요약. 실패 시 빈 문자열.
     """
-    if not stats or not (stats.get("hp") or stats.get("snd")):
+    if not stats or not (stats.get("hp") or stats.get("snd") or stats.get("ctrl")):
         return ""
     try:
         data = {
             "name": stats["name"],
             "hp": stats.get("hp"),
             "snd": stats.get("snd"),
+            "ctrl": stats.get("ctrl"),
             "team_hp_avg": team_hp,
         }
         completion = _client().chat.completions.create(
@@ -208,7 +212,7 @@ def player_profile_insight(stats: dict, team_hp: dict = None, lang: str = "ko") 
                         f"2) play style bias — "
                         f"{'infer slayer/objective/balanced from OBJ, CapKill, ZCS, DPD (HP-only metrics). ' if stats.get('hp') else ''}"
                         f"3) form stability (mention std dev if present). "
-                        f"IMPORTANT: ZCS/OBJ/CapKill are HP-only metrics — never reference them for SND-only data. "
+                        f"IMPORTANT: ZCS/OBJ/CapKill are HP-only metrics — never reference them for SND-only or Control-only data. "
                         f"Grounded in numbers, no over-interpretation. Actionable, for web display.",
                         lang,
                         domains=_domains_for_player(stats),
@@ -242,6 +246,9 @@ def map_advice(map_data: dict, lang: str = "ko") -> str:
         if is_hp:
             player_keys = ("player_name", "matches", "avg_kd",
                            "avg_zcs", "avg_k", "avg_dmg", "avg_obj")
+        elif mode == "CTRL":
+            player_keys = ("player_name", "matches", "avg_kd",
+                           "avg_k", "avg_dmg", "avg_capture")
         else:
             player_keys = ("player_name", "matches", "avg_kd",
                            "avg_k", "avg_d", "avg_score")
@@ -269,7 +276,7 @@ def map_advice(map_data: dict, lang: str = "ko") -> str:
                         f"Describe the NUMERIC TRENDS of one map ({mode}) in 4-6 sentences. "
                         f"RULES: only point out statistical tendencies (e.g. 'on this map "
                         f"team K/D is -12% vs season'{zcs_hint}"
-                        + ("Do NOT mention ZCS — it is undefined for SND. " if not is_hp else "")
+                        + ("Do NOT mention ZCS — it is undefined for SND/Control. " if not is_hp else "")
                         + "). Cross-reference the map tendency in your domain context when "
                         "relevant. Do NOT give direct orders or tactical instructions. "
                         "Stick to what the numbers show — let the coach interpret. "
@@ -379,7 +386,7 @@ def briefing_insight(hub_data: dict, lang: str = "ko") -> str:
                 {"map": m["map_name"], "mode": mode,
                  "score": m["score"], "delta": m["delta_pct"],
                  "badge": m["badge"], "n": m["recent_matches"]}
-                for mode in ("HP", "SND")
+                for mode in ("HP", "SND", "CTRL")
                 for m in ((hub_data.get("banpick") or {}).get(mode, {}) or {}).get("ranked", [])
             ],
             "roles": [

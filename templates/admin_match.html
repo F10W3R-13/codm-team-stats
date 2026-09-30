@@ -72,6 +72,34 @@
         </tbody>
     </table>
     </div>
+    {% elif match.mode == 'CTRL' %}
+    {% set ctrl_fields = [('kills','Kills',55), ('deaths','Deaths',55), ('assists','Assists',55), ('kd_ratio','K/D',65), ('score','Score',75), ('impact','Impact',65), ('total_damage','DMG',80), ('capture_kill','CapKill',60)] %}
+    <div class="table-wrap stat-table-wrap">
+    <table class="stat-table">
+        <thead>
+            <tr>
+                <th>{{ t.player }}</th>
+                {% for _, label, _ in ctrl_fields %}<th class="num">{{ label }}</th>{% endfor %}
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for p in match.players %}
+            <tr data-stat-id="{{ p.stat_id }}">
+                <td><select class="select edit-player_id edit-select">
+                    {% for pl in players %}
+                    <option value="{{ pl.id }}" {% if pl.id == p.player_id %}selected{% endif %}>{{ pl.name }}</option>
+                    {% endfor %}
+                </select></td>
+                {% for key, _, w in ctrl_fields %}
+                <td class="num"><input type="number" class="input edit-{{ key }} stat-input" style="width:{{ w }}px;" value="{{ p[key] }}"></td>
+                {% endfor %}
+                <td><button type="button" class="btn btn--toggle btn--sm" onclick="saveStat(this)" data-stat="{{ p.stat_id }}" aria-label="{{ t.save }}">✓</button></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    </div>
     {% else %}
     {% set snd_fields = [('kills','Kills',55), ('deaths','Deaths',55), ('assists','Assists',55), ('kd_ratio','K/D',65), ('score','Score',75), ('impact','Impact',65), ('adr','ADR',65), ('first_kill','FK',50), ('lone_wolf_win','LWW',50)] %}
     <div class="table-wrap stat-table-wrap">
@@ -196,6 +224,7 @@ function playerOptions(selectedId) {
 
 const HP_FIELDS = [['kills',60],['deaths',60],['kd_ratio',70],['obj_time',70],['score',80],['impact',70],['total_damage',80],['capture_kill',60]];
 const SND_FIELDS = [['kills',55],['deaths',55],['assists',55],['kd_ratio',65],['score',75],['impact',65],['adr',65],['first_kill',50],['lone_wolf_win',50]];
+const CTRL_FIELDS = [['kills',55],['deaths',55],['assists',55],['kd_ratio',65],['score',75],['impact',65],['total_damage',80],['capture_kill',60]];
 
 function addPlayerRow() {
     const tbody = document.querySelector('table tbody');
@@ -203,7 +232,7 @@ function addPlayerRow() {
     const tr = document.createElement('tr');
     tr.dataset.new = "1";
     const sel = `<td><select class="select edit-player_id edit-select">${playerOptions(null)}</select></td>`;
-    const fields = mode === 'HP' ? HP_FIELDS : SND_FIELDS;
+    const fields = mode === 'HP' ? HP_FIELDS : (mode === 'CTRL' ? CTRL_FIELDS : SND_FIELDS);
     const inputs = fields.map(([k, w]) =>
         `<td class="num"><input type="number" class="input edit-${k} stat-input" style="width:${w}px;"></td>`
     ).join('');

@@ -17,6 +17,7 @@ STRINGS = {
 
         "mode_hp": "Punto Fuerte",
         "mode_snd": "Buscar y Destruir",
+        "mode_ctrl": "Control",
         "all": "Todos",
         "date": "Fecha",
         "map": "Mapa",
@@ -47,6 +48,7 @@ STRINGS = {
 
         "hp_section": "🎯 Punto Fuerte",
         "snd_section": "🔍 Buscar y Destruir",
+        "ctrl_section": "🛡️ Control",
         "games": "partidas",
         "avg_kd": "K / D Prom",
         "obj_seconds": "OBJ Prom",
@@ -73,6 +75,7 @@ STRINGS = {
         "player_maps_title": "🗺️ Rendimiento por Mapa",
         "player_maps_help": "vs promedio personal",
         "player_maps_help_snd": "RDS por mapa SND (vs propio promedio)",
+        "player_maps_help_ctrl": "K/D por mapa de Control (vs propio promedio)",
         "player_maps_no_data_hp": "Datos insuficientes de mapas HP",
         "player_maps_no_data_snd": "Datos insuficientes de mapas SND",
         "player_maps_strong": "Fuerte",

@@ -110,15 +110,38 @@ class StatsCommands(commands.Cog):
         else:
             embed.add_field(name="🔍 Search & Destroy", value="No data", inline=False)
 
+        # CTRL section (전용 지표 없음 — K/D 중심)
+        if s.get("ctrl"):
+            c = s["ctrl"]
+            embed.add_field(
+                name=f"🛡️ Control ({c['matches']} matches)",
+                value=(
+                    f"```\n"
+                    f"K/D/A     : {c['avg_k']}/{c['avg_d']}/{c['avg_a']}  ({c['avg_kd']})\n"
+                    f"Avg Kills: {c['avg_k']}\n"
+                    f"Avg Deaths: {c['avg_d']}\n"
+                    f"Avg Assists: {c['avg_a']}\n"
+                    f"Score     : {c['avg_score']:.0f}\n"
+                    f"Impact    : {c['avg_impact']:.0f}\n"
+                    f"Total DMG : {c['avg_dmg']:.0f}\n"
+                    f"Cap Kills : {c['avg_capture']}\n"
+                    f"```"
+                ),
+                inline=False,
+            )
+        else:
+            embed.add_field(name="🛡️ Control", value="No data", inline=False)
+
         embed.set_footer(text="All-time averages")
         await interaction.response.send_message(embed=embed)
 
     # ── /compare ──────────────────────────────────────────────────────────
     @app_commands.command(name="compare", description="Compare two players' stats")
-    @app_commands.describe(player_a="Player 1", player_b="Player 2", mode="HP or SND (default HP)")
+    @app_commands.describe(player_a="Player 1", player_b="Player 2", mode="HP, SND or CTRL (default HP)")
     @app_commands.choices(mode=[
         app_commands.Choice(name="Hardpoint (HP)", value="HP"),
         app_commands.Choice(name="Search & Destroy (SND)", value="SND"),
+        app_commands.Choice(name="Control (CTRL)", value="CTRL"),
     ])
     async def compare(
         self,
@@ -141,7 +164,7 @@ class StatsCommands(commands.Cog):
 
         sa = queries.player_overall_stats(pa)
         sb = queries.player_overall_stats(pb)
-        key = "hp" if m == "HP" else "snd"
+        key = {"HP": "hp", "SND": "snd", "CTRL": "ctrl"}.get(m, "snd")
         ha = sa[key]
         hb = sb[key]
 
@@ -168,6 +191,18 @@ class StatsCommands(commands.Cog):
                 ("Impact", ha["avg_impact"], hb["avg_impact"], True),
                 ("Total DMG", ha["avg_dmg"], hb["avg_dmg"], True),
                 ("Cap Kill", ha["avg_capture"], hb["avg_capture"], True),
+            ]
+        elif m == "CTRL":
+            rows = [
+                ("Matches", ha["matches"], hb["matches"], False),
+                ("Avg K/D", ha["avg_kd"], hb["avg_kd"], True),
+                ("Avg Kills", ha["avg_k"], hb["avg_k"], True),
+                ("Avg Deaths", ha["avg_d"], hb["avg_d"], False),
+                ("Avg Assists", ha["avg_a"], hb["avg_a"], True),
+                ("Score", ha["avg_score"], hb["avg_score"], True),
+                ("Impact", ha["avg_impact"], hb["avg_impact"], True),
+                ("Total DMG", ha["avg_dmg"], hb["avg_dmg"], True),
+                ("Cap Kills", ha["avg_capture"], hb["avg_capture"], True),
             ]
         else:
             rows = [
@@ -212,10 +247,11 @@ class StatsCommands(commands.Cog):
 
     # ── /lastmatch ────────────────────────────────────────────────────────
     @app_commands.command(name="lastmatch", description="Show the most recent match result")
-    @app_commands.describe(mode="HP or SND (default: overall most recent)")
+    @app_commands.describe(mode="HP, SND or CTRL (default: overall most recent)")
     @app_commands.choices(mode=[
         app_commands.Choice(name="Hardpoint (HP)", value="HP"),
         app_commands.Choice(name="Search & Destroy (SND)", value="SND"),
+        app_commands.Choice(name="Control (CTRL)", value="CTRL"),
     ])
     async def lastmatch(
         self,
@@ -230,7 +266,8 @@ class StatsCommands(commands.Cog):
             )
             return
 
-        mode_name = "Hardpoint" if lm["mode"] == "HP" else "Search & Destroy"
+        mode_name = {"HP": "Hardpoint", "SND": "Search & Destroy",
+                     "CTRL": "Control"}.get(lm["mode"], lm["mode"])
         embed = discord.Embed(
             title=f"🎮 Match #{lm['match_id']} — {mode_name}",
             color=0x9B59B6,
@@ -248,6 +285,13 @@ class StatsCommands(commands.Cog):
             for p in lm["players"]:
                 text += f"{p['name']:<10}{p['k']:>4}{p['d']:>4}{str(p['kd']):>6}{p['score']:>8}{p['dmg']:>7}\n"
             text += "```"
+        elif lm["mode"] == "CTRL":
+            text = "```\n"
+            text += f"{'Player':<10}{'K':>4}{'D':>4}{'A':>4}{'K/D':>6}{'Score':>8}{'Cap':>5}\n"
+            text += "-" * 44 + "\n"
+            for p in lm["players"]:
+                text += f"{p['name']:<10}{p['k']:>4}{p['d']:>4}{p['a']:>4}{str(p['kd']):>6}{p['score']:>8}{str(p['cap']):>5}\n"
+            text += "```"
         else:
             text = "```\n"
             text += f"{'Player':<10}{'K':>4}{'D':>4}{'A':>4}{'K/D':>6}{'Score':>8}{'ADR':>6}\n"
@@ -262,12 +306,13 @@ class StatsCommands(commands.Cog):
     # ── /leaderboard ──────────────────────────────────────────────────────
     @app_commands.command(name="leaderboard", description="Show the team ranking")
     @app_commands.describe(
-        mode="HP or SND (default HP)",
+        mode="HP, SND or CTRL (default HP)",
         metric="Sort metric (default K/D)",
     )
     @app_commands.choices(mode=[
         app_commands.Choice(name="Hardpoint (HP)", value="HP"),
         app_commands.Choice(name="Search & Destroy (SND)", value="SND"),
+        app_commands.Choice(name="Control (CTRL)", value="CTRL"),
     ])
     @app_commands.choices(metric=[
         app_commands.Choice(name="K/D", value="avg_kd"),

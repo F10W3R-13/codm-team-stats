@@ -17,7 +17,7 @@ def save_match(mode: str, players: list, match_date: str, map_name: str = None,
                enemy_players: list = None) -> dict:
     """GPT 분석 결과 한 매치를 DB에 저장.
 
-    mode:           "HP" 또는 "SND"
+    mode:           "HP", "SND" 또는 "CTRL"
     players:        GPT 결과의 players 배열 (선수 dict 리스트)
     match_date:     ISO 날짜(YYYY-MM-DD). 디스코드 메시지 작성일.
     map_name:       맵 이름 (전체 스크린샷에서 추출, 예: "Combine")
@@ -110,19 +110,28 @@ def swap_sides(players: list, enemy_players: list, result: str = None,
             "result": flipped,
             "team_score": opponent_score,
             "opponent_score": team_score}
+# 모드 → 선수 스탯 테이블 매핑 (재업로드 탐지·행수 집계 공용)
+_MODE_TABLE = {
+    "HP": "player_stats_hp",
+    "SND": "player_stats_snd",
+    "CTRL": "player_stats_ctrl",
+}
 
 
 def _upsert_players(conn, mode: str, match_id: int, players: list) -> None:
     if mode == "HP":
         for p in players:
             _insert_hp(conn, match_id, p)
+    elif mode == "CTRL":
+        for p in players:
+            _insert_ctrl(conn, match_id, p)
     else:  # SND
         for p in players:
             _insert_snd(conn, match_id, p)
 
 
 def _match_row_count(conn, mode: str, match_id: int) -> int:
-    tbl = "player_stats_hp" if mode == "HP" else "player_stats_snd"
+    tbl = _MODE_TABLE.get(mode, "player_stats_snd")
     r = conn.execute(
         db._adapt_sql(f"SELECT COUNT(*) c FROM {tbl} WHERE match_id=?"),
         (match_id,),
@@ -160,7 +169,7 @@ def _find_reupload_target(conn, mode: str, players: list, match_date: str, map_n
     )
     if not any(incoming.values()):
         return None
-    tbl = "player_stats_hp" if mode == "HP" else "player_stats_snd"
+    tbl = _MODE_TABLE.get(mode, "player_stats_snd")
     # 맵 조건: 양쪽 다 알 때는 동일해야 하되, 한쪽이라도 못 읽었으면(NULL) 통과.
     # 진짜 중복 판별은 아래 스탯 부분집합 조건이 담당한다.
     cands = conn.execute(
@@ -228,6 +237,27 @@ def _insert_snd(conn, match_id, p):
     )
 
 
+def _insert_ctrl(conn, match_id, p):
+    name = p.get("name", "").strip() or "Unknown"
+    ign_raw = (p.get("ign_raw") or "").strip() or name
+    pid = db.resolve_player_id(conn, name, ign_raw=ign_raw)
+    conn.upsert(
+        "player_stats_ctrl",
+        ["match_id", "player_id", "ign_raw", "kills", "deaths", "assists",
+         "kd_ratio", "score", "impact", "total_damage", "capture_kill"],
+        (
+            match_id, pid, ign_raw,
+            _to_int(p.get("k")), _to_int(p.get("d")), _to_int(p.get("a")),
+            _to_float(p.get("kd_ratio")), _to_int(p.get("score")),
+            _to_float(p.get("impact")), _to_int(p.get("total_damage")),
+            _to_int(p.get("capture_kill")),
+        ),
+        conflict_col="match_id, player_id",
+        update_cols=["ign_raw", "kills", "deaths", "assists", "kd_ratio",
+                     "score", "impact", "total_damage", "capture_kill"],
+    )
+
+
 def _save_opponent_stats(conn, match_id: int, mode: str, enemy_players: list) -> dict:
     """상대 선수 스탯 저장 + 팀 자동 식별 (spec §5).
 
@@ -257,6 +287,8 @@ def _save_opponent_stats(conn, match_id: int, mode: str, enemy_players: list) ->
         name = (p.get("name") or "").strip()
         if mode == "HP":
             _insert_opp_hp(conn, match_id, pid, p)
+        elif mode == "CTRL":
+            _insert_opp_ctrl(conn, match_id, pid, p)
         else:
             _insert_opp_snd(conn, match_id, pid, p)
         if team_id and not opponent_matching.is_ocr_suspect(name):
@@ -305,6 +337,24 @@ def _insert_opp_snd(conn, match_id, pid, p):
         conflict_col="match_id, player_id",
         update_cols=["ign_raw", "kills", "deaths", "assists", "kd_ratio",
                      "score", "impact", "adr", "first_kill", "lone_wolf_win"],
+    )
+
+
+def _insert_opp_ctrl(conn, match_id, pid, p):
+    conn.upsert(
+        "opponent_stats_ctrl",
+        ["match_id", "player_id", "ign_raw", "kills", "deaths", "assists",
+         "kd_ratio", "score", "impact", "total_damage", "capture_kill"],
+        (
+            match_id, pid, (p.get("name") or "").strip() or "Unknown",
+            _to_int(p.get("k")), _to_int(p.get("d")), _to_int(p.get("a")),
+            _to_float(p.get("kd_ratio")), _to_int(p.get("score")),
+            _to_float(p.get("impact")), _to_int(p.get("total_damage")),
+            _to_int(p.get("capture_kill")),
+        ),
+        conflict_col="match_id, player_id",
+        update_cols=["ign_raw", "kills", "deaths", "assists", "kd_ratio",
+                     "score", "impact", "total_damage", "capture_kill"],
     )
 
 

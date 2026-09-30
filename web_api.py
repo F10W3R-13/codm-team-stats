@@ -128,7 +128,7 @@ async def coaching_hub_page(request: Request, lang: str = Query("ko"),
 @app.get("/players", response_class=HTMLResponse)
 async def players_page(
     request: Request,
-    mode: str = Query("HP", pattern="^(HP|SND)$"),
+    mode: str = Query("HP", pattern="^(HP|SND|CTRL)$"),
     lang: str = Query("ko"),
     season: str = _SEASON_Q,
 ):
@@ -172,13 +172,16 @@ async def player_detail(request: Request, name: str, lang: str = Query("ko"),
             stats["hp"]["obj_score"] = r["obj_score"]
             stats["hp"]["tilt"] = r["tilt"]
             stats["hp"]["spectrum_pos"] = metrics.role_spectrum_pos(r["slay_score"], r["obj_score"])
-    # 맵별 성적 — HP(ZCS)/SND(RDS) 본인 평균 대비 강은/약한 맵
+    # 맵별 성적 — HP(ZCS)/SND(RDS)/CTRL(K/D) 본인 평균 대비 강한/약한 맵
     player_maps = queries.player_map_breakdown(pid, mode="HP", min_matches=5, season=season) if stats["hp"] else []
     player_maps_snd = queries.player_map_breakdown(pid, mode="SND", min_matches=2, season=season) if stats["snd"] else []
-    # 히트맵 색 클래스 — metric_pct 크기에 비례한 5단계 (HP/SND 공용)
+    player_maps_ctrl = queries.player_map_breakdown(pid, mode="CTRL", min_matches=2, season=season) if stats.get("ctrl") else []
+    # 히트맵 색 클래스 — metric_pct 크기에 비례한 5단계 (HP/SND/CTRL 공용)
     for m in player_maps:
         m["heat_class"] = _heat_class(m["metric_pct"])
     for m in player_maps_snd:
+        m["heat_class"] = _heat_class(m["metric_pct"])
+    for m in player_maps_ctrl:
         m["heat_class"] = _heat_class(m["metric_pct"])
     # AI 인사이트 — 캐시 hit 시에만 즉시 렌더. miss면 None (프런트가 fetch로 비동기 로드).
     cache_key = stats["name"] if stats["name"] else ""
@@ -190,6 +193,7 @@ async def player_detail(request: Request, name: str, lang: str = Query("ko"),
         stats=stats, team_hp=team_hp,
         insight=insight, player_maps=player_maps, player_maps_snd=player_maps_snd,
         season=season,
+        player_maps_ctrl=player_maps_ctrl,
     )
 
 
@@ -199,7 +203,7 @@ async def compare_page(
     request: Request,
     a: str = Query(None),
     b: str = Query(None),
-    mode: str = Query("HP", pattern="^(HP|SND)$"),
+    mode: str = Query("HP", pattern="^(HP|SND|CTRL)$"),
     lang: str = Query("ko"),
     season: str = _SEASON_Q,
 ):
@@ -216,7 +220,7 @@ async def compare_page(
 @app.get("/leaderboard", response_class=HTMLResponse)
 async def leaderboard_page(
     request: Request,
-    mode: str = Query("HP", pattern="^(HP|SND)$"),
+    mode: str = Query("HP", pattern="^(HP|SND|CTRL)$"),
     metric: str = Query("avg_kd"),
     lang: str = Query("ko"),
     season: str = _SEASON_Q,
@@ -240,7 +244,7 @@ async def leaderboard_page(
 @app.get("/matches", response_class=HTMLResponse)
 async def matches_page(
     request: Request,
-    mode: str = Query("ALL", pattern="^(ALL|HP|SND)$"),
+    mode: str = Query("ALL", pattern="^(ALL|HP|SND|CTRL)$"),
     page: int = Query(1, ge=1),
     lang: str = Query("ko"),
     season: str = _SEASON_Q,
@@ -311,7 +315,7 @@ async def api_player_insight(name: str, lang: str = "ko", season: str = _SEASON_
     if not pid:
         raise HTTPException(404, "선수 없음")
     stats = queries.player_overall_stats(pid, season)
-    if not (stats.get("hp") or stats.get("snd")):
+    if not (stats.get("hp") or stats.get("snd") or stats.get("ctrl")):
         return {"insight": "", "cached": False}
     team_hp = queries.team_averages("HP", season) if stats["hp"] else {}
     if team_hp:
@@ -398,7 +402,7 @@ async def api_briefing(recent: str = Query("10"), season: str = _SEASON_Q):
 @app.get("/maps", response_class=HTMLResponse)
 async def maps_page(
     request: Request,
-    mode: str = Query("HP", pattern="^(HP|SND)$"),
+    mode: str = Query("HP", pattern="^(HP|SND|CTRL)$"),
     lang: str = Query("ko"),
     season: str = _SEASON_Q,
 ):
@@ -410,7 +414,7 @@ async def maps_page(
 async def map_detail_page(
     request: Request,
     map_name: str,
-    mode: str = Query("HP", pattern="^(HP|SND)$"),
+    mode: str = Query("HP", pattern="^(HP|SND|CTRL)$"),
     lang: str = Query("ko"),
     season: str = _SEASON_Q,
 ):
@@ -471,7 +475,7 @@ async def admin_login_submit(payload: dict = Body(...)):
 @app.get("/admin", response_class=HTMLResponse)
 async def admin_page(
     request: Request,
-    mode: str = Query("ALL", pattern="^(ALL|HP|SND)$"),
+    mode: str = Query("ALL", pattern="^(ALL|HP|SND|CTRL)$"),
     page: int = Query(1, ge=1),
     has_result: str = Query("ALL", pattern="^(ALL|YES|NO)$"),
     lang: str = Query("ko"),

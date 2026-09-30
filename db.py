@@ -68,7 +68,7 @@ CREATE TABLE IF NOT EXISTS aliases (
 
 CREATE TABLE IF NOT EXISTS matches (
     id                  INTEGER PRIMARY KEY AUTOINCREMENT,
-    mode                TEXT NOT NULL CHECK (mode IN ('HP', 'SND')),
+    mode                TEXT NOT NULL CHECK (mode IN ('HP', 'SND', 'CTRL')),
     map_name            TEXT,
     match_date          TEXT,
     raw_date            TEXT,
@@ -119,8 +119,27 @@ CREATE TABLE IF NOT EXISTS player_stats_snd (
     UNIQUE(match_id, player_id)
 );
 
+-- Control (사이트 캡처/방어, 티켓제) — 전용 제1지표 없음(K/D 중심).
+-- capture_kill: 디테일 탭 CAPTURE KILL(S) 열 (HP와 동일한 캡처킬). 없으면 0.
+CREATE TABLE IF NOT EXISTS player_stats_ctrl (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    match_id        INTEGER NOT NULL REFERENCES matches(id),
+    player_id       INTEGER NOT NULL REFERENCES players(id),
+    ign_raw         TEXT,
+    kills           INTEGER,
+    deaths          INTEGER,
+    assists         INTEGER,
+    kd_ratio        REAL,
+    score           INTEGER,
+    impact          REAL,
+    total_damage    INTEGER,
+    capture_kill     INTEGER,
+    UNIQUE(match_id, player_id)
+);
+
 CREATE INDEX IF NOT EXISTS idx_hp_player  ON player_stats_hp(player_id);
 CREATE INDEX IF NOT EXISTS idx_snd_player ON player_stats_snd(player_id);
+CREATE INDEX IF NOT EXISTS idx_ctrl_player ON player_stats_ctrl(player_id);
 
 -- 날짜 단위 복기 데이터 (VOD/코치메모/전사요약). matches가 매치 단위라
 -- 하루치 VOD/전사가 매치마다 중복 저장되는 문제를 해결하기 위해 날짜 PK로 분리.
@@ -209,10 +228,95 @@ CREATE TABLE IF NOT EXISTS opponent_stats_snd (
     UNIQUE(match_id, player_id)
 );
 
+CREATE TABLE IF NOT EXISTS opponent_stats_ctrl (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    match_id        INTEGER NOT NULL REFERENCES matches(id),
+    player_id       INTEGER NOT NULL REFERENCES opponent_players(id),
+    ign_raw         TEXT,
+    kills           INTEGER,
+    deaths          INTEGER,
+    assists         INTEGER,
+    kd_ratio        REAL,
+    score           INTEGER,
+    impact          REAL,
+    total_damage    INTEGER,
+    capture_kill     INTEGER,
+    UNIQUE(match_id, player_id)
+);
+
 CREATE INDEX IF NOT EXISTS idx_opp_hp_player ON opponent_stats_hp(player_id);
 CREATE INDEX IF NOT EXISTS idx_opp_snd_player ON opponent_stats_snd(player_id);
+CREATE INDEX IF NOT EXISTS idx_opp_ctrl_player ON opponent_stats_ctrl(player_id);
 CREATE INDEX IF NOT EXISTS idx_matches_opp_team ON matches(opponent_team_id);
 """
+
+
+def _migrate_matches_mode_check_pg(cur) -> None:
+    """Postgres: 기존 matches.mode CHECK 제약(HP,SND)을 CTRL 포함형으로 교체.
+
+    SCHEMA는 CREATE IF NOT EXISTS라 기존 테이블의 제약은 그대로 — 제약이
+    CTRL을 허용하지 않으면 DROP 후 재추가. 새로 만들어진 DB는 이미 신규
+    제약이라 def에 'CTRL'이 보여 스킵된다.
+    """
+    cur.execute(
+        "SELECT conname, pg_get_constraintdef(oid) AS def FROM pg_constraint "
+        "WHERE conrelid = 'matches'::regclass AND contype = 'c'"
+    )
+    for conname, def_ in cur.fetchall():
+        if "'HP'" in def_ and "CTRL" not in def_:
+            cur.execute(f"ALTER TABLE matches DROP CONSTRAINT {conname}")
+            cur.execute(
+                "ALTER TABLE matches ADD CONSTRAINT matches_mode_check "
+                "CHECK (mode IN ('HP','SND','CTRL'))"
+            )
+
+
+def _migrate_matches_mode_check_sqlite(conn) -> bool:
+    """SQLite: matches.mode CHECK 제약에 CTRL 추가 (테이블 재구축).
+
+    SQLite는 CHECK를 ALTER로 못 바꾼다 → 새 테이블 생성→복사→치환.
+    FK 참조(player_stats_*)가 살아있어야 하므로 foreign_keys를 끄고 수행.
+    반환: 재구축 수행 여부.
+    """
+    import re as _re
+
+    row = conn.execute(
+        "SELECT sql FROM sqlite_master WHERE type='table' AND name='matches'"
+    ).fetchone()
+    # init_db의 SQLite 커넥션은 row_factory 미설정(튜플) — 인덱스 접근.
+    old_sql = row[0] if row else None
+    if not old_sql or "CTRL" in old_sql:
+        return False
+    create_new = _re.sub(
+        r"CREATE TABLE matches\b|IN \('HP',\s*'SND'\)",
+        lambda m: ("CREATE TABLE matches_new" if m.group(0).startswith("CREATE")
+                   else "IN ('HP', 'SND', 'CTRL')"),
+        old_sql, count=2,
+    )
+    if "matches_new" not in create_new or "CTRL" not in create_new:
+        log.warning("마이그레이션 스킵: matches CHECK 패턴을 인식할 수 없음")
+        return False
+    # 실제 존재하는 컬럼만 복사 (변형/구버전 스키마 안전장치)
+    live_cols = {r[1] for r in conn.execute("PRAGMA table_info(matches)").fetchall()}
+    copy_cols = [c for c in ("id", "mode", "map_name", "match_date", "raw_date",
+                             "result", "team_score", "opponent_score", "coach_note",
+                             "vod_url", "transcript_summary", "opponent_team_id",
+                             "created_at") if c in live_cols]
+    col_list = ", ".join(copy_cols)
+    log.info("마이그레이션: matches.mode CHECK에 CTRL 추가 (테이블 재구축)")
+    conn.executescript(f"""
+        PRAGMA foreign_keys=OFF;
+        BEGIN;
+        {create_new};
+        INSERT INTO matches_new ({col_list})
+            SELECT {col_list}
+            FROM matches;
+        DROP TABLE matches;
+        ALTER TABLE matches_new RENAME TO matches;
+        COMMIT;
+    """)
+    conn.execute("PRAGMA foreign_keys=ON")
+    return True
 
 
 def _adapt_sql(sql: str) -> str:
@@ -334,6 +438,8 @@ def init_db() -> None:
                     cur.execute("ALTER TABLE matches ADD COLUMN IF NOT EXISTS season TEXT")
                     cur.execute(_adapt_sql(_BACKFILL_SEASON), (SEASON_CUTOFF,))
                     cur.execute("CREATE INDEX IF NOT EXISTS idx_matches_season ON matches(season)")
+                    # 마이그레이션: mode CHECK 제약 HP/SND → CTRL 포함
+                    _migrate_matches_mode_check_pg(cur)
                     conn.commit()
                 finally:
                     cur.execute("SELECT pg_advisory_unlock(89473124)")
@@ -357,6 +463,12 @@ def init_db() -> None:
                               ("season", "TEXT")]:
                 if col not in cols:
                     conn.execute(f"ALTER TABLE matches ADD COLUMN {col} {decl}")
+            # 마이그레이션: mode CHECK 제약 HP/SND → CTRL 포함 (테이블 재구축).
+            # 컬럼 추가 직후 실행 — 재구축이 matches 인덱스를 날리므로 아래에서 재생성.
+            rebuilt = _migrate_matches_mode_check_sqlite(conn)
+            if rebuilt:
+                conn.execute("CREATE INDEX IF NOT EXISTS idx_matches_mode ON matches(mode)")
+                conn.execute("CREATE INDEX IF NOT EXISTS idx_matches_date ON matches(match_date)")
             conn.execute("CREATE INDEX IF NOT EXISTS idx_matches_result ON matches(result)")
             conn.execute("CREATE INDEX IF NOT EXISTS idx_matches_opp_team ON matches(opponent_team_id)")
             conn.execute("CREATE INDEX IF NOT EXISTS idx_matches_season ON matches(season)")
@@ -772,7 +884,7 @@ def merge_player(src_player_id: int, dst_player_name: str) -> dict:
             )
 
         # 매치 스탯 이관: 같은 match_id 에 dst 가 이미 있으면 충돌 행은 삭제(src 버림)
-        for tbl in ("player_stats_hp", "player_stats_snd"):
+        for tbl in ("player_stats_hp", "player_stats_snd", "player_stats_ctrl"):
             # 충돌행(같은 match_id 에 dst 있음) 먼저 삭제
             conn.execute(
                 f"DELETE FROM {tbl} WHERE player_id = ? AND match_id IN "
@@ -960,7 +1072,7 @@ def merge_opponent_player(src_player_id: int, dst_player_id: int) -> dict:
                 "UPDATE opponent_aliases SET opponent_player_id = ? WHERE opponent_player_id = ?",
                 (dst_player_id, src_player_id))
 
-        for tbl in ("opponent_stats_hp", "opponent_stats_snd"):
+        for tbl in ("opponent_stats_hp", "opponent_stats_snd", "opponent_stats_ctrl"):
             conn.execute(_adapt_sql(
                 f"DELETE FROM {tbl} WHERE player_id = ? AND match_id IN "
                 f"(SELECT match_id FROM {tbl} WHERE player_id = ?)"),

@@ -23,11 +23,12 @@
         <div class="label">{{ t.map_win_rate }}</div>
     </div>
     {% endif %}
-    {% set season_metric = data.trend.season.rds if data.mode == 'SND' else data.trend.season.zcs %}
+    {% set season_metric = data.trend.season.rds if data.mode == 'SND' else (data.trend.season.avg_kd if data.mode == 'CTRL' else data.trend.season.zcs) %}
+    {% set season_label = t.rds_label if data.mode == 'SND' else (t.kd if data.mode == 'CTRL' else t.zcs_label) %}
     {% if season_metric is not none %}
     <div class="card stat-card card--accent">
         <div class="value text-accent">{{ season_metric }}</div>
-        <div class="label">{% if data.mode == 'SND' %}{{ t.rds_label }}{% else %}{{ t.zcs_label }}{% endif %} ({{ t.hub_season }})</div>
+        <div class="label">{{ season_label }} ({{ t.hub_season }})</div>
     </div>
     {% endif %}
 </div>
@@ -109,6 +110,10 @@
                 <th class="num" data-mobile-hide>{{ t.m_dmg }}</th>
                 <th class="num" data-mobile-hide>{{ t.m_obj }}</th>
                 <th class="num" data-mobile-hide>{{ t.m_cap }}</th>
+                {% elif data.mode == 'CTRL' %}
+                <th class="num" data-mobile-hide>{{ t.avg_a }}</th>
+                <th class="num" data-mobile-hide>{{ t.m_dmg }}</th>
+                <th class="num" data-mobile-hide>{{ t.m_cap }}</th>
                 {% else %}
                 <th class="num">{{ t.rds_label }}</th>
                 <th class="num">{{ t.m_kills }}</th>
@@ -130,6 +135,10 @@
                 <td class="num" data-mobile-hide>{{ p.avg_dmg }}</td>
                 <td class="num" data-mobile-hide>{{ p.avg_obj }}</td>
                 <td class="num" data-mobile-hide>{{ p.avg_capture or '-' }}</td>
+                {% elif data.mode == 'CTRL' %}
+                <td class="num" data-mobile-hide>{{ p.avg_a or '-' }}</td>
+                <td class="num" data-mobile-hide>{{ p.avg_dmg or '-' }}</td>
+                <td class="num" data-mobile-hide">{{ p.avg_capture or '-' }}</td>
                 {% else %}
                 <td class="num"><strong class="rds-strong">{{ p.avg_rds or '-' }}</strong></td>
                 <td class="num">{{ p.avg_k }}</td>

@@ -19,6 +19,7 @@ STRINGS = {
         # 공통
         "mode_hp": "하드포인트",
         "mode_snd": "수색섬멸",
+        "mode_ctrl": "컨트롤",
         "all": "전체",
         "date": "날짜",
         "map": "맵",
@@ -52,6 +53,7 @@ STRINGS = {
         # 선수 상세
         "hp_section": "🎯 하드포인트",
         "snd_section": "🔍 수색섬멸",
+        "ctrl_section": "🛡️ 컨트롤",
         "games": "매치",
         "avg_kd": "평균 K / D",
         "obj_seconds": "평균 OBJ",
@@ -79,6 +81,7 @@ STRINGS = {
         "player_maps_title": "🗺️ 맵별 성적",
         "player_maps_help": "본인 평균 대비",
         "player_maps_help_snd": "이 선수의 SND 맵별 RDS (본인 평균 대비)",
+        "player_maps_help_ctrl": "이 선수의 Control 맵별 K/D (본인 평균 대비)",
         "player_maps_no_data_hp": "이 선수의 HP 맵 데이터가 부족합니다",
         "player_maps_no_data_snd": "이 선수의 SND 맵 데이터가 부족합니다",
         "player_maps_strong": "강함",

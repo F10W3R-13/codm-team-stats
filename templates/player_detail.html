@@ -61,20 +61,30 @@
 </div>
 {% endif %}
 
-{# ── 맵별 성적 히트맵 (HP/SND 토글) ── #}
-{% if player_maps or player_maps_snd %}
+{# ── 맵별 성적 히트맵 (HP/SND/CTRL 토글) ── #}
+{% if player_maps or player_maps_snd or player_maps_ctrl %}
 <div class="card section">
     <h2>🗺️ {{ t.player_maps_title }}</h2>
 
-    {# 모드 토글 — HP/SND 둘 다 데이터 있을 때만 노출 #}
-    {% if player_maps and player_maps_snd %}
+    {# 모드 토글 — 데이터 있는 모드가 2개 이상일 때만 노출 #}
+    {% set n_map_modes = (1 if player_maps else 0) + (1 if player_maps_snd else 0) + (1 if player_maps_ctrl else 0) %}
+    {% if n_map_modes >= 2 %}
     <div class="mode-toggle" data-mode-toggle>
+        {% if player_maps %}
         <button class="mode-toggle__btn active" data-mode="hp">
             <span class="badge hp">{{ t.mode_hp }}</span>
         </button>
-        <button class="mode-toggle__btn" data-mode="snd">
+        {% endif %}
+        {% if player_maps_snd %}
+        <button class="mode-toggle__btn {{ '' if player_maps else 'active' }}" data-mode="snd">
             <span class="badge snd">{{ t.mode_snd }}</span>
         </button>
+        {% endif %}
+        {% if player_maps_ctrl %}
+        <button class="mode-toggle__btn {{ '' if (player_maps or player_maps_snd) else 'active' }}" data-mode="ctrl">
+            <span class="badge ctrl">{{ t.mode_ctrl }}</span>
+        </button>
+        {% endif %}
     </div>
     {% endif %}
 
@@ -125,6 +135,30 @@
         <p class="muted stat-label">{{ t.player_maps_no_data_snd }}</p>
         {% endif %}
     </div>
+
+    {# CTRL 패널 #}
+    <div class="map-panel" data-map-panel="ctrl" {% if not player_maps_ctrl or player_maps or player_maps_snd %}style="display:none"{% endif %}>
+        {% if player_maps_ctrl %}
+        <p class="muted stat-label">{{ t.player_maps_help_ctrl }}</p>
+        <div class="map-heatmap">
+            <div class="map-heatmap__bar">
+                <span class="text-danger">{{ t.player_maps_weak }}</span>
+                <span class="muted">{{ t.player_maps_avg }}</span>
+                <span class="text-success">{{ t.player_maps_strong }}</span>
+            </div>
+            {% for m in player_maps_ctrl %}
+            <a href="/maps/{{ m.map_name }}?mode=CTRL&lang={{ lang }}" class="map-heat-row {{ m.heat_class }}">
+                <span class="map-heat-row__name">{{ m.map_name }}</span>
+                <span class="map-heat-row__metric">{{ m.metric }}</span>
+                <span class="map-heat-row__pct">{{ '+' if m.metric_pct > 0 }}{{ m.metric_pct }}%</span>
+                <span class="muted map-heat-row__matches">{{ m.matches }} {{ t.matches }}</span>
+            </a>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="muted stat-label">{{ t.no_data }}</p>
+        {% endif %}
+    </div>
 </div>
 {% endif %}
 
@@ -146,8 +180,24 @@
 </div>
 {% endif %}
 
+{% if stats.ctrl %}
+<div class="card section">
+    <h2>🛡️ {{ t.ctrl_section }} <span class="muted">({{ stats.ctrl.matches }} {{ t.games }})</span></h2>
+    <div class="table-wrap">
+    <table>
+        <tr><td>{{ t.kd }}</td><td class="num delta-up"><strong>{{ stats.ctrl.avg_kd }}</strong></td></tr>
+        <tr><td>{{ t.avg_kda }}</td><td class="num"><strong>{{ stats.ctrl.avg_k }} / {{ stats.ctrl.avg_d }} / {{ stats.ctrl.avg_a }}</strong></td></tr>
+        <tr><td>{{ t.avg_score }}</td><td class="num">{{ stats.ctrl.avg_score }}</td></tr>
+        <tr><td>{{ t.avg_impact }}</td><td class="num">{{ stats.ctrl.avg_impact }}</td></tr>
+        <tr><td>{{ t.m_dmg }}</td><td class="num">{{ stats.ctrl.avg_dmg }}</td></tr>
+        <tr><td>{{ t.m_cap }}</td><td class="num">{{ stats.ctrl.avg_capture if stats.ctrl.avg_capture is not none else '-' }}</td></tr>
+    </table>
+    </div>
+</div>
+{% endif %}
+
 <!-- 기복(Consistency) 카드 -->
-{% if stats.hp or stats.snd %}
+{% if stats.hp or stats.snd or stats.ctrl %}
 <div class="card section card--accent">
     <h2>📊 {{ t.consistency_title }}</h2>
     <p class="muted section-help">{{ t.consistency_help }}</p>
@@ -178,6 +228,14 @@
                 <td class="num">-</td>
             </tr>
             {% endif %}
+            {% if stats.ctrl %}
+            <tr>
+                <td><span class="badge ctrl">{{ t.mode_ctrl }}</span></td>
+                <td class="num">{{ stats.ctrl.avg_kd }} ± {{ stats.ctrl.std_kd or '-' }}</td>
+                <td class="num">{{ stats.ctrl.avg_k }} ± {{ stats.ctrl.std_kills or '-' }}</td>
+                <td class="num">-</td>
+            </tr>
+            {% endif %}
         </tbody>
     </table>
     </div>
@@ -185,12 +243,12 @@
 {% endif %}
 
 <!-- AI 인사이트 — 캐시 hit 시 즉시 표시, miss면 fetch로 비동기 로드 -->
-<div class="card section card--accent" id="insightCard"{% if not insight and not stats.hp and not stats.snd %} style="display:none;"{% endif %}>
+<div class="card section card--accent" id="insightCard"{% if not insight and not stats.hp and not stats.snd and not stats.ctrl %} style="display:none;"{% endif %}>
     <h2>🧠 AI {{ t.insight_title }}</h2>
     {% if insight %}
     <p id="insightText" class="insight-text">{{ insight }}</p>
     {% else %}
-    {% if stats.hp or stats.snd %}
+    {% if stats.hp or stats.snd or stats.ctrl %}
     <p id="insightText" class="muted">⏳ {{ t.insight_fetching }}...</p>
     <script>
     (() => {
@@ -215,6 +273,7 @@
         <div class="mode-toggle-group">
             <button type="button" id="modeHpBtn" class="btn btn--toggle" onclick="switchMode('HP')">🎯 {{ t.mode_hp }}</button>
             <button type="button" id="modeSndBtn" class="btn btn--toggle" onclick="switchMode('SND')">🔍 {{ t.mode_snd }}</button>
+            <button type="button" id="modeCtrlBtn" class="btn btn--toggle" onclick="switchMode('CTRL')">🛡️ {{ t.mode_ctrl }}</button>
         </div>
         <div>
             <label class="muted metric-label" for="metricSel">{{ t.select_metric }}</label>
@@ -222,7 +281,7 @@
         </div>
     </div>
     <div class="chart-wrap chart-wrap--trend"><canvas id="trendChart"></canvas></div>
-    {% if not stats.hp and not stats.snd %}
+    {% if not stats.hp and not stats.snd and not stats.ctrl %}
     <p class="muted">{{ t.no_data }}</p>
     {% endif %}
 </div>
@@ -279,7 +338,7 @@
 <script>
 const playerName = {{ stats.name | tojson }};
 const lang = "{{ lang }}";
-let currentMode = "{{ 'HP' if stats.hp else 'SND' }}";
+let currentMode = "{{ 'HP' if stats.hp else ('SND' if stats.snd else 'CTRL') }}";
 let currentMetric = "{{ 'zcs' if stats.hp else 'kd' }}";
 let seriesData = [];
 let chartInstance = null;
@@ -315,6 +374,11 @@ const metricOptions = {
         {v:'kills', g:'{{ t.kills }}/{{ t.deaths }}'}, {v:'deaths', g:'{{ t.kills }}/{{ t.deaths }}'},
         {v:'assists', g:'SND'}, {v:'adr', g:'SND'}, {v:'fk', g:'SND'}, {v:'lww', g:'SND'},
     ],
+    CTRL: [
+        {v:'kd', g:'K/D · Score'}, {v:'score', g:'K/D · Score'}, {v:'impact', g:'K/D · Score'},
+        {v:'kills', g:'{{ t.kills }}/{{ t.deaths }}'}, {v:'deaths', g:'{{ t.kills }}/{{ t.deaths }}'},
+        {v:'assists', g:'{{ t.mode_ctrl }}'}, {v:'dmg', g:'{{ t.mode_ctrl }}'}, {v:'cap', g:'{{ t.mode_ctrl }}'},
+    ],
 };
 
 function populateMetricSelect() {
@@ -339,12 +403,13 @@ function populateMetricSelect() {
 function syncModeButtons() {
     document.getElementById('modeHpBtn').classList.toggle('active', currentMode === 'HP');
     document.getElementById('modeSndBtn').classList.toggle('active', currentMode === 'SND');
+    document.getElementById('modeCtrlBtn').classList.toggle('active', currentMode === 'CTRL');
 }
 function switchMode(m) {
     if (m === currentMode) return;
     currentMode = m;
     syncModeButtons();
-    currentMetric = m === 'HP' ? 'zcs' : 'kd';
+    currentMetric = m === 'HP' ? 'zcs' : 'kd';  // HP는 ZCS 제1지표, SND/CTRL은 K/D
     populateMetricSelect();
     loadSeries();
 }
@@ -362,7 +427,8 @@ function renderChart() {
     if (chartInstance) { chartInstance.destroy(); chartInstance = null; }
     if (!seriesData.length) { return; }
     document.getElementById('tableTitle').textContent = playerName + ' (' + currentMode + ')';
-    const color = currentMode === 'HP' ? TDS.hp : TDS.snd;
+    const modeColor = { HP: TDS.hp, SND: TDS.snd, CTRL: TDS.accent }[currentMode] || TDS.accent;
+    const color = modeColor;
     chartInstance = new Chart(canvas, {
         type: 'line',
         data: {
@@ -384,7 +450,8 @@ function renderChart() {
     // 테마 토글 시 색 갱신 콜백 등록
     chartInstance._onThemeChange = function(chart, tds) {
         if (chart.data.datasets[0]) {
-            chart.data.datasets[0].borderColor = currentMode === 'HP' ? tds.hp : tds.snd;
+            chart.data.datasets[0].borderColor =
+                { HP: tds.hp, SND: tds.snd, CTRL: tds.accent }[currentMode] || tds.accent;
         }
     };
     _chartRegistry.set('trendChart', chartInstance);
@@ -395,6 +462,8 @@ function renderTable() {
     const cols = ['date','kd','kills','deaths','score','impact'];
     if (currentMode === 'HP') {
         cols.push('obj','dmg','cap','dpd','dpk','impact_delta','ap_pct','zcs');
+    } else if (currentMode === 'CTRL') {
+        cols.push('assists','dmg','cap');
     } else {
         cols.push('rds','assists','adr','fk','lww');
     }
@@ -414,7 +483,7 @@ function renderTable() {
 // 초기화
 populateMetricSelect();
 syncModeButtons();
-{% if stats.hp or stats.snd %}
+{% if stats.hp or stats.snd or stats.ctrl %}
 loadSeries();  // 버튼 스타일은 syncModeButtons로, 데이터 로드만 트리거
 {% endif %}
 

@@ -421,7 +421,7 @@ async def on_message(message: discord.Message):
         if len(players) < 5:
             log.warning("선수 %d명만 인식됨 (5명 기대). 재업로드 시 자동 병합 또는 /admin에서 추가.", len(players))
 
-        if mode not in ("HP", "SND"):
+        if mode not in ("HP", "SND", "CTRL"):
             await message.reply(
                 f"⚠️ Could not determine the game mode (mode={mode!r}). "
                 "Please check the screenshots."

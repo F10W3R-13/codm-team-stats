@@ -80,50 +80,86 @@ def match_report(match_id: int) -> dict:
                     "name": mom_p["name"],
                     "reason": f"K/D {mom_p['kd']} · {mom_p['k']}킬 · {mom_p['dmg']}딜 · OBJ {mom_p['obj']}초",
                 }
-        else:  # SND
-            rows = conn.execute(
-                """SELECT p.name, s.kills, s.deaths, s.assists, s.kd_ratio,
-                          s.score, s.impact, s.adr, s.first_kill, s.lone_wolf_win
+        else:  # SND / CTRL
+            if m["mode"] == "CTRL":
+                rows = conn.execute(
+                    """SELECT p.name, s.kills, s.deaths, s.assists, s.kd_ratio,
+                              s.score, s.impact, s.total_damage, s.capture_kill
+                       FROM player_stats_ctrl s JOIN players p ON p.id=s.player_id
+                       WHERE s.match_id=? ORDER BY s.kills DESC""",
+                    (match_id,),
+                ).fetchall()
+                for r in rows:
+                    result["players"].append({
+                        "name": r["name"], "k": r["kills"] or 0, "d": r["deaths"] or 0,
+                        "a": r["assists"] or 0, "kd": r["kd_ratio"] or 0,
+                        "score": r["score"] or 0, "impact": r["impact"] or 0,
+                        "dmg": r["total_damage"] or 0, "cap": r["capture_kill"] or 0,
+                    })
+                result["team_totals"] = {
+                    "kills": sum(p["k"] for p in result["players"]),
+                    "deaths": sum(p["d"] for p in result["players"]),
+                    "assists": sum(p["a"] for p in result["players"]),
+                    "cap": sum(p["cap"] for p in result["players"]),
+                }
+                for stat, label in [("k", "킬"), ("kd", "K/D"), ("dmg", "딜"),
+                                    ("a", "어시스트"), ("cap", "캡처킬")]:
+                    vals = [(p["name"], p[stat]) for p in result["players"]]
+                    if vals:
+                        result["best"][label] = max(vals, key=lambda x: x[1])
+                        result["worst"][label] = min(vals, key=lambda x: x[1])
+                if result["players"]:
+                    def score(p):
+                        return (p["kd"] * 30) + (p["dmg"] / 100) + (p["a"] * 2) + p["cap"]
+                    mom_p = max(result["players"], key=score)
+                    result["mom"] = {
+                        "name": mom_p["name"],
+                        "reason": f"K/D {mom_p['kd']} · {mom_p['k']}킬 · {mom_p['dmg']}딜 · 캡처 {mom_p['cap']}",
+                    }
+            else:  # SND
+                rows = conn.execute(
+                    """SELECT p.name, s.kills, s.deaths, s.assists, s.kd_ratio,
+                              s.score, s.impact, s.adr, s.first_kill, s.lone_wolf_win
                    FROM player_stats_snd s JOIN players p ON p.id=s.player_id
                    WHERE s.match_id=? ORDER BY s.kills DESC""",
-                (match_id,),
-            ).fetchall()
-            import metrics as _metrics
-            for r in rows:
-                rds = _metrics.compute_rds(
-                    r["kills"] or 0, r["assists"] or 0,
-                    r["first_kill"] or 0, r["lone_wolf_win"] or 0,
-                    r["adr"] or 0, r["deaths"] or 0,
-                )
-                result["players"].append({
-                    "name": r["name"], "k": r["kills"] or 0, "d": r["deaths"] or 0,
-                    "a": r["assists"] or 0, "kd": r["kd_ratio"] or 0,
-                    "score": r["score"] or 0, "impact": r["impact"] or 0,
-                    "adr": r["adr"] or 0, "fk": r["first_kill"] or 0,
-                    "lww": r["lone_wolf_win"] or 0, "rds": rds,
-                })
-            rds_vals = [p["rds"] for p in result["players"] if p["rds"] is not None]
-            result["team_totals"] = {
-                "kills": sum(p["k"] for p in result["players"]),
-                "deaths": sum(p["d"] for p in result["players"]),
-                "assists": sum(p["a"] for p in result["players"]),
-                "fk": sum(p["fk"] for p in result["players"]),
-                "rds": round(sum(rds_vals) / len(rds_vals), 1) if rds_vals else None,
-            }
-            for stat, label in [("k", "킬"), ("kd", "K/D"), ("adr", "ADR"),
-                                ("fk", "퍼스트킬"), ("a", "어시스트")]:
-                vals = [(p["name"], p[stat]) for p in result["players"]]
-                if vals:
-                    result["best"][label] = max(vals, key=lambda x: x[1])
-                    result["worst"][label] = min(vals, key=lambda x: x[1])
-            if result["players"]:
-                def score(p):
-                    return (p["kd"] * 25) + (p["adr"] / 5) + (p["fk"] * 5) + (p["a"] * 2)
-                mom_p = max(result["players"], key=score)
-                result["mom"] = {
-                    "name": mom_p["name"],
-                    "reason": f"K/D {mom_p['kd']} · {mom_p['k']}킬 · ADR {mom_p['adr']} · FK {mom_p['fk']}",
+                    (match_id,),
+                ).fetchall()
+                import metrics as _metrics
+                for r in rows:
+                    rds = _metrics.compute_rds(
+                        r["kills"] or 0, r["assists"] or 0,
+                        r["first_kill"] or 0, r["lone_wolf_win"] or 0,
+                        r["adr"] or 0, r["deaths"] or 0,
+                    )
+                    result["players"].append({
+                        "name": r["name"], "k": r["kills"] or 0, "d": r["deaths"] or 0,
+                        "a": r["assists"] or 0, "kd": r["kd_ratio"] or 0,
+                        "score": r["score"] or 0, "impact": r["impact"] or 0,
+                        "adr": r["adr"] or 0, "fk": r["first_kill"] or 0,
+                        "lww": r["lone_wolf_win"] or 0, "rds": rds,
+                    })
+                rds_vals = [p["rds"] for p in result["players"] if p["rds"] is not None]
+                result["team_totals"] = {
+                    "kills": sum(p["k"] for p in result["players"]),
+                    "deaths": sum(p["d"] for p in result["players"]),
+                    "assists": sum(p["a"] for p in result["players"]),
+                    "fk": sum(p["fk"] for p in result["players"]),
+                    "rds": round(sum(rds_vals) / len(rds_vals), 1) if rds_vals else None,
                 }
+                for stat, label in [("k", "킬"), ("kd", "K/D"), ("adr", "ADR"),
+                                    ("fk", "퍼스트킬"), ("a", "어시스트")]:
+                    vals = [(p["name"], p[stat]) for p in result["players"]]
+                    if vals:
+                        result["best"][label] = max(vals, key=lambda x: x[1])
+                        result["worst"][label] = min(vals, key=lambda x: x[1])
+                if result["players"]:
+                    def score(p):
+                        return (p["kd"] * 25) + (p["adr"] / 5) + (p["fk"] * 5) + (p["a"] * 2)
+                    mom_p = max(result["players"], key=score)
+                    result["mom"] = {
+                        "name": mom_p["name"],
+                        "reason": f"K/D {mom_p['kd']} · {mom_p['k']}킬 · ADR {mom_p['adr']} · FK {mom_p['fk']}",
+                    }
 
     return result
 
@@ -160,7 +196,8 @@ def weekly_report(days: int = 7, season: str = None) -> dict:
             "players": [],
         }
 
-        for mode, table in [("HP", "player_stats_hp"), ("SND", "player_stats_snd")]:
+        for mode, table in [("HP", "player_stats_hp"), ("SND", "player_stats_snd"),
+                            ("CTRL", "player_stats_ctrl")]:
             rows = conn.execute(
                 f"""SELECT p.name,
                            ROUND(AVG(CASE WHEN m.match_date >= date('now', '-{days} days')
@@ -226,8 +263,9 @@ def player_trend(name: str, recent_n: int = 10, season: str = None) -> dict:
             return None
         pid = r["id"]
 
-    # HP 먼저, 데이터 적으면 SND
-    for mode, table in [("HP", "player_stats_hp"), ("SND", "player_stats_snd")]:
+    # HP 먼저, 데이터 적으면 SND, 그다음 CTRL
+    for mode, table in [("HP", "player_stats_hp"), ("SND", "player_stats_snd"),
+                        ("CTRL", "player_stats_ctrl")]:
         with db.get_conn() as conn:
             total = conn.execute(
                 f"SELECT COUNT(*) c FROM {table} WHERE player_id=? AND {_season_subq}",
@@ -237,15 +275,7 @@ def player_trend(name: str, recent_n: int = 10, season: str = None) -> dict:
                 continue
 
             # 전체 평균
-            if mode == "HP":
-                o = conn.execute(
-                    f"""SELECT ROUND(AVG(kills),1) k, ROUND(AVG(deaths),1) d,
-                               ROUND(AVG(kd_ratio),2) kd, ROUND(AVG(total_damage),0) dmg,
-                               ROUND(AVG(score),0) score
-                        FROM {table} WHERE player_id=? AND {_season_subq}""",
-                    (pid, season),
-                ).fetchone()
-            else:
+            if mode == "SND":
                 o = conn.execute(
                     f"""SELECT ROUND(AVG(kills),1) k, ROUND(AVG(deaths),1) d,
                                ROUND(AVG(kd_ratio),2) kd, ROUND(AVG(adr),0) adr,
@@ -253,21 +283,29 @@ def player_trend(name: str, recent_n: int = 10, season: str = None) -> dict:
                         FROM {table} WHERE player_id=? AND {_season_subq}""",
                     (pid, season),
                 ).fetchone()
+            else:  # HP / CTRL — 딜 컬럼(total_damage) 공통
+                o = conn.execute(
+                    f"""SELECT ROUND(AVG(kills),1) k, ROUND(AVG(deaths),1) d,
+                               ROUND(AVG(kd_ratio),2) kd, ROUND(AVG(total_damage),0) dmg,
+                               ROUND(AVG(score),0) score
+                        FROM {table} WHERE player_id=? AND {_season_subq}""",
+                    (pid, season),
+                ).fetchone()
 
             # 최근 N매치 평균 (최신 순)
-            if mode == "HP":
+            if mode == "SND":
                 recent_rows = conn.execute(
                     f"""SELECT m.match_date, s.kills k, s.deaths d, s.kd_ratio kd,
-                               s.total_damage dmg, s.score
+                               s.adr, s.score
                         FROM {table} s JOIN matches m ON m.id=s.match_id
                         WHERE s.player_id=? AND (m.season=? OR m.season IS NULL)
                         ORDER BY m.id DESC LIMIT ?""",
                     (pid, season, recent_n),
                 ).fetchall()
-            else:
+            else:  # HP / CTRL
                 recent_rows = conn.execute(
                     f"""SELECT m.match_date, s.kills k, s.deaths d, s.kd_ratio kd,
-                               s.adr, s.score
+                               s.total_damage dmg, s.score
                         FROM {table} s JOIN matches m ON m.id=s.match_id
                         WHERE s.player_id=? AND (m.season=? OR m.season IS NULL)
                         ORDER BY m.id DESC LIMIT ?""",
@@ -287,16 +325,16 @@ def player_trend(name: str, recent_n: int = 10, season: str = None) -> dict:
                 "kd": avg(recent_rows, "kd"),
                 "score": avg(recent_rows, "score"),
             }
-            if mode == "HP":
-                recent["dmg"] = avg(recent_rows, "dmg")
-            else:
+            if mode == "SND":
                 recent["adr"] = avg(recent_rows, "adr")
+            else:
+                recent["dmg"] = avg(recent_rows, "dmg")
 
             overall = {"k": o["k"], "d": o["d"], "kd": o["kd"], "score": o["score"]}
-            if mode == "HP":
-                overall["dmg"] = o["dmg"]
-            else:
+            if mode == "SND":
                 overall["adr"] = o["adr"]
+            else:
+                overall["dmg"] = o["dmg"]
 
             delta = {}
             for key in ["kd", "k", "d"]:
@@ -499,6 +537,7 @@ def banpick_board(recent_matches=None, season: str = None) -> dict:
     return {
         "HP": _mode_board("HP", recent_matches),
         "SND": _mode_board("SND", recent_matches),
+        "CTRL": _mode_board("CTRL", recent_matches),
     }
 
 

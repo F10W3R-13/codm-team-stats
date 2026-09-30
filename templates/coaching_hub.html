@@ -243,6 +243,29 @@
         {% endfor %}
     </div>
     {% endif %}
+
+    {# CTRL 섹션 #}
+    {% if data.banpick.CTRL and data.banpick.CTRL.ranked %}
+    <h3 class="banpick-mode banpick-mode--snd"><span class="badge ctrl">{{ t.mode_ctrl }}</span></h3>
+    <div class="banpick-list">
+        {% for m in data.banpick.CTRL.ranked %}
+        <a href="/maps/{{ m.map_name }}?mode=CTRL&lang={{ lang }}"
+           class="banpick-row banpick-row--{{ m.badge }}">
+            <span class="banpick-rank">{{ loop.index }}</span>
+            {% if m.badge == 'pick' %}<span class="badge win">{{ t.hub_pick }}</span>
+            {% elif m.badge == 'ban' %}<span class="badge loss">{{ t.hub_ban }}</span>
+            {% endif %}
+            <span class="banpick-name">{{ m.map_name }}</span>
+            <span class="banpick-score">{{ m.score if m.score is not none else '—' }}%</span>
+            {% if not data.season_mode and m.delta_pct is not none %}
+            <span class="delta-{{ 'up' if m.delta_pct >= 0 else 'down' }}">{{ '↑' if m.delta_pct >= 0 else '↓' }}{{ m.delta_pct }}%</span>
+            {% endif %}
+            <span class="muted banpick-n">{{ m.recent_matches }}{{ t.matches }}</span>
+            {% if m.low_sample %}<span class="badge banpick-low">{{ t.hub_low_sample }}</span>{% endif %}
+        </a>
+        {% endfor %}
+    </div>
+    {% endif %}
 </div>
 {% endif %}
 
@@ -277,7 +300,7 @@
     <h2>{{ t.win_rate }}</h2>
     {% if data.win_loss.win_rate is not none %}
     <p class="win-rate-value">{{ data.win_loss.win_rate }}%</p>
-    <p class="muted">{{ data.win_loss.wins }}{{ t.win }} {{ data.win_loss.losses }}{{ t.loss }} · HP {{ data.win_loss.by_mode.HP.win_rate if data.win_loss.by_mode.HP.win_rate is not none else '-' }}% · SND {{ data.win_loss.by_mode.SND.win_rate if data.win_loss.by_mode.SND.win_rate is not none else '-' }}%</p>
+    <p class="muted">{{ data.win_loss.wins }}{{ t.win }} {{ data.win_loss.losses }}{{ t.loss }} · HP {{ data.win_loss.by_mode.HP.win_rate if data.win_loss.by_mode.HP is defined and data.win_loss.by_mode.HP.win_rate is not none else '-' }}% · SND {{ data.win_loss.by_mode.SND.win_rate if data.win_loss.by_mode.SND is defined and data.win_loss.by_mode.SND.win_rate is not none else '-' }}% · {{ t.mode_ctrl }} {{ data.win_loss.by_mode.CTRL.win_rate if data.win_loss.by_mode.CTRL is defined and data.win_loss.by_mode.CTRL.win_rate is not none else '-' }}%</p>
     {% else %}
     <p class="muted">{{ t.no_result_data }}</p>
     {% endif %}

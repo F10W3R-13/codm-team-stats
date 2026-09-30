@@ -9,6 +9,7 @@
     <a href="/matches?mode=ALL&lang={{ lang }}&page=1" class="{{ 'active' if mode=='ALL' else '' }}">ALL</a>
     <a href="/matches?mode=HP&lang={{ lang }}&page=1" class="{{ 'active' if mode=='HP' else '' }}">🎯 {{ t.mode_hp }}</a>
     <a href="/matches?mode=SND&lang={{ lang }}&page=1" class="{{ 'active' if mode=='SND' else '' }}">🔍 {{ t.mode_snd }}</a>
+    <a href="/matches?mode=CTRL&lang={{ lang }}&page=1" class="{{ 'active' if mode=='CTRL' else '' }}">🛡️ {{ t.mode_ctrl }}</a>
 </div>
 
 {% for grp in data.groups %}
@@ -29,7 +30,7 @@
                 <th class="num">{{ t.score_col }}</th>
                 <th>{{ t.map }}</th>
                 <th class="num" data-mobile-hide>{{ t.players }}</th>
-                <th class="num">{% if mode == 'SND' %}{{ t.rds_label }}{% else %}{{ t.zcs_label }}{% endif %}</th>
+                <th class="num">{% if mode == 'SND' %}{{ t.rds_label }}{% elif mode == 'CTRL' %}{{ t.kd }}{% else %}{{ t.zcs_label }}{% endif %}</th>
                 <th class="num" data-mobile-hide>{{ t.avg_kd_col }}</th>
             </tr>
         </thead>
@@ -47,7 +48,7 @@
                 <td class="num">{{ m.team_score }}-{{ m.opponent_score }}</td>
                 <td>{{ m.map_name or '-' }}</td>
                 <td class="num" data-mobile-hide>{{ m.players }}</td>
-                <td class="num">{% if m.mode == 'HP' and m.avg_zcs is not none %}<strong class="zcs-strong">{{ m.avg_zcs }}</strong>{% elif m.mode == 'SND' and m.avg_rds is not none %}<strong class="rds-strong">{{ m.avg_rds }}</strong>{% else %}-{% endif %}</td>
+                <td class="num">{% if m.mode == 'HP' and m.avg_zcs is not none %}<strong class="zcs-strong">{{ m.avg_zcs }}</strong>{% elif m.mode == 'SND' and m.avg_rds is not none %}<strong class="rds-strong">{{ m.avg_rds }}</strong>{% elif m.mode == 'CTRL' %}<strong>{{ m.avg_kd if m.avg_kd is not none else '-' }}</strong>{% else %}-{% endif %}</td>
                 <td class="num" data-mobile-hide>{{ m.avg_kd or '-' }}</td>
             </tr>
             {% endfor %}

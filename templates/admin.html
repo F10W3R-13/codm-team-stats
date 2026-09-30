@@ -19,6 +19,7 @@
     <a href="/admin?mode=ALL&lang={{ lang }}&page=1" class="{{ 'active' if mode == 'ALL' else '' }}">{{ t.all }}</a>
     <a href="/admin?mode=HP&lang={{ lang }}&page=1" class="{{ 'active' if mode == 'HP' else '' }}">🎯 {{ t.mode_hp }}</a>
     <a href="/admin?mode=SND&lang={{ lang }}&page=1" class="{{ 'active' if mode == 'SND' else '' }}">🔍 {{ t.mode_snd }}</a>
+    <a href="/admin?mode=CTRL&lang={{ lang }}&page=1" class="{{ 'active' if mode == 'CTRL' else '' }}">🛡️ {{ t.mode_ctrl }}</a>
     <span class="filter-divider"></span>
     <a href="/admin?mode={{ mode }}&lang={{ lang }}&page=1&has_result=ALL" class="{{ 'active' if has_result == 'ALL' else '' }}">{{ t.all }}</a>
     <a href="/admin?mode={{ mode }}&lang={{ lang }}&page=1&has_result=YES" class="{{ 'active' if has_result == 'YES' else '' }}">✅</a>

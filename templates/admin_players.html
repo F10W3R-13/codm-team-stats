@@ -31,6 +31,7 @@
                 <th>{{ t.player }}</th>
                 <th class="num">{{ t.mode_hp }}</th>
                 <th class="num">{{ t.mode_snd }}</th>
+                <th class="num">{{ t.mode_ctrl }}</th>
                 <th class="num">{{ t.alias_source }}</th>
                 <th>{{ t.merge_dst }}</th>
                 <th></th>
@@ -43,6 +44,7 @@
                 <td><strong>{{ p.name }}</strong></td>
                 <td class="num">{{ p.hp_matches }}</td>
                 <td class="num">{{ p.snd_matches }}</td>
+                <td class="num">{{ p.ctrl_matches if p.ctrl_matches is defined else 0 }}</td>
                 <td class="num">{{ p.aliases }}</td>
                 <td>
                     <select class="select merge-dst-{{ p.id }} merge-select">

@@ -63,7 +63,7 @@ def list_players() -> list:
 
 
 def player_overall_stats(player_id: int, season: str = None) -> dict:
-    """선수의 HP/SND 종합 평균 스탯.
+    """선수의 HP/SND/CTRL 종합 평균 스탯.
 
     반환: {
         "name": str,
@@ -71,10 +71,12 @@ def player_overall_stats(player_id: int, season: str = None) -> dict:
                avg_dmg, avg_capture} or None,
         "snd": {matches, avg_k, avg_d, avg_a, avg_kd, avg_score, avg_impact,
                 avg_adr, avg_fk, avg_lww} or None,
+        "ctrl": {matches, avg_k, avg_d, avg_a, avg_kd, avg_score, avg_impact,
+                 avg_dmg, avg_capture} or None,
     }
     """
     season = _norm_season(season)
-    result = {"name": None, "hp": None, "snd": None}
+    result = {"name": None, "hp": None, "snd": None, "ctrl": None}
     with db.get_conn() as conn:
         # 이름
         r = conn.execute("SELECT name FROM players WHERE id=?", (player_id,)).fetchone()
@@ -141,6 +143,33 @@ def player_overall_stats(player_id: int, season: str = None) -> dict:
             result["snd"]["std_kd"] = _stddev([x["kd_ratio"] for x in rows if x["kd_ratio"] is not None], 2)
             result["snd"]["std_kills"] = _stddev([x["kills"] for x in rows if x["kills"] is not None], 1)
 
+        # CTRL 평균 + 표준편차(기복) — 전용 지표 없음(K/D 중심)
+        r = conn.execute(
+            """SELECT COUNT(*) matches,
+                      ROUND(AVG(kills),1) avg_k,
+                      ROUND(AVG(deaths),1) avg_d,
+                      ROUND(AVG(assists),1) avg_a,
+                      ROUND(AVG(kd_ratio),2) avg_kd,
+                      ROUND(AVG(score),0) avg_score,
+                      ROUND(AVG(impact),0) avg_impact,
+                      ROUND(AVG(total_damage),0) avg_dmg,
+                      ROUND(AVG(capture_kill),1) avg_capture
+               FROM player_stats_ctrl WHERE player_id=? AND """ + _season_subq(),
+            (player_id, season),
+        ).fetchone()
+        if r and r["matches"]:
+            result["ctrl"] = dict(r)
+            for k, v in list(result["ctrl"].items()):
+                if hasattr(v, "as_tuple"):
+                    result["ctrl"][k] = float(v)
+            rows = conn.execute(
+                "SELECT kd_ratio, kills FROM player_stats_ctrl WHERE player_id=? AND "
+                + _season_subq(),
+                (player_id, season),
+            ).fetchall()
+            result["ctrl"]["std_kd"] = _stddev([x["kd_ratio"] for x in rows if x["kd_ratio"] is not None], 2)
+            result["ctrl"]["std_kills"] = _stddev([x["kills"] for x in rows if x["kills"] is not None], 1)
+
     # HP 커스텀 지표(DPD/DPK/ID/AP%/ZCS) 계산 추가
     if result["hp"]:
         h = result["hp"]
@@ -194,6 +223,7 @@ def leaderboard(mode: str = "HP", metric: str = "avg_kd", limit: int = 10,
     season = _norm_season(season)
     valid_hp = {"avg_kd", "avg_k", "avg_dmg", "avg_score", "avg_obj", "avg_ck"}
     valid_snd = {"avg_kd", "avg_k", "avg_d", "avg_a", "avg_score", "avg_adr", "avg_impact", "avg_fk", "avg_lww", "rds"}
+    valid_ctrl = {"avg_kd", "avg_k", "avg_d", "avg_a", "avg_score", "avg_dmg", "avg_impact", "avg_ck"}
 
     if mode == "HP":
         if metric not in valid_hp:
@@ -210,6 +240,25 @@ def leaderboard(mode: str = "HP", metric: str = "avg_kd", limit: int = 10,
                          COUNT(*) matches,
                          ROUND({expr},2) value
                   FROM player_stats_hp s JOIN players p ON p.id=s.player_id
+                  WHERE match_id IN (SELECT id FROM matches WHERE season=? OR season IS NULL)
+                  GROUP BY p.id ORDER BY value DESC LIMIT ?"""
+    elif mode == "CTRL":
+        if metric not in valid_ctrl:
+            metric = "avg_kd"
+        expr = {
+            "avg_kd": "AVG(kd_ratio)",
+            "avg_k": "AVG(kills)",
+            "avg_d": "AVG(deaths)",
+            "avg_a": "AVG(assists)",
+            "avg_score": "AVG(score)",
+            "avg_dmg": "AVG(total_damage)",
+            "avg_impact": "AVG(impact)",
+            "avg_ck": "AVG(capture_kill)",
+        }[metric]
+        sql = f"""SELECT p.name,
+                         COUNT(*) matches,
+                         ROUND({expr},2) value
+                  FROM player_stats_ctrl s JOIN players p ON p.id=s.player_id
                   WHERE match_id IN (SELECT id FROM matches WHERE season=? OR season IS NULL)
                   GROUP BY p.id ORDER BY value DESC LIMIT ?"""
     else:
@@ -285,6 +334,21 @@ def last_match_summary(mode: str = None, season: str = None) -> dict:
                     "impact": r["impact"], "dmg": r["total_damage"],
                     "cap": r["capture_kill"],
                 })
+        elif m["mode"] == "CTRL":
+            rows = conn.execute(
+                """SELECT p.name, s.kills, s.deaths, s.assists, s.kd_ratio,
+                          s.score, s.impact, s.total_damage, s.capture_kill
+                   FROM player_stats_ctrl s JOIN players p ON p.id=s.player_id
+                   WHERE s.match_id=? ORDER BY s.kills DESC""",
+                (m["id"],),
+            ).fetchall()
+            for r in rows:
+                result["players"].append({
+                    "name": r["name"], "k": r["kills"], "d": r["deaths"],
+                    "a": r["assists"], "kd": r["kd_ratio"], "score": r["score"],
+                    "impact": r["impact"], "dmg": r["total_damage"],
+                    "cap": r["capture_kill"],
+                })
         else:
             rows = conn.execute(
                 """SELECT p.name, s.kills, s.deaths, s.assists, s.kd_ratio,
@@ -341,9 +405,10 @@ def match_by_date(date_str: str, mode: str = None) -> list:
                         "kd": r["kd_ratio"], "score": r["score"],
                     })
             else:
+                tbl = "player_stats_ctrl" if m["mode"] == "CTRL" else "player_stats_snd"
                 rows = conn.execute(
-                    """SELECT p.name, s.kills, s.deaths, s.assists, s.kd_ratio, s.score
-                       FROM player_stats_snd s JOIN players p ON p.id=s.player_id
+                    f"""SELECT p.name, s.kills, s.deaths, s.assists, s.kd_ratio, s.score
+                       FROM {tbl} s JOIN players p ON p.id=s.player_id
                        WHERE s.match_id=? ORDER BY s.kills DESC""",
                     (m["id"],),
                 ).fetchall()
@@ -362,7 +427,8 @@ def player_kd_trend(player_id: int, mode: str = "HP", limit: int = 30,
                     season: str = None) -> list:
     """선수의 매치별 K/D 시계열 (최신 limit개, 시간순). 차트용."""
     season = _norm_season(season)
-    table = "player_stats_hp" if mode == "HP" else "player_stats_snd"
+    table = {"HP": "player_stats_hp", "SND": "player_stats_snd",
+             "CTRL": "player_stats_ctrl"}.get(mode, "player_stats_hp")
     with db.get_conn() as conn:
         rows = conn.execute(
             f"""SELECT m.match_date, s.kd_ratio, s.kills, s.deaths
@@ -399,20 +465,35 @@ def all_players_overview(mode: str = "HP", season: str = None) -> list:
                  WHERE match_id IN (SELECT id FROM matches WHERE season=? OR season IS NULL)
                  GROUP BY p.id ORDER BY avg_kd DESC"""
     else:
-        sql = """SELECT p.id, p.name,
+        if mode == "CTRL":
+            sql = """SELECT p.id, p.name,
                         COUNT(*) matches,
                         ROUND(AVG(s.kills),1) avg_k,
                         ROUND(AVG(s.deaths),1) avg_d,
                         ROUND(AVG(s.assists),1) avg_a,
                         ROUND(AVG(s.kd_ratio),2) avg_kd,
                         ROUND(AVG(s.score),0) avg_score,
-                        ROUND(AVG(s.adr),0) avg_adr,
+                        ROUND(AVG(s.total_damage),0) avg_dmg,
                         ROUND(AVG(s.impact),0) avg_impact,
-                        ROUND(AVG(s.first_kill),2) avg_fk,
-                        ROUND(AVG(s.lone_wolf_win),2) avg_lww
-                 FROM player_stats_snd s JOIN players p ON p.id=s.player_id
+                        ROUND(AVG(s.capture_kill),1) avg_ck
+                 FROM player_stats_ctrl s JOIN players p ON p.id=s.player_id
                  WHERE match_id IN (SELECT id FROM matches WHERE season=? OR season IS NULL)
                  GROUP BY p.id ORDER BY avg_kd DESC"""
+        else:
+            sql = """SELECT p.id, p.name,
+                            COUNT(*) matches,
+                            ROUND(AVG(s.kills),1) avg_k,
+                            ROUND(AVG(s.deaths),1) avg_d,
+                            ROUND(AVG(s.assists),1) avg_a,
+                            ROUND(AVG(s.kd_ratio),2) avg_kd,
+                            ROUND(AVG(s.score),0) avg_score,
+                            ROUND(AVG(s.adr),0) avg_adr,
+                            ROUND(AVG(s.impact),0) avg_impact,
+                            ROUND(AVG(s.first_kill),2) avg_fk,
+                            ROUND(AVG(s.lone_wolf_win),2) avg_lww
+                     FROM player_stats_snd s JOIN players p ON p.id=s.player_id
+                     WHERE match_id IN (SELECT id FROM matches WHERE season=? OR season IS NULL)
+                     GROUP BY p.id ORDER BY avg_kd DESC"""
     with db.get_conn() as conn:
         rows = [dict(r) for r in conn.execute(sql, (season,)).fetchall()]
 
@@ -485,6 +566,13 @@ def player_metric_timeseries(player_id: int, mode: str = "HP", limit: int = 50,
                  FROM player_stats_hp s JOIN matches m ON m.id=s.match_id
                  WHERE s.player_id=? AND {_season_cond('m')}
                  ORDER BY m.id DESC LIMIT ?"""
+    elif mode == "CTRL":
+        sql = f"""SELECT m.match_date date, s.kills, s.deaths, s.assists,
+                        s.kd_ratio kd, s.score, s.impact, s.total_damage dmg,
+                        s.capture_kill cap
+                 FROM player_stats_ctrl s JOIN matches m ON m.id=s.match_id
+                 WHERE s.player_id=? AND {_season_cond('m')}
+                 ORDER BY m.id DESC LIMIT ?"""
     else:
         sql = f"""SELECT m.match_date date, s.kills, s.deaths, s.assists,
                         s.kd_ratio kd, s.score, s.impact, s.adr,
@@ -510,13 +598,14 @@ def player_metric_timeseries(player_id: int, mode: str = "HP", limit: int = 50,
             r["impact_delta"] = m["impact_delta"]
             r["ap_pct"] = m["ap_pct"]
             r["zcs"] = m["zcs"]
-    else:  # SND: RDS 계산 추가
+    elif mode == "SND":  # SND: RDS 계산 추가
         for r in rows:
             m = metrics.all_snd_metrics(
                 r.get("kills"), r.get("assists"), r.get("fk"),
                 r.get("lww"), r.get("adr"), r.get("deaths"),
             )
             r["rds"] = m["rds"]
+    # CTRL: 전용 지표 없음 — 기본 스탯 그대로
     return rows
 
 
@@ -543,9 +632,11 @@ def match_history(limit: int = 50, offset: int = 0, mode: str = None,
             f"""SELECT m.id, m.mode, m.map_name, m.match_date, m.result,
                        m.team_score, m.opponent_score,
                        (SELECT COUNT(*) FROM player_stats_hp WHERE match_id=m.id) +
-                       (SELECT COUNT(*) FROM player_stats_snd WHERE match_id=m.id) as players,
+                       (SELECT COUNT(*) FROM player_stats_snd WHERE match_id=m.id) +
+                       (SELECT COUNT(*) FROM player_stats_ctrl WHERE match_id=m.id) as players,
                        (SELECT ROUND(AVG(kd_ratio),2) FROM player_stats_hp WHERE match_id=m.id) avg_kd_hp,
                        (SELECT ROUND(AVG(kd_ratio),2) FROM player_stats_snd WHERE match_id=m.id) avg_kd_snd,
+                       (SELECT ROUND(AVG(kd_ratio),2) FROM player_stats_ctrl WHERE match_id=m.id) avg_kd_ctrl,
                        (SELECT ROUND(AVG(MAX(0, 1.1*obj_time + 8*capture_kill + 4.1*(kills - capture_kill) - 5*deaths)),1)
                         FROM player_stats_hp WHERE match_id=m.id) avg_zcs,
                        (SELECT ROUND(AVG(MAX(0, 4.1*kills + 3.5*assists + 14*first_kill + 20*lone_wolf_win + 0.12*adr - 5*deaths)),1)
@@ -560,7 +651,8 @@ def match_history(limit: int = 50, offset: int = 0, mode: str = None,
                 {
                     "id": r["id"], "mode": r["mode"], "map_name": r["map_name"],
                     "match_date": r["match_date"], "players": r["players"],
-                    "avg_kd": r["avg_kd_hp"] if r["mode"] == "HP" else r["avg_kd_snd"],
+                    "avg_kd": {"HP": r["avg_kd_hp"], "SND": r["avg_kd_snd"],
+                               "CTRL": r["avg_kd_ctrl"]}.get(r["mode"]),
                     "avg_zcs": r["avg_zcs"],
                     "avg_rds": r["avg_rds"],
                     "result": r["result"], "team_score": r["team_score"],
@@ -618,9 +710,11 @@ def match_history_grouped(mode: str = None, date_page: int = 1,
         sql = f"""SELECT m.id, m.mode, m.map_name, m.match_date, m.result,
                          m.team_score, m.opponent_score,
                          (SELECT COUNT(*) FROM player_stats_hp WHERE match_id=m.id) +
-                         (SELECT COUNT(*) FROM player_stats_snd WHERE match_id=m.id) as players,
+                         (SELECT COUNT(*) FROM player_stats_snd WHERE match_id=m.id) +
+                         (SELECT COUNT(*) FROM player_stats_ctrl WHERE match_id=m.id) as players,
                          (SELECT ROUND(AVG(kd_ratio),2) FROM player_stats_hp WHERE match_id=m.id) avg_kd_hp,
                          (SELECT ROUND(AVG(kd_ratio),2) FROM player_stats_snd WHERE match_id=m.id) avg_kd_snd,
+                         (SELECT ROUND(AVG(kd_ratio),2) FROM player_stats_ctrl WHERE match_id=m.id) avg_kd_ctrl,
                          (SELECT ROUND(AVG(MAX(0, 1.1*obj_time + 8*capture_kill + 4.1*(kills - capture_kill) - 5*deaths)),1)
                           FROM player_stats_hp WHERE match_id=m.id) avg_zcs,
                          (SELECT ROUND(AVG(MAX(0, 4.1*kills + 3.5*assists + 14*first_kill + 20*lone_wolf_win + 0.12*adr - 5*deaths)),1)
@@ -651,7 +745,8 @@ def match_history_grouped(mode: str = None, date_page: int = 1,
         {
             "id": r["id"], "mode": r["mode"], "map_name": r["map_name"],
             "match_date": r["match_date"], "players": r["players"],
-            "avg_kd": r["avg_kd_hp"] if r["mode"] == "HP" else r["avg_kd_snd"],
+            "avg_kd": {"HP": r["avg_kd_hp"], "SND": r["avg_kd_snd"],
+                       "CTRL": r["avg_kd_ctrl"]}.get(r["mode"]),
             "avg_zcs": r["avg_zcs"],
             "avg_rds": r["avg_rds"],
             "result": r["result"], "team_score": r["team_score"],
@@ -755,6 +850,19 @@ def map_team_stats(mode: str = "HP", min_matches: int = 2, season: str = None) -
                  GROUP BY LOWER(m.map_name)
                  HAVING COUNT(*) >= ?
                  ORDER BY avg_kd DESC"""
+    elif mode == "CTRL":
+        sql = f"""SELECT LOWER(m.map_name) map_name,
+                        COUNT(*) n_matches,
+                        ROUND(AVG(s.kd_ratio),2) avg_kd,
+                        ROUND(AVG(s.kills),1) avg_k,
+                        ROUND(AVG(s.total_damage),0) avg_dmg,
+                        ROUND(AVG(s.capture_kill),1) avg_capture
+                 FROM player_stats_ctrl s JOIN matches m ON m.id=s.match_id
+                 WHERE m.map_name IS NOT NULL AND m.map_name != '' AND m.mode='CTRL'
+                   AND {cond}
+                 GROUP BY LOWER(m.map_name)
+                 HAVING COUNT(*) >= ?
+                 ORDER BY avg_kd DESC"""
     else:
         sql = f"""SELECT LOWER(m.map_name) map_name,
                         COUNT(*) n_matches,
@@ -789,7 +897,7 @@ def map_team_stats_recent(mode: str = "HP", recent_matches: int = 10,
     if recent_matches is None:
         return map_team_stats(mode, min_matches, season)
     # mode 화이트리스트 강제 — recent_ids 서브쿼리에 문자열 보간되므로 인젝션 방어.
-    if mode not in ("HP", "SND"):
+    if mode not in ("HP", "SND", "CTRL"):
         raise ValueError(f"map_team_stats_recent: invalid mode={mode!r}")
     if recent_matches <= 0:
         recent_matches = 10
@@ -805,6 +913,19 @@ def map_team_stats_recent(mode: str = "HP", recent_matches: int = 10,
                         ROUND(AVG(MAX(0, 1.1*s.obj_time + 8*s.capture_kill + 4.1*(s.kills - s.capture_kill) - 5*s.deaths)),1) avg_zcs
                  FROM player_stats_hp s JOIN matches m ON m.id=s.match_id
                  WHERE m.map_name IS NOT NULL AND m.map_name != '' AND m.mode='HP'
+                   AND m.id IN ({recent_ids})
+                 GROUP BY LOWER(m.map_name)
+                 HAVING COUNT(*) >= ?
+                 ORDER BY avg_kd DESC"""
+    elif mode == "CTRL":
+        sql = f"""SELECT LOWER(m.map_name) map_name,
+                        COUNT(*) n_matches,
+                        ROUND(AVG(s.kd_ratio),2) avg_kd,
+                        ROUND(AVG(s.kills),1) avg_k,
+                        ROUND(AVG(s.total_damage),0) avg_dmg,
+                        ROUND(AVG(s.capture_kill),1) avg_capture
+                 FROM player_stats_ctrl s JOIN matches m ON m.id=s.match_id
+                 WHERE m.map_name IS NOT NULL AND m.map_name != '' AND m.mode='CTRL'
                    AND m.id IN ({recent_ids})
                  GROUP BY LOWER(m.map_name)
                  HAVING COUNT(*) >= ?
@@ -902,7 +1023,23 @@ def map_player_stats(map_name: str, mode: str = "HP", min_matches: int = 2,
                  HAVING COUNT(*) >= ?
                  ORDER BY avg_kd DESC"""
     else:
-        sql = f"""SELECT p.name player_name,
+        if mode == "CTRL":
+            sql = f"""SELECT p.name player_name,
+                            COUNT(*) matches,
+                            ROUND(AVG(s.kd_ratio),2) avg_kd,
+                            ROUND(AVG(s.kills),1) avg_k,
+                            ROUND(AVG(s.total_damage),0) avg_dmg,
+                            ROUND(AVG(s.assists),1) avg_a,
+                            ROUND(AVG(s.capture_kill),1) avg_capture
+                     FROM player_stats_ctrl s
+                     JOIN matches m ON m.id=s.match_id
+                     JOIN players p ON p.id=s.player_id
+                     WHERE LOWER(m.map_name)=LOWER(?) AND m.mode='CTRL' AND {cond}
+                     GROUP BY p.id, p.name
+                     HAVING COUNT(*) >= ?
+                     ORDER BY avg_kd DESC"""
+        else:
+            sql = f"""SELECT p.name player_name,
                         COUNT(*) matches,
                         ROUND(AVG(s.kd_ratio),2) avg_kd,
                         ROUND(AVG(s.kills),1) avg_k,
@@ -934,8 +1071,9 @@ def player_map_breakdown(player_id: int, mode: str = "HP", min_matches: int = 5,
     mode="HP": ZCS(=max(0, 1.1·obj_time + 8·capture_kill + 4.1·(kills - capture_kill) - 5·deaths)) 기준.
     mode="SND": RDS(=max(0, 4.1·kills + 3.5·assists + 14·first_kill + 20·lone_wolf_win
                         + 0.12·adr - 5·deaths)) 기준.
+    mode="CTRL": K/D 기준 (전용 지표 없음).
     반환: [{map_name, matches, metric, metric_pct}, ...]
-      metric: 그 맵에서의 평균 ZCS(HP) 또는 RDS(SND)
+      metric: 그 맵에서의 평균 ZCS(HP), RDS(SND) 또는 K/D(CTRL)
       metric_pct: 본인 전체 평균 대비 % (양수=강함, 음수=약함)
       min_matches 미만 맵은 신뢰도 낮아 제외.
       히트맵 색은 web_api의 _heat_class()가 metric_pct 크기로 부여.
@@ -955,6 +1093,18 @@ def player_map_breakdown(player_id: int, mode: str = "HP", min_matches: int = 5,
                  HAVING COUNT(*) >= ?
                  ORDER BY metric DESC"""
         overall = _player_overall_rds(player_id, season)
+    elif mode == "CTRL":
+        sql = f"""SELECT LOWER(m.map_name) map_name,
+                        COUNT(*) matches,
+                        ROUND(AVG(s.kd_ratio),2) metric
+                 FROM player_stats_ctrl s
+                 JOIN matches m ON m.id=s.match_id
+                 WHERE s.player_id=? AND m.map_name IS NOT NULL AND m.map_name != ''
+                   AND m.mode='CTRL' AND {cond}
+                 GROUP BY LOWER(m.map_name)
+                 HAVING COUNT(*) >= ?
+                 ORDER BY metric DESC"""
+        overall = _player_overall_kd(player_id, season=season)
     else:  # HP (기본)
         sql = f"""SELECT LOWER(m.map_name) map_name,
                         COUNT(*) matches,
@@ -1023,6 +1173,20 @@ def _player_overall_rds(player_id: int, season: str = None) -> float:
     return None
 
 
+def _player_overall_kd(player_id: int, table: str = "player_stats_ctrl",
+                       season: str = None) -> float:
+    """선수의 전체 평균 K/D (player_map_breakdown CTRL 내부용)."""
+    season = _norm_season(season)
+    sql = (f"SELECT ROUND(AVG(kd_ratio),2) kd FROM {table} "
+           "WHERE player_id=? AND " + _season_subq())
+    with db.get_conn() as conn:
+        r = conn.execute(db._adapt_sql(sql), (player_id, season)).fetchone()
+    if r and r["kd"] is not None:
+        v = r["kd"]
+        return float(v) if hasattr(v, "as_tuple") else v
+    return None
+
+
 def map_win_loss(map_name: str, mode: str = "HP", season: str = None) -> dict:
     """특정 맵의 승패 요약.
 
@@ -1086,6 +1250,13 @@ def map_trend(map_name: str, mode: str = "HP", days: int = 30,
                     "ROUND(AVG(s.obj_time),0) avg_obj, ROUND(AVG(s.score),0) avg_score, "
                     "ROUND(AVG(s.impact),0) avg_impact, ROUND(AVG(s.capture_kill),1) avg_capture "
                     f"FROM player_stats_hp s JOIN matches m ON m.id=s.match_id {wh}")
+        elif mode == "CTRL":
+            return ("SELECT COUNT(*) matches, "
+                    "ROUND(AVG(s.kd_ratio),2) avg_kd, ROUND(AVG(s.kills),1) avg_k, "
+                    "ROUND(AVG(s.deaths),1) avg_d, ROUND(AVG(s.total_damage),0) avg_dmg, "
+                    "ROUND(AVG(s.assists),1) avg_a, ROUND(AVG(s.score),0) avg_score, "
+                    "ROUND(AVG(s.impact),0) avg_impact, ROUND(AVG(s.capture_kill),1) avg_capture "
+                    f"FROM player_stats_ctrl s JOIN matches m ON m.id=s.match_id {wh}")
         else:
             return ("SELECT COUNT(*) matches, "
                     "ROUND(AVG(s.kd_ratio),2) avg_kd, ROUND(AVG(s.kills),1) avg_k, "
@@ -1122,7 +1293,7 @@ def map_trend(map_name: str, mode: str = "HP", days: int = 30,
                 block["dpk"] = m["dpk"]
                 block["impact_delta"] = m["impact_delta"]
                 block["ap_pct"] = m["ap_pct"]
-    else:  # SND: RDS 계산 추가
+    elif mode == "SND":  # SND: RDS 계산 추가
         for block in (recent, season_agg):
             if block.get("matches"):
                 m = _metrics.all_snd_metrics(
@@ -1131,6 +1302,7 @@ def map_trend(map_name: str, mode: str = "HP", days: int = 30,
                     block.get("avg_adr"), block.get("avg_d"),
                 )
                 block["rds"] = m["rds"]
+    # CTRL: 전용 지표 없음 — 기본 스탯 그대로
 
     # 비교할 지표 + 메타 (높을수록 좋은가, 라벨 키)
     if mode == "HP":
@@ -1147,6 +1319,17 @@ def map_trend(map_name: str, mode: str = "HP", days: int = 30,
             ("dpk", False, "m_dpk"),
             ("impact_delta", True, "m_id"),
             ("ap_pct", True, "m_ap_pct"),
+        ]
+    elif mode == "CTRL":
+        metric_defs = [
+            ("avg_kd", True, "kd"),
+            ("avg_k", True, "avg_k"),
+            ("avg_d", False, "avg_d"),
+            ("avg_a", True, "avg_a"),
+            ("avg_dmg", True, "avg_total_dmg"),
+            ("avg_capture", True, "avg_cap_kill"),
+            ("avg_score", True, "avg_score"),
+            ("avg_impact", True, "avg_impact"),
         ]
     else:
         metric_defs = [
@@ -1234,7 +1417,7 @@ def win_loss_summary(mode: str = None, season: str = None) -> dict:
             by_mode = {}
             rows = conn.execute(
                 db._adapt_sql(f"SELECT mode, result, COUNT(*) c FROM matches "
-                              f"WHERE mode IN ('HP','SND') AND {cond} "
+                              f"WHERE mode IN ('HP','SND','CTRL') AND {cond} "
                               f"GROUP BY mode, result"),
                 (season,),
             ).fetchall()
@@ -1340,6 +1523,17 @@ _COMPARE_SND = [
     ("avg_fk", "avg_fk", True),
     ("avg_lww", "avg_lww", True),
 ]
+# CTRL 지표 — 전용 지표 없음, K/D 최우선
+_COMPARE_CTRL = [
+    ("avg_kd", "kd", True),
+    ("avg_k", "avg_k", True),
+    ("avg_d", "avg_d", False),
+    ("avg_a", "avg_a", True),
+    ("avg_dmg", "avg_total_dmg", True),
+    ("avg_capture", "avg_cap_kill", True),
+    ("avg_score", "avg_score", True),
+    ("avg_impact", "avg_impact", True),
+]
 
 
 def compare_players(name_a: str, name_b: str, mode: str = "HP",
@@ -1362,10 +1556,12 @@ def compare_players(name_a: str, name_b: str, mode: str = "HP",
     stats_a = player_overall_stats(pid_a, season)
     stats_b = player_overall_stats(pid_b, season)
 
-    block_a = stats_a.get("hp" if mode == "HP" else "snd") or {}
-    block_b = stats_b.get("hp" if mode == "HP" else "snd") or {}
+    block_key = {"HP": "hp", "SND": "snd", "CTRL": "ctrl"}.get(mode, "snd")
+    block_a = stats_a.get(block_key) or {}
+    block_b = stats_b.get(block_key) or {}
 
-    defs = _COMPARE_HP if mode == "HP" else _COMPARE_SND
+    defs = {"HP": _COMPARE_HP, "SND": _COMPARE_SND, "CTRL": _COMPARE_CTRL}.get(
+        mode, _COMPARE_SND)
     rows = []
     chart = []
     for key, label_key, higher in defs:
@@ -1577,8 +1773,10 @@ def versus_team_detail(team_id: int, season: str = None) -> dict:
         our_names, opp_names = {}, {}
         roster_acc = {}
         for m in mlist:
-            tbl_o = "player_stats_hp" if m["mode"] == "HP" else "player_stats_snd"
-            tbl_e = "opponent_stats_hp" if m["mode"] == "HP" else "opponent_stats_snd"
+            tbl_o = {"HP": "player_stats_hp", "SND": "player_stats_snd",
+                     "CTRL": "player_stats_ctrl"}.get(m["mode"], "player_stats_snd")
+            tbl_e = {"HP": "opponent_stats_hp", "SND": "opponent_stats_snd",
+                     "CTRL": "opponent_stats_ctrl"}.get(m["mode"], "opponent_stats_snd")
             ours = conn.execute(db._adapt_sql(
                 f"SELECT s.*, p.name AS pname FROM {tbl_o} s "
                 f"JOIN players p ON p.id = s.player_id WHERE s.match_id = ?"),
@@ -1601,6 +1799,9 @@ def versus_team_detail(team_id: int, season: str = None) -> dict:
                     o_metric = metrics.compute_zcs(o["obj_time"] or 0,
                                                    o["capture_kill"] or 0,
                                                    o["kills"] or 0, o["deaths"] or 0)
+                elif m["mode"] == "CTRL":
+                    # 전용 지표 없음 — K−D 차득점을 임시 metric으로
+                    o_metric = float((o["kills"] or 0) - (o["deaths"] or 0))
                 else:
                     o_metric = metrics.compute_rds(o["kills"] or 0, o["assists"] or 0,
                                                    o["first_kill"] or 0,
@@ -1612,6 +1813,8 @@ def versus_team_detail(team_id: int, season: str = None) -> dict:
                         e_metric = metrics.compute_zcs(e["obj_time"] or 0,
                                                        e["capture_kill"] or 0,
                                                        e["kills"] or 0, e["deaths"] or 0)
+                    elif m["mode"] == "CTRL":
+                        e_metric = float((e["kills"] or 0) - (e["deaths"] or 0))
                     else:
                         e_metric = metrics.compute_rds(e["kills"] or 0, e["assists"] or 0,
                                                        e["first_kill"] or 0,

@@ -15,13 +15,15 @@ def _fresh_opponent_tables():
     with db.get_conn() as conn:
         for tbl in ("opponent_aliases", "opponent_team_rosters",
                     "opponent_stats_hp", "opponent_stats_snd",
+                    "opponent_stats_ctrl",
                     "opponent_players", "opponent_teams"):
             conn.execute(f"DELETE FROM {tbl}")
         # 이전 테스트가 남긴 player_stats 없는 고아 매치 정리 (시드 매치는 보존)
         conn.execute(
             "DELETE FROM matches WHERE id NOT IN "
             "(SELECT match_id FROM player_stats_hp UNION "
-            " SELECT match_id FROM player_stats_snd)")
+            " SELECT match_id FROM player_stats_snd UNION "
+            " SELECT match_id FROM player_stats_ctrl)")
     yield
 
 ENEMY_KNOWN = [  # Godlike 로스터에 3명 등록된 상태에서 자동 식별 케이스

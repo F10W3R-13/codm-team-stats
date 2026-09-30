@@ -87,6 +87,14 @@
 - 진실 공식은 `metrics.py`의 `compute_rds()`. SQL에서도 동일 공식(`MAX(0, 4.1*kills + 3.5*assists + 14*first_kill + 20*lone_wolf_win + 0.12*adr - 5*deaths)`)을 쓰며, `_adapt_sql`이 Postgres용으로 `GREATEST(0, ...)`로 변환.
 - HP 컨텍스트에 ZCS가 나오는 모든 곳의 SND 대응점에 RDS를 깐다 (선수표/상세/리더보드/비교/맵/매치).
 
+### CTRL (Control) 모드 — 2026-09 추가
+- **모드 키는 `CTRL`** (matches.mode CHECK `('HP','SND','CTRL')`, 기존 DB는 init_db가 자동 마이그레이션 — SQLite는 테이블 재구축, Postgres는 CHECK 제약 교체).
+- **전용 제1지표 없음 — K/D 중심.** ZCS(HP)/RDS(SND) 대응 지표는 코치 승인 후 별도 추가 예정. `metrics.py`에는 CTRL 관련 코드 없음.
+- 스탯 필드: `kills, deaths, assists, kd_ratio, score, impact, total_damage, capture_kill` (HP와 동일한 캡처킬). 테이블 `player_stats_ctrl`/`opponent_stats_ctrl`.
+- **스코어보드 실물 확정(2026-09-30 스크린샷 대조 완료)**: 기본 탭 = PLAYER/SCORE/K-D-A/IMPACT, 디테일 탭 = TOTAL DAMAGE/NET KILL(S)/CAPTURE KILL(S). NET KILL은 K−D 유도값이라 미저장. Control에도 Total Damage·CAPTURE KILL 열이 있으므로 모드 보조판별은 TIME(HP)·NET KILL(CTRL) 열로 구분.
+- OCR 프롬프트(prompt.py)에 CTRL JSON 예시 포함. Control은 VICTORY/DEFEAT 텍스트가 없는 경우가 많아 점수 비교로 승패 판단하도록 지시 (불가 시 null).
+- 맵 히트맵/밴픽보드의 CTRL metric은 K/D. AI 인사이트 도메인은 `mode-control`(코칭 브레인 Control.md).
+
 ### 커스텀 지표 전체 (metrics.py) — 출처 고정, 함부로 수정 금지
 HP: ZCS 최우선 + 보조 지표들. SND: RDS 단일.
 - **ZCS** ⭐ — 존 컨트롤 종합 (HP 제1 지표). 위 공식 참조.

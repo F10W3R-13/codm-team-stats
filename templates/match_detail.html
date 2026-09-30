@@ -173,6 +173,13 @@
         <span class="team-avg-item"><span class="team-avg-label">{{ t.assists }}</span> <span class="team-avg-value">{{ "%.1f"|format(report.team_totals.assists / (report.players|length)) }}</span></span>
         <span class="team-avg-item"><span class="team-avg-label">{{ t.fk }}</span> <span class="team-avg-value">{{ "%.1f"|format(report.team_totals.fk / (report.players|length)) }}</span></span>
     </div>
+    {% elif report.mode == 'CTRL' %}
+    <div class="team-avg-list">
+        <span class="team-avg-item"><span class="team-avg-label">{{ t.kills }}</span> <span class="team-avg-value">{{ "%.1f"|format(report.team_totals.kills / (report.players|length)) }}</span></span>
+        <span class="team-avg-item"><span class="team-avg-label">{{ t.deaths }}</span> <span class="team-avg-value">{{ "%.1f"|format(report.team_totals.deaths / (report.players|length)) }}</span></span>
+        <span class="team-avg-item"><span class="team-avg-label">{{ t.assists }}</span> <span class="team-avg-value">{{ "%.1f"|format(report.team_totals.assists / (report.players|length)) }}</span></span>
+        <span class="team-avg-item"><span class="team-avg-label">{{ t.cap }}</span> <span class="team-avg-value">{{ "%.1f"|format(report.team_totals.cap / (report.players|length)) }}</span></span>
+    </div>
     {% else %}
     <div class="team-avg-list">
         <span class="team-avg-item"><span class="team-avg-label">{{ t.zcs_label }}</span> <strong class="zcs-strong">{{ report.team_totals.zcs }}</strong></span>
@@ -209,6 +216,32 @@
                 <td class="num" data-mobile-hide>{{ p.dmg }}</td>
                 <td class="num" data-mobile-hide>{{ p.cap }}</td>
                 <td class="num"><strong class="zcs-strong">{{ p.zcs }}</strong></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    </div>
+    {% elif report.mode == 'CTRL' %}
+    <div class="table-wrap">
+    <table>
+        <thead>
+            <tr>
+                <th>{{ t.player }}</th><th class="num">{{ t.kills }}</th><th class="num" data-mobile-hide>{{ t.deaths }}</th><th class="num" data-mobile-hide>{{ t.assists }}</th>
+                <th class="num">{{ t.kd }}</th><th class="num" data-mobile-hide>{{ t.score }}</th>
+                <th class="num" data-mobile-hide>{{ t.dmg }}</th><th class="num" data-mobile-hide>{{ t.cap }}</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for p in report.players %}
+            <tr>
+                <td><a href="/players/{{ p.name }}?lang={{ lang }}" class="player-link">{{ p.name }}</a></td>
+                <td class="num">{{ p.k }}</td>
+                <td class="num" data-mobile-hide>{{ p.d }}</td>
+                <td class="num" data-mobile-hide>{{ p.a }}</td>
+                <td class="num"><strong class="delta-up">{{ p.kd }}</strong></td>
+                <td class="num" data-mobile-hide>{{ p.score }}</td>
+                <td class="num" data-mobile-hide>{{ p.dmg }}</td>
+                <td class="num" data-mobile-hide>{{ p.cap }}</td>
             </tr>
             {% endfor %}
         </tbody>

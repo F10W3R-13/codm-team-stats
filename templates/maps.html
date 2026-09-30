@@ -8,6 +8,7 @@
 <div class="filters">
     <a href="/maps?mode=HP&lang={{ lang }}" class="{{ 'active' if mode == 'HP' else '' }}">🎯 {{ t.mode_hp }}</a>
     <a href="/maps?mode=SND&lang={{ lang }}" class="{{ 'active' if mode == 'SND' else '' }}">🔍 {{ t.mode_snd }}</a>
+    <a href="/maps?mode=CTRL&lang={{ lang }}" class="{{ 'active' if mode == 'CTRL' else '' }}">🛡️ {{ t.mode_ctrl }}</a>
 </div>
 
 {% if not maps %}
@@ -22,10 +23,14 @@
         <div class="stat-label">{{ t.zcs_label }}</div>
         <div class="entity-card__value entity-card__value--hp">{{ m.avg_zcs or '-' }}</div>
         <div class="muted entity-card__sub">{{ t.kd }} {{ m.avg_kd }} · {{ t.m_kills }} {{ m.avg_k }}</div>
-        {% else %}
-        <div class="stat-label">{% if mode == 'SND' %}{{ t.rds_label }}{% else %}{{ t.zcs_label }}{% endif %}</div>
-        <div class="entity-card__value entity-card__value--snd">{% if mode == 'SND' %}{{ m.avg_rds or '-' }}{% else %}{{ m.avg_zcs or '-' }}{% endif %}</div>
+        {% elif mode == 'SND' %}
+        <div class="stat-label">{{ t.rds_label }}</div>
+        <div class="entity-card__value entity-card__value--snd">{{ m.avg_rds or '-' }}</div>
         <div class="muted entity-card__sub">{{ t.kd }} {{ m.avg_kd }} · {{ t.m_kills }} {{ m.avg_k }}</div>
+        {% else %}
+        <div class="stat-label">{{ t.kd }}</div>
+        <div class="entity-card__value">{{ m.avg_kd or '-' }}</div>
+        <div class="muted entity-card__sub">{{ t.m_kills }} {{ m.avg_k }} · {{ t.m_dmg }} {{ m.avg_dmg }}</div>
         {% endif %}
     </a>
     {% endfor %}

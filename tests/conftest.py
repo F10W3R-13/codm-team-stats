@@ -46,6 +46,22 @@ SND_MATCH_1 = [
     {"name": "Maozyn",  "k": 14, "d": 11, "a": 4, "kd_ratio": 1.27, "score": 2000, "adr": 1600, "first_kill": 1, "lone_wolf_win": 0},
 ]
 
+CTRL_MATCH_1 = [
+    {"name": "Shisui",  "k": 18, "d": 10, "a": 4, "kd_ratio": 1.8, "score": 2100, "total_damage": 2800, "capture_kill": 2},
+    {"name": "Cartels", "k": 12, "d": 12, "a": 5, "kd_ratio": 1.0, "score": 1800, "total_damage": 2400, "capture_kill": 1},
+    {"name": "unravel", "k": 15, "d": 9,  "a": 6, "kd_ratio": 1.67, "score": 2000, "total_damage": 2600, "capture_kill": 2},
+    {"name": "Kingz",   "k": 9,  "d": 11, "a": 7, "kd_ratio": 0.82, "score": 1650, "total_damage": 2100, "capture_kill": 0},
+    {"name": "Maozyn",  "k": 13, "d": 10, "a": 3, "kd_ratio": 1.3, "score": 1900, "total_damage": 2200, "capture_kill": 1},
+]
+
+CTRL_MATCH_2 = [
+    {"name": "Shisui",  "k": 16, "d": 12, "a": 5, "kd_ratio": 1.33, "score": 2000, "total_damage": 2700, "capture_kill": 1},
+    {"name": "Cartels", "k": 11, "d": 13, "a": 6, "kd_ratio": 0.85, "score": 1750, "total_damage": 2300, "capture_kill": 1},
+    {"name": "unravel", "k": 14, "d": 10, "a": 8, "kd_ratio": 1.4, "score": 1950, "total_damage": 2500, "capture_kill": 2},
+    {"name": "Kingz",   "k": 10, "d": 12, "a": 9, "kd_ratio": 0.83, "score": 1700, "total_damage": 2000, "capture_kill": 0},
+    {"name": "Maozyn",  "k": 12, "d": 11, "a": 4, "kd_ratio": 1.09, "score": 1850, "total_damage": 2100, "capture_kill": 1},
+]
+
 SND_MATCH_2 = [
     {"name": "Shisui",  "k": 16, "d": 12, "a": 4, "kd_ratio": 1.33, "score": 2100, "adr": 1600, "first_kill": 1, "lone_wolf_win": 0},
     {"name": "Cartels", "k": 10, "d": 13, "a": 5, "kd_ratio": 0.77, "score": 1800, "adr": 1400, "first_kill": 1, "lone_wolf_win": 1},
@@ -74,11 +90,18 @@ def seeded_db():
     stats_repo.save_match("SND", SND_MATCH_2, "2026-08-07",
                           map_name="Firing Range", result="LOSS",
                           team_score=3, opponent_score=6)
+    ctrl1 = stats_repo.save_match("CTRL", CTRL_MATCH_1, "2026-08-03",
+                                  map_name="Raid", result="WIN",
+                                  team_score=3, opponent_score=1)
+    stats_repo.save_match("CTRL", CTRL_MATCH_2, "2026-08-10",
+                          map_name="Standoff", result="LOSS",
+                          team_score=1, opponent_score=3)
     return {
         "hp_match_id": hp1["match_id"],
         "hp2_match_id": hp2["match_id"],
         "snd_match_id": snd1["match_id"],
-        "dates": ["2026-08-01", "2026-08-05", "2026-08-08"],
+        "ctrl_match_id": ctrl1["match_id"],
+        "dates": ["2026-08-01", "2026-08-03", "2026-08-05", "2026-08-08", "2026-08-10"],
     }
 
 

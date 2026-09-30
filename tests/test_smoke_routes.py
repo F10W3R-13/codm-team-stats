@@ -10,8 +10,16 @@ PUBLIC_PAGES = [
     "/compare",
     "/compare?a=Shisui&b=Cartels",
     "/compare?a=Shisui&b=Cartels&mode=SND",
+    "/compare?a=Shisui&b=Cartels&mode=CTRL",
     "/leaderboard",
     "/leaderboard?mode=SND",
+    "/leaderboard?mode=CTRL",
+    "/leaderboard?mode=CTRL&metric=avg_ck",
+    "/players?mode=CTRL",
+    "/matches?mode=CTRL",
+    "/maps?mode=CTRL",
+    "/maps/Raid?mode=CTRL",
+    "/api/player/Shisui/timeseries?mode=CTRL",
     "/matches",
     "/maps",
     "/maps/Takeoff",
@@ -41,7 +49,8 @@ def test_lang_variants_render(client):
 
 
 def test_match_detail_200(client, seeded_db):
-    for mid in (seeded_db["hp_match_id"], seeded_db["snd_match_id"]):
+    for mid in (seeded_db["hp_match_id"], seeded_db["snd_match_id"],
+                seeded_db["ctrl_match_id"]):
         r = client.get(f"/matches/{mid}")
         assert r.status_code == 200, f"/matches/{mid} → {r.status_code}: {r.text[:200]}"
 
