@@ -437,7 +437,9 @@ def opponent_admin_data() -> dict:
             WHERE m.opponent_team_id IS NULL
               AND EXISTS (SELECT 1 FROM opponent_stats_hp h WHERE h.match_id = m.id
                           UNION ALL
-                          SELECT 1 FROM opponent_stats_snd s WHERE s.match_id = m.id)"""
+                          SELECT 1 FROM opponent_stats_snd s WHERE s.match_id = m.id
+                          UNION ALL
+                          SELECT 1 FROM opponent_stats_ctrl c WHERE c.match_id = m.id)"""
         pending = conn.execute(db._adapt_sql(
             f"SELECT m.id, m.match_date, m.mode, m.map_name, m.result, "
             f"       m.team_score, m.opponent_score {pending_where} "
@@ -460,6 +462,7 @@ def opponent_admin_data() -> dict:
             "SELECT player_id, COUNT(*) c FROM ("
             "  SELECT player_id FROM opponent_stats_hp"
             "  UNION ALL SELECT player_id FROM opponent_stats_snd"
+            "  UNION ALL SELECT player_id FROM opponent_stats_ctrl"
             ") GROUP BY player_id")).fetchall()}
         alias_n = {r["pid"]: r["c"] for r in conn.execute(db._adapt_sql(
             "SELECT opponent_player_id pid, COUNT(*) c FROM opponent_aliases "
@@ -513,7 +516,7 @@ def _suggest_teams_for_teamless(conn, players, team_id_of):
             "SELECT player_id, team_id FROM opponent_team_rosters")).fetchall():
         player_teams.setdefault(r["player_id"], set()).add(r["team_id"])
     match_enemies = {}
-    for tbl in ("opponent_stats_hp", "opponent_stats_snd"):
+    for tbl in ("opponent_stats_hp", "opponent_stats_snd", "opponent_stats_ctrl"):
         for r in conn.execute(db._adapt_sql(
                 f"SELECT DISTINCT match_id, player_id FROM {tbl}")).fetchall():
             match_enemies.setdefault(r["match_id"], []).append(r["player_id"])
@@ -708,7 +711,8 @@ def assign_match_opponent(match_id: int, team_id: int,
             "SELECT id FROM opponent_teams WHERE id = ?"), (team_id,)).fetchone()
         if not t:
             return {"ok": False, "message": "없는 팀입니다"}
-        tbl = "opponent_stats_hp" if m["mode"] == "HP" else "opponent_stats_snd"
+        tbl = {"HP": "opponent_stats_hp", "SND": "opponent_stats_snd",
+               "CTRL": "opponent_stats_ctrl"}.get(m["mode"], "opponent_stats_snd")
         rows = conn.execute(db._adapt_sql(
             f"SELECT id, ign_raw FROM {tbl} WHERE match_id = ?"), (match_id,)).fetchall()
         for r in rows:

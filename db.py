@@ -296,13 +296,9 @@ def _migrate_matches_mode_check_sqlite(conn) -> bool:
     if "matches_new" not in create_new or "CTRL" not in create_new:
         log.warning("마이그레이션 스킵: matches CHECK 패턴을 인식할 수 없음")
         return False
-    # 실제 존재하는 컬럼만 복사 (변형/구버전 스키마 안전장치)
-    live_cols = {r[1] for r in conn.execute("PRAGMA table_info(matches)").fetchall()}
-    copy_cols = [c for c in ("id", "mode", "map_name", "match_date", "raw_date",
-                             "result", "team_score", "opponent_score", "coach_note",
-                             "vod_url", "transcript_summary", "opponent_team_id",
-                             "created_at") if c in live_cols]
-    col_list = ", ".join(copy_cols)
+    # matches_new는 old_sql 복제라 컬럼이 동일 — 실제 컬럼 전부 복사 (season 등 누락 방지)
+    col_list = ", ".join(
+        f'"{r[1]}"' for r in conn.execute("PRAGMA table_info(matches)").fetchall())
     log.info("마이그레이션: matches.mode CHECK에 CTRL 추가 (테이블 재구축)")
     conn.executescript(f"""
         PRAGMA foreign_keys=OFF;
