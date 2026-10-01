@@ -218,7 +218,8 @@ def apply_plan(conn, team_plans, tag_extras):
     # 4) 매치 소급 귀속 (다수결)
     mids = [r["match_id"] for r in conn.execute(db._adapt_sql(
         "SELECT DISTINCT match_id FROM opponent_stats_hp UNION "
-        "SELECT DISTINCT match_id FROM opponent_stats_snd")).fetchall()]
+        "SELECT DISTINCT match_id FROM opponent_stats_snd UNION "
+        "SELECT DISTINCT match_id FROM opponent_stats_ctrl")).fetchall()]
     attributed = 0
     for mid in mids:
         row = conn.execute(db._adapt_sql(
@@ -226,7 +227,7 @@ def apply_plan(conn, team_plans, tag_extras):
         if not row or row["opponent_team_id"] is not None:
             continue
         names = []
-        for tbl in ("opponent_stats_hp", "opponent_stats_snd"):
+        for tbl in ("opponent_stats_hp", "opponent_stats_snd", "opponent_stats_ctrl"):
             names += [r["ign_raw"] for r in conn.execute(db._adapt_sql(
                 f"SELECT ign_raw FROM {tbl} WHERE match_id = ?"), (mid,)).fetchall()]
         team_id = db.identify_opponent_team(conn, names)
