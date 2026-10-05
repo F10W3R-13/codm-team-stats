@@ -407,8 +407,7 @@ def init_db() -> None:
     SQLite: 기존 matches에 result/team_score/opponent_score 컬럼 없으면 추가.
     """
     if USE_POSTGRES:
-        import psycopg2
-        with psycopg2.connect(DATABASE_URL) as conn:
+        with _pg_connect() as conn:
             conn.autocommit = True
             with conn.cursor() as cur:
                 # 동시 init_db(다중 워커)가 ALTER TABLE을 병렬로 실행해 데드락이 나는 것을 방지.
@@ -599,12 +598,28 @@ class _ConnAdapter:
 from contextlib import contextmanager
 
 
+def _pg_connect(retries: int = 5, delay: float = 1.0):
+    """Postgres 접속 — sleep에서 깨는 중("starting up")이면 재시도.
+
+    Railway Postgres는 비용 절감용 sleep이라 콜드 스타트 첫 요청이 거부된다.
+    """
+    import time
+    import psycopg2
+    for i in range(retries):
+        try:
+            return psycopg2.connect(DATABASE_URL)
+        except psycopg2.OperationalError as e:
+            if "starting up" not in str(e) or i == retries - 1:
+                raise
+            log.warning("Postgres 기동 중 — %.0f초 후 재시도 (%d/%d)", delay, i + 1, retries)
+            time.sleep(delay)
+
+
 @contextmanager
 def get_conn():
     """커넥션 컨텍스트 매니저. row_factory=dict-like 로 접근."""
     if USE_POSTGRES:
-        import psycopg2
-        conn = psycopg2.connect(DATABASE_URL)
+        conn = _pg_connect()
     else:
         conn = sqlite3.connect(DB_PATH)
     try:
