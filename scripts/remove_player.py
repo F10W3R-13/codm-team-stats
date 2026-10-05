@@ -45,18 +45,23 @@ def remove_player(name: str):
         snd_n = conn.execute(
             "SELECT COUNT(*) c FROM player_stats_snd WHERE player_id=?", (pid,)
         ).fetchone()["c"]
+        ctrl_n = conn.execute(
+            "SELECT COUNT(*) c FROM player_stats_ctrl WHERE player_id=?", (pid,)
+        ).fetchone()["c"]
         alias_n = conn.execute(
             "SELECT COUNT(*) c FROM aliases WHERE player_id=?", (pid,)
         ).fetchone()["c"]
 
         conn.execute("DELETE FROM player_stats_hp  WHERE player_id=?", (pid,))
         conn.execute("DELETE FROM player_stats_snd WHERE player_id=?", (pid,))
+        conn.execute("DELETE FROM player_stats_ctrl WHERE player_id=?", (pid,))
         conn.execute("DELETE FROM aliases            WHERE player_id=?", (pid,))
         conn.execute("DELETE FROM players            WHERE id=?",         (pid,))
 
         print(f"삭제 완료: {name} (id={pid})")
         print(f"  player_stats_hp  : {hp_n}행")
         print(f"  player_stats_snd : {snd_n}행")
+        print(f"  player_stats_ctrl: {ctrl_n}행")
         print(f"  aliases          : {alias_n}행")
         return True
 

@@ -121,9 +121,9 @@ class StatsCommands(commands.Cog):
                     f"Avg Kills: {c['avg_k']}\n"
                     f"Avg Deaths: {c['avg_d']}\n"
                     f"Avg Assists: {c['avg_a']}\n"
-                    f"Score     : {c['avg_score']:.0f}\n"
-                    f"Impact    : {c['avg_impact']:.0f}\n"
-                    f"Total DMG : {c['avg_dmg']:.0f}\n"
+                    f"Score     : {(c['avg_score'] or 0):.0f}\n"
+                    f"Impact    : {(c['avg_impact'] or 0):.0f}\n"
+                    f"Total DMG : {(c['avg_dmg'] or 0):.0f}\n"
                     f"Cap Kills : {c['avg_capture']}\n"
                     f"```"
                 ),
