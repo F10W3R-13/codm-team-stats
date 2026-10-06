@@ -22,7 +22,7 @@ OPENAI_BASE_URL = os.environ.get("OPENAI_BASE_URL") or (
     "https://api.z.ai/api/paas/v4/" if OPENAI_MODEL.startswith("glm-") else None)
 
 # gpt-5+/o계열 reasoning 모델은 temperature 변경·max_tokens 미지원 → 파라미터 자동 보정.
-OPENAI_IS_REASONING = OPENAI_MODEL.startswith(("gpt-5", "o1", "o3", "o4"))
+OPENAI_IS_REASONING = OPENAI_MODEL.startswith(("gpt-5", "gpt-6", "o1", "o3", "o4"))
 
 
 def chat_params(temperature: float = None, max_tokens: int = None) -> dict:
