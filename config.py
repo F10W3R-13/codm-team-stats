@@ -12,7 +12,7 @@ DISCORD_TOKEN = os.environ["DISCORD_BOT_TOKEN"]
 
 # ── OpenAI 호환 (OpenAI / Z.ai GLM) ───────────────────────────────────────
 OPENAI_API_KEY = os.environ["OPENAI_API_KEY"]
-OPENAI_MODEL = "gpt-5.6-luna"      # 2026-08 복귀: Z.ai flash는 Discord CDN 이미지 fetch 불가(에러 1210) → luna 복귀
+OPENAI_MODEL = "gpt-6-luna"        # 2026-10 교체: 5.6-luna 대비 입력 1/2·출력 약 0.42배 가격, 실스크린샷 OCR 결과 동일 확인
 OPENAI_TEMPERATURE = 0.0          # 구세대 전용 (reasoning 계열에선 미전송)
 OPENAI_MAX_TOKENS = 2048          # 구세대 전용 (reasoning 계열에선 max_completion_tokens로 전송)
 OPENAI_REASONING_EFFORT = "low"   # reasoning 계열: OCR·짧은 인사이트엔 low로 충분 (지연·비용 절약)
