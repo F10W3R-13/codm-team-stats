@@ -674,6 +674,8 @@
             [data-mobile-hide] { display: none; }
             th, td { padding: 0.65rem 0.45rem; }
             .table-wrap table { min-width: 460px; }
+            /* 열을 숨겨 3열 이하로 줄어드는 표만 — 강제 가로 스크롤 해제 */
+            .table-wrap--fit table { min-width: 0; }
             /* admin 표 내 버튼 터치 타겟 확보 — 가로 스크롤 중에도 클릭 가능 */
             .btn--sm {
                 min-height: 36px;

@@ -145,7 +145,7 @@
 <div class="card section card--success">
     <h2>📈 {{ t.hub_form_up }}</h2>
     <p class="muted stat-label">{{ t.hub_form_up_help }}</p>
-    <div class="table-wrap">
+    <div class="table-wrap table-wrap--fit">
     <table>
         <thead>
             <tr><th>{{ t.player }}</th><th class="num" data-mobile-hide>{{ t.hub_season_kd }}</th><th class="num">{{ t.hub_recent_kd }}</th><th class="num" data-mobile-hide>{{ t.zcs_label }}</th><th class="num">Δ</th></tr>
@@ -171,7 +171,7 @@
 <div class="card section card--danger">
     <h2>⚠️ {{ t.hub_form_alerts }}</h2>
     <p class="muted stat-label">{{ t.hub_form_help }}</p>
-    <div class="table-wrap">
+    <div class="table-wrap table-wrap--fit">
     <table>
         <thead>
             <tr><th>{{ t.player }}</th><th class="num" data-mobile-hide>{{ t.hub_season_kd }}</th><th class="num">{{ t.hub_recent_kd }}</th><th class="num" data-mobile-hide>{{ t.zcs_label }}</th><th class="num">Δ</th></tr>
@@ -351,10 +351,8 @@
 .banpick-mode { margin: var(--space-4) 0 var(--space-2); font-size: var(--fs-sm); }
 .banpick-mode--snd { margin-top: var(--space-6); }
 .banpick-list { display: flex; flex-direction: column; gap: var(--space-1); }
-.banpick-row { display: flex; align-items: center; gap: var(--space-3); padding: var(--space-2) var(--space-3); border-radius: var(--radius); text-decoration: none; color: inherit; border-left: 4px solid transparent; transition: background 0.12s; flex-wrap: wrap; }
+.banpick-row { display: flex; align-items: center; gap: var(--space-3); padding: var(--space-2) var(--space-3); border-radius: var(--radius-sm); text-decoration: none; color: inherit; transition: background 0.12s; flex-wrap: wrap; }
 .banpick-row:hover { background: var(--card-2); }
-.banpick-row--pick { border-left-color: var(--success); }
-.banpick-row--ban { border-left-color: var(--danger); }
 .banpick-rank { font-weight: var(--fw-bold); font-size: var(--fs-lg); min-width: 1.5em; text-align: center; color: var(--muted); }
 .banpick-name { font-weight: var(--fw-semibold); flex: 1; min-width: 80px; }
 .banpick-score { font-weight: var(--fw-bold); font-size: var(--fs-lg); }

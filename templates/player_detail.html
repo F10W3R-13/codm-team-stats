@@ -34,7 +34,7 @@
 <!-- HP 통합 지표 패널 (기본 + 커스텀 + 팀 평균 대비) -->
 {% if stats.hp %}
 <div class="card section card--accent">
-    <h2>🎯 {{ t.hp_section }} <span class="muted">({{ stats.hp.matches }} {{ t.games }}) · {{ t.vs_team_title }}</span></h2>
+    <h2>{{ t.hp_section }} <span class="muted">({{ stats.hp.matches }} {{ t.games }}) · {{ t.vs_team_title }}</span></h2>
     <div class="table-wrap">
     <table>
         <thead>
@@ -79,7 +79,7 @@
 {# ── 맵별 성적 히트맵 (HP/SND/CTRL 토글) ── #}
 {% if player_maps or player_maps_snd or player_maps_ctrl %}
 <div class="card section">
-    <h2>🗺️ {{ t.player_maps_title }}</h2>
+    <h2>{{ t.player_maps_title }}</h2>
 
     {# 모드 토글 — 데이터 있는 모드가 2개 이상일 때만 노출 #}
     {% set n_map_modes = (1 if player_maps else 0) + (1 if player_maps_snd else 0) + (1 if player_maps_ctrl else 0) %}
@@ -197,7 +197,7 @@
 
 {% if stats.ctrl %}
 <div class="card section">
-    <h2>🛡️ {{ t.ctrl_section }} <span class="muted">({{ stats.ctrl.matches }} {{ t.games }})</span></h2>
+    <h2>{{ t.ctrl_section }} <span class="muted">({{ stats.ctrl.matches }} {{ t.games }})</span></h2>
     <div class="table-wrap">
     <table>
         <tr><td>{{ t.kd }}</td><td class="num delta-up"><strong>{{ stats.ctrl.avg_kd }}</strong></td></tr>
@@ -329,22 +329,22 @@
 /* 맵별 성적 히트맵 */
 .map-heatmap { margin-top: var(--space-3); display: flex; flex-direction: column; gap: var(--space-1); }
 .map-heatmap__bar { display: flex; justify-content: space-between; font-size: var(--fs-xs); font-weight: var(--fw-medium); margin-bottom: var(--space-1); padding: 0 var(--space-2); }
-.map-heat-row { display: flex; align-items: center; gap: var(--space-2); text-decoration: none; color: inherit; padding: var(--space-2) var(--space-3); border-radius: var(--radius-sm); border-left: 4px solid transparent; transition: filter 0.15s; }
+.map-heat-row { display: flex; align-items: center; gap: var(--space-2); text-decoration: none; color: inherit; padding: var(--space-2) var(--space-3); border-radius: var(--radius-sm); transition: filter 0.15s; }
 .map-heat-row:hover { filter: brightness(0.97); }
 .map-heat-row__name { font-weight: var(--fw-semibold); min-width: 90px; }
 .map-heat-row__metric { margin-left: auto; font-weight: var(--fw-semibold); min-width: 50px; text-align: right; }
 .map-heat-row__pct { min-width: 55px; text-align: right; font-weight: var(--fw-medium); }
 .map-heat-row__matches { font-size: var(--fs-xs); min-width: 70px; text-align: right; }
 /* 히트 색 — ±% 크기에 비례 (AGENTS.md 토큰: success/danger weak) */
-.heat-2 { background: var(--success-weak); border-left-color: var(--success); }
+.heat-2 { background: var(--success-weak); }
 .heat-2 .map-heat-row__pct { color: var(--success); }
-.heat-1 { background: color-mix(in srgb, var(--success-weak) 50%, var(--card)); border-left-color: var(--success); }
+.heat-1 { background: color-mix(in srgb, var(--success-weak) 50%, var(--card)); }
 .heat-1 .map-heat-row__pct { color: var(--success); }
-.heat-0 { background: var(--card-2); border-left-color: var(--border); }
+.heat-0 { background: var(--card-2); }
 .heat-0 .map-heat-row__pct { color: var(--muted); }
-.heat--1 { background: color-mix(in srgb, var(--danger-weak) 50%, var(--card)); border-left-color: var(--danger); }
+.heat--1 { background: color-mix(in srgb, var(--danger-weak) 50%, var(--card)); }
 .heat--1 .map-heat-row__pct { color: var(--danger); }
-.heat--2 { background: var(--danger-weak); border-left-color: var(--danger); }
+.heat--2 { background: var(--danger-weak); }
 .heat--2 .map-heat-row__pct { color: var(--danger); }
 .metric-label { font-size: var(--fs-xs); display: block; margin-bottom: var(--space-1); }
 .chart-wrap--trend { height: 380px; }

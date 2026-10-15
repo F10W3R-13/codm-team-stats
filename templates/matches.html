@@ -63,11 +63,11 @@
 {% if total_pages > 1 %}
 <div class="pagination">
     {% if page > 1 %}
-    <a href="/matches?mode={{ mode }}&lang={{ lang }}&page={{ page - 1 }}">← {{ t.prev }}</a>
+    <a href="/matches?mode={{ mode }}&lang={{ lang }}&page={{ page - 1 }}">{{ t.prev }}</a>
     {% endif %}
     <span class="muted pagination-current">{{ page }} / {{ total_pages }}</span>
     {% if page < total_pages %}
-    <a href="/matches?mode={{ mode }}&lang={{ lang }}&page={{ page + 1 }}">{{ t.next }} →</a>
+    <a href="/matches?mode={{ mode }}&lang={{ lang }}&page={{ page + 1 }}">{{ t.next }}</a>
     {% endif %}
 </div>
 {% endif %}
