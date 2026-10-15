@@ -122,12 +122,9 @@
 </div>
 
 <style>
-/* 모드 세그먼트 토글 — 큰 버튼 */
-.mode-segment { display: inline-flex; gap: 0; border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; margin-bottom: var(--space-4); }
-.mode-segment__btn { padding: var(--space-2) var(--space-6); font-size: var(--fs-sm); font-weight: var(--fw-semibold); color: var(--text-2); text-decoration: none; background: var(--card); transition: background 0.15s, color 0.15s; }
-.mode-segment__btn:hover { background: var(--card-2); }
-.mode-segment__btn.active { background: var(--accent); color: var(--on-accent); }
-.mode-segment__btn:not(:last-child) { border-right: 1px solid var(--border); }
+/* 모드 선택 — 밑줄 탭 (모양은 base.html 공통) */
+.mode-segment { margin-bottom: var(--space-4); }
+.mode-segment .mode-segment__btn { font-size: var(--fs-base); }  /* 상위 선택(모드) > 지표 탭 */
 /* 지표 pill 행 */
 .lb-metrics { margin-bottom: var(--space-4); }
 /* 리더보드 표 */

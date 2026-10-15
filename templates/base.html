@@ -102,7 +102,8 @@
             --warning:       #745b00;
             --warning-weak:  #f8da9d;
             /* ── 색 · 데이터 종목색 (HP/SND — 기능적, Astryx 휴 팔레트 미세조정) ── */
-            --hp:            #ad5400;  /* HP · orange 휴 — 글씨 4.5:1 확보(라이트) */
+            --hp:            #f27902;  /* HP · orange 휴 — 그래픽(차트·마커·보더)용, 3:1 */
+            --hp-text:       #ad5400;  /* HP 글씨용 — 4.5:1 확보 (라이트) */
             --hp-weak:       #fad0b5;
             --snd:           #7952ff;  /* SND · purple 휴 */
             --snd-weak:      #eccef3;
@@ -166,6 +167,7 @@
             --warning:       #fdcf4f;
             --warning-weak:  #deb4333D;
             --hp:            #ffa258;
+            --hp-text:       #ffa258;
             --hp-weak:       #ffa2583D;
             --snd:           #b3b0fe;
             --snd-weak:      #f297ff3D;
@@ -197,6 +199,7 @@
                 --warning:       #fdcf4f;
                 --warning-weak:  #deb4333D;
                 --hp:            #ffa258;
+            --hp-text:       #ffa258;
                 --hp-weak:       #ffa2583D;
                 --snd:           #b3b0fe;
                 --snd-weak:      #f297ff3D;
@@ -313,7 +316,7 @@
             font-weight: var(--fw-semibold);
             letter-spacing: 0.01em;
         }
-        .stat-card.hp .value { color: var(--hp); }
+        .stat-card.hp .value { color: var(--hp-text); }
         .stat-card.snd .value { color: var(--snd); }
         /* 통계 수치/라벨 (stat-card 외부에서도 단독 사용) */
         .stat-value {
@@ -509,7 +512,7 @@
         .text-success { color: var(--success); }
         .text-danger  { color: var(--danger); }
         .text-warning { color: var(--warning); }
-        .text-hp      { color: var(--hp); }
+        .text-hp      { color: var(--hp-text); }
         .text-snd     { color: var(--snd); }
         .text-center { text-align: center; }
         .lang-switcher {
@@ -603,29 +606,23 @@
         .nav-toggle.open span:nth-child(2) { opacity: 0; }
         .nav-toggle.open span:nth-child(3) { transform: translateY(-8px) rotate(-45deg); }
 
-        /* ═══ HP/SND 모드 토글 (player_detail) ═══ */
-        .mode-toggle {
-            display: inline-flex;
-            gap: var(--space-1);
-            margin-bottom: var(--space-3);
-            border: 1px solid var(--border);
-            border-radius: var(--radius-sm);
-            padding: 2px;
-            background: var(--surface);
+        /* ═══ 단일 선택 컨트롤 = 밑줄 탭 (.filters와 같은 모양) ═══
+           허브 기간(.period-toggle), 선수 모드(.mode-toggle-group / .mode-toggle), 순위 모드(.mode-segment).
+           .btn--toggle 단독(admin 보조 버튼)은 그룹 밖이라 영향 없음. */
+        .period-toggle, .mode-toggle-group, .mode-toggle, .mode-segment {
+            display: flex; flex-wrap: wrap; gap: 0.25rem 1.25rem;
         }
-        .mode-toggle__btn {
-            border: none;
-            background: transparent;
-            padding: var(--space-1) var(--space-3);
-            border-radius: 2px;
-            cursor: pointer;
-            font: inherit;
-            color: var(--muted);
-            transition: background 0.15s, color 0.15s;
+        .mode-toggle { margin-bottom: var(--space-3); }
+        .period-toggle .btn--toggle, .mode-toggle-group .btn--toggle, .mode-toggle__btn, .mode-segment__btn {
+            padding: 0.35rem 0; border: 0; border-bottom: 2px solid transparent; border-radius: 0;
+            background: none; color: var(--text-2); font: inherit; font-size: 0.9rem; font-weight: 500;
+            text-decoration: none; cursor: pointer; transition: color 0.15s, border-color 0.15s;
         }
-        .mode-toggle__btn.active {
-            background: var(--accent);
-            color: var(--on-accent);
+        .period-toggle .btn--toggle:hover, .mode-toggle-group .btn--toggle:hover, .mode-toggle__btn:hover, .mode-segment__btn:hover {
+            background: none; color: var(--text);
+        }
+        .period-toggle .btn--toggle.active, .mode-toggle-group .btn--toggle.active, .mode-toggle__btn.active, .mode-segment__btn.active {
+            background: none; color: var(--text); font-weight: 600; border-bottom-color: var(--text);
         }
 
         /* ═══ 반응형: 태블릿 이하 (≤768px) ═══ */

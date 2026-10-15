@@ -204,7 +204,7 @@ git push origin main
 - **색 · 표면/텍스트** (neutral 그레이스케일): `--bg`, `--surface`/`--card`, `--card-2`, `--border`, `--border-strong`, `--text`, `--text-2`, `--muted`.
 - **색 · 강조** (UI 액센트 = 흑백): `--accent`, `--accent-weak`, `--accent-2`, `--on-accent`.
 - **색 · status**: `--success`/`--success-weak`, `--danger`/`--danger-weak`, `--warning`/`--warning-weak`. (승/패·삭제·경고 색은 이 토큰 필수 — 하드코딩 금지)
-- **색 · 데이터** (HP/SND 기능색, Astryx 휴 팔레트): `--hp`/`--hp-weak`, `--snd`/`--snd-weak`.
+- **색 · 데이터** (HP/SND 기능색, Astryx 휴 팔레트): `--hp`(그래픽)/`--hp-text`(글씨, 4.5:1)/`--hp-weak`, `--snd`/`--snd-weak`. HP 색 **글씨**에는 반드시 `--hp-text`.
 - **Spacing** (4px 기반): `--space-1`~`--space-12`.
 - **Radius** (의미적): `--radius-sm` (6px), `--radius` (10px), `--radius-lg` (12px), `--radius-full`.
 - **Typography** (Pretendard): `--fs-xs`~`--fs-stat`, `--fw-normal`/`medium`/`semibold`/`bold`.
@@ -215,7 +215,7 @@ git push origin main
 - 새 컴포넌트/요소는 **반드시 클래스로 작성**. `style="..."` 인라인 금지.
 - **예외 (구조적 불가피만 허용)**: ① 동적 값 (`width:{{ w }}px` 처럼 Jinja 변수), ② 조건부 `display:none` (`{% if %}` 제어). 이 외는 클래스로.
 - 색 인라인(`style="color:var(--accent)"`) 대신 유틸리티 클래스 `.text-accent`/`.text-success`/`.text-danger`/`.text-hp`/`.text-snd` 사용.
-- 카드 강조 보더는 `.card--accent`/`.card--hp`/`.card--snd`/`.card--success`/`.card--danger`/`.card--warning` (인라인 `border-left` 금지).
+- 카드 강조 보더는 `.card--accent`/`.card--hp`/`.card--snd`/`.card--success`/`.card--danger`/`.card--warning` (상단 룰 색, 인라인 보더 금지).
 - 버튼은 `.btn` + 변형(`.btn--primary`/`.btn--danger`/`.btn--ghost`/`.btn--toggle`). 폼 입력은 `.input`/`.select`.
 - 승/패·±% 색은 `.win-badge`/`.loss-badge`, `.delta-up`/`.delta-down`/`.delta-flat`. 역할 배지는 `.role-badge--{role}`.
 - 토스트 알림은 글로벌 `flash(msg, ok=true)` 함수 (base.html, `.toast` 클래스). 각 페이지에서 중복 정의 금지.

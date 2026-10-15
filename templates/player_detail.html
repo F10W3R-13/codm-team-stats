@@ -5,6 +5,21 @@
 
 {% block content %}
 <h1>🎯 {{ stats.name }}</h1>
+{# 핵심 숫자 요약 — 아래 표와 같은 값을 큰 숫자로 먼저 보여준다 (새 데이터 없음) #}
+{% set summary = [] %}
+{% if stats.hp %}{% set _ = summary.append((t.mode_hp ~ ' · ZCS', stats.hp.zcs, 'text-hp')) %}{% set _ = summary.append((t.mode_hp ~ ' · ' ~ t.kd, stats.hp.avg_kd, '')) %}{% endif %}
+{% if stats.snd %}{% set _ = summary.append((t.mode_snd ~ ' · ' ~ t.rds_label, stats.snd.rds, 'text-snd')) %}{% set _ = summary.append((t.mode_snd ~ ' · ' ~ t.kd, stats.snd.avg_kd, '')) %}{% endif %}
+{% if stats.ctrl %}{% set _ = summary.append((t.mode_ctrl ~ ' · ' ~ t.kd, stats.ctrl.avg_kd, '')) %}{% endif %}
+{% if summary %}
+<dl class="player-summary">
+    {% for label, val, cls in summary %}
+    <div class="player-summary__item">
+        <dt class="stat-label">{{ label }}</dt>
+        <dd class="stat-value {{ cls }}">{{ val if val is not none else '-' }}</dd>
+    </div>
+    {% endfor %}
+</dl>
+{% endif %}
 {% if stats.hp and stats.hp.spectrum_pos is not none %}
 <div class="mini-spectrum section mini-spectrum--narrow" title="{{ t.hub_spectrum_slay }} {{ stats.hp.slay_score }} · {{ t.hub_spectrum_obj }} {{ stats.hp.obj_score }}">
     <span class="mini-spectrum__mid"></span>
@@ -298,6 +313,9 @@
 
 <style>
 /* player_detail 페이지 로컬 */
+/* 상단 핵심 숫자 요약 */
+.player-summary { display: flex; flex-wrap: wrap; gap: var(--space-6) var(--space-10); margin-bottom: var(--space-8); }
+.player-summary__item dd { margin: 0; }
 .lower-better-hint { font-size: var(--fs-xs); }
 .zcs-strong { color: var(--accent); }
 .rds-strong { color: var(--snd); }
