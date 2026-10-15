@@ -280,7 +280,7 @@
             <select id="metricSel" class="select" onchange="renderChart()"></select>
         </div>
     </div>
-    <div class="chart-wrap chart-wrap--trend"><canvas id="trendChart"></canvas></div>
+    <div class="chart-wrap chart-wrap--trend"><canvas id="trendChart" role="img" aria-label="{{ stats.name }} {{ t.nav_timeseries }}"></canvas></div>
     {% if not stats.hp and not stats.snd and not stats.ctrl %}
     <p class="muted">{{ t.no_data }}</p>
     {% endif %}

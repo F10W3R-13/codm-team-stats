@@ -11,8 +11,8 @@
     <input type="hidden" name="lang" value="{{ lang }}">
     <div class="compare-form__row">
         <div class="compare-form__field">
-            <label class="muted compare-form__label">{{ t.compare_player_a }}</label>
-            <select name="a" class="select" onchange="this.form.submit()">
+            <label class="muted compare-form__label" for="cmpA">{{ t.compare_player_a }}</label>
+            <select name="a" id="cmpA" class="select">
                 <option value="">—</option>
                 {% for p in players %}
                 <option value="{{ p }}" {{ 'selected' if a == p }}>{{ p }}</option>
@@ -20,8 +20,8 @@
             </select>
         </div>
         <div class="compare-form__field">
-            <label class="muted compare-form__label">{{ t.compare_player_b }}</label>
-            <select name="b" class="select" onchange="this.form.submit()">
+            <label class="muted compare-form__label" for="cmpB">{{ t.compare_player_b }}</label>
+            <select name="b" id="cmpB" class="select">
                 <option value="">—</option>
                 {% for p in players %}
                 <option value="{{ p }}" {{ 'selected' if b == p }}>{{ p }}</option>
@@ -29,13 +29,14 @@
             </select>
         </div>
         <div class="compare-form__field">
-            <label class="muted compare-form__label">{{ t.mode_col }}</label>
-            <select name="mode" class="select" onchange="this.form.submit()">
+            <label class="muted compare-form__label" for="cmpMode">{{ t.mode_col }}</label>
+            <select name="mode" id="cmpMode" class="select">
                 <option value="HP" {{ 'selected' if mode == 'HP' }}>🎯 {{ t.mode_hp }}</option>
                 <option value="SND" {{ 'selected' if mode == 'SND' }}>🔍 {{ t.mode_snd }}</option>
                 <option value="CTRL" {{ 'selected' if mode == 'CTRL' }}>🛡️ {{ t.mode_ctrl }}</option>
             </select>
         </div>
+        <button type="submit" class="btn btn--primary">{{ t.apply_filter }}</button>
     </div>
 </form>
 
@@ -64,7 +65,7 @@
 <div class="grid grid-2 section">
     <div class="card">
         <h2>{{ t.compare_radar_title }}</h2>
-        <div class="chart-wrap"><canvas id="radarChart"></canvas></div>
+        <div class="chart-wrap"><canvas id="radarChart" role="img" aria-label="{{ t.compare_radar_title }}: {{ a }} vs {{ b }}"></canvas></div>
     </div>
     <div class="card">
         <h2>{{ t.compare_detail }}</h2>

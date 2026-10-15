@@ -12,6 +12,8 @@ STRINGS = {
         "nav_timeseries": "시계열",
         "lang_label": "언어",
         "theme_toggle": "테마 전환",
+        "skip_to_content": "본문으로 건너뛰기",
+        "apply_filter": "적용",
         "season_label": "시즌 보기",
         "season_s1": "시즌 1 (아카이브)",
         "season_s2": "시즌 2 (현재)",

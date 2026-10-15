@@ -102,7 +102,7 @@
             --warning:       #745b00;
             --warning-weak:  #f8da9d;
             /* ── 색 · 데이터 종목색 (HP/SND — 기능적, Astryx 휴 팔레트 미세조정) ── */
-            --hp:            #f27902;  /* HP · orange 휴 */
+            --hp:            #ad5400;  /* HP · orange 휴 — 글씨 4.5:1 확보(라이트) */
             --hp-weak:       #fad0b5;
             --snd:           #7952ff;  /* SND · purple 휴 */
             --snd-weak:      #eccef3;
@@ -263,6 +263,14 @@
             text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 8px;
         }
         .nav-admin { margin-left: 1rem; }
+        /* 본문 바로가기 — 평소 숨김, 키보드 포커스 시 표시 (WCAG 2.4.1) */
+        .skip-link {
+            position: absolute; left: var(--space-4); top: -100px; z-index: 200;
+            padding: var(--space-2) var(--space-4); border-radius: var(--radius-sm);
+            background: var(--accent); color: var(--on-accent); font-weight: var(--fw-semibold); text-decoration: none;
+        }
+        .skip-link:focus { top: var(--space-3); }
+        #main:focus { outline: none; }  /* 건너뛰기 착지점 — 페이지 전체 링 방지 */
         .container {
             max-width: 1120px;
             margin: 0 auto;
@@ -439,7 +447,7 @@
         /* 폼 입력 통일 — compare/admin 인라인 입력 대체 */
         .input, .select {
             padding: var(--space-2) var(--space-3);
-            border: 1px solid var(--border-strong);
+            border: 1px solid var(--muted);  /* 입력 경계 3:1 이상 (WCAG 1.4.11) */
             border-radius: var(--radius-sm);
             background: var(--card); color: var(--text);
             font-size: var(--fs-sm); font-family: inherit;
@@ -687,6 +695,7 @@
     {% block head %}{% endblock %}
 </head>
 <body>
+    <a class="skip-link" href="#main">{{ t.skip_to_content }}</a>
     <nav class="nav" id="nav">
         <div class="nav-brand">{{ t.nav_brand }}</div>
         <div class="nav-links" id="navLinks">
@@ -716,9 +725,9 @@
             <span aria-hidden="true"></span><span aria-hidden="true"></span><span aria-hidden="true"></span>
         </button>
     </nav>
-    <div class="container">
+    <main class="container" id="main" tabindex="-1">
         {% block content %}{% endblock %}
-    </div>
+    </main>
     <script>
     // 언어 전환: 현재 URL의 lang 파라미터만 교체하고 이동.
     function setLang(lang) {

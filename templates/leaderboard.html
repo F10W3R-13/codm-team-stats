@@ -28,16 +28,17 @@
 {# 모바일: select 드롭다운 #}
 <form method="get" class="lb-filters--mobile">
     <input type="hidden" name="lang" value="{{ lang }}">
-    <select name="mode" class="select" onchange="this.form.submit()">
+    <select name="mode" class="select" aria-label="{{ t.mode_col }}">
         <option value="HP" {{ 'selected' if mode == 'HP' }}>🎯 {{ t.mode_hp }}</option>
         <option value="SND" {{ 'selected' if mode == 'SND' }}>🔍 {{ t.mode_snd }}</option>
         <option value="CTRL" {{ 'selected' if mode == 'CTRL' }}>🛡️ {{ t.mode_ctrl }}</option>
     </select>
-    <select name="metric" class="select" onchange="this.form.submit()">
+    <select name="metric" class="select" aria-label="{{ t.select_metric }}">
         {% for key, label in opts %}
         <option value="{{ key }}" {{ 'selected' if metric == key }}>{{ label }}</option>
         {% endfor %}
     </select>
+    <button type="submit" class="btn btn--primary">{{ t.apply_filter }}</button>
 </form>
 
 {# 1위 값 (바 정규화 기준) #}

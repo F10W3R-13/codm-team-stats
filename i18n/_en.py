@@ -11,6 +11,8 @@ STRINGS = {
         "nav_timeseries": "Trends",
         "lang_label": "Language",
         "theme_toggle": "Toggle theme",
+        "skip_to_content": "Skip to content",
+        "apply_filter": "Apply",
         "season_label": "Season view",
         "season_s1": "Season 1 (archive)",
         "season_s2": "Season 2 (current)",
