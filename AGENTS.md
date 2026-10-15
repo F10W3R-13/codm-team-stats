@@ -59,7 +59,7 @@
 - DB는 환경변수 `DATABASE_URL`이 있으면 Postgres, 없으면 로컬 SQLite(`codm.db`).
 - 웹 실행: `uvicorn web_api:app --port 8000` (CWD = 이 폴더여야 DB·템플릿 경로가 맞음).
 - 봇 실행: `python bot.py`. 통합 실행(봇+웹): `python start.py` (배포용, subprocess로 둘 다 띄움).
-- 템플릿 스타일은 `templates/base.html`의 `<style>` 한 곳에 모여 있고, 다른 페이지가 그 클래스를 공유한다. 디자인 톤은 **Astryx neutral 철학 기반** (UI 액센트 = 흑백 그레이스케일 `#262626`/`#ebebeb`, Pretendard 폰트 유지, HP=주황/SND=보라 데이터 색은 기능적으로 유지). 다크모드는 `<html data-theme="dark">` 토글 (nav 버튼, localStorage 저장) + OS 자동 감지.
+- 템플릿 스타일은 `templates/base.html`의 `<style>` 한 곳에 모여 있고, 다른 페이지가 그 클래스를 공유한다. 디자인 톤은 **미니멀 에디토리얼** (Astryx neutral 계승: UI 액센트 = 흑백 `#111`/`#ededed`, Pretendard, 숫자 tabular-nums, HP=주황/SND=보라 데이터 색 유지). `.card`는 박스가 아니라 상단 헤어라인+여백. 모양 규칙: 컨테이너 0 / 컨트롤 `--radius-sm` / 데이터 칩·마커 pill. 그림자 없음(토스트만 `--shadow-lg`). 다크모드는 `<html data-theme="dark">` 토글 (nav 버튼, localStorage 저장) + OS 자동 감지.
 - 비밀정보(`.env`, `service-account.json`)·DB(`codm.db`)·CSV·백업(`*.bak`, `codm.db.backup*`)은 절대 커밋하지 않는다. `.gitignore`에 이미 포함.
 - GPT 프롬프트(`prompt.py`)와 커스텀 지표 공식(`metrics.py`)은 출처가 정해져 있어 함부로 수정 금지.
 - **프로젝트 스킬**: `.agents/skills/` (오픈 표준 위치, Codex 자동 인식). OCR 이름 매칭·alias 사전·퍼지 매칭 작업 시 `.agents/skills/ocr-alias-matching/SKILL.md`를 읽고 따를 것. 스킬 자동 인식이 없는 도구(Cursor 등)도 이 규칙으로 커버된다.

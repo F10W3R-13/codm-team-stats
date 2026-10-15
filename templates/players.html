@@ -51,8 +51,8 @@
 
 <style>
 /* players 페이지 로컬 — 카드 정렬 충돌 해결 (.stat-card의 text-align:center 배제) */
-.player-card { text-decoration: none; color: inherit; display: block; transition: transform 0.15s, box-shadow 0.15s; }
-.player-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-lg); }
+.player-card { text-decoration: none; color: inherit; display: block; transition: border-color 0.15s; }
+.player-card:hover { border-top-color: var(--text); }
 .player-card__header { display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-1); }
 .player-card__name { font-size: var(--fs-xl); font-weight: var(--fw-bold); }
 .player-card__matches { font-size: var(--fs-xs); margin-bottom: var(--space-3); }
