@@ -306,9 +306,9 @@ def summarize_transcript(report: dict, transcript: str, lang: str = "ko") -> str
     if not transcript or not transcript.strip():
         return ""
     try:
-        # 전사가 너무 길면 토큰 절약을 위해 자름 (문단 단위 약 12000자)
-        trunc = transcript[:12000]
-        if len(transcript) > 12000:
+        # 전사가 너무 길면 자름 (약 60000자 ≈ 25k토큰 — luna 단가로 1회 ~$0.005)
+        trunc = transcript[:60000]
+        if len(transcript) > 60000:
             trunc += "\n...[전사 일부 생략]..."
 
         # 수치 컨텍스트 압축 (전체 report는 너무 큼)
@@ -322,9 +322,11 @@ def summarize_transcript(report: dict, transcript: str, lang: str = "ko") -> str
             "team_totals": report.get("team_totals"),
         }
 
-        completion = _client().chat.completions.create(
+        # 입력이 커서(~45k토큰) 공용 15s 타임아웃으론 부족 → 요약만 60s.
+        # 출력 한도는 reasoning 토큰 포함이라 넉넉히 2000.
+        completion = _client().with_options(timeout=60.0).chat.completions.create(
             model=config.OPENAI_MODEL,
-            **config.chat_params(0.4, 900),
+            **config.chat_params(0.4, 2000),
             messages=[
                 {
                     "role": "system",
