@@ -77,3 +77,6 @@ backups/
 reprocess_state.json
 reprocess_log.txt
 .video_agent/
+
+# 모델 비교 실측 결과 (scripts/insight_model_bench.py)
+bench_out/

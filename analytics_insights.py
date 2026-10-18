@@ -68,6 +68,33 @@ def _lang_instruction(lang: str) -> str:
     return _LANG_INSTRUCT.get(lang, _LANG_INSTRUCT["ko"])
 
 
+# 웹 인사이트 출력 한도 — reasoning 토큰도 여기서 차감되므로 넉넉히 둔다.
+# 실측(Luna low) 최대 ~400토큰. 길이는 _web_rules가 통제하고, 이 값은 잘림 방지용 안전판.
+_WEB_MAX_OUT = 1500
+
+
+def _web_rules(length: str, numbered: bool = False) -> list:
+    """웹 인사이트 공통 출력 규칙 (2026-10 모델·프롬프트 실측으로 확정).
+
+    웹은 textContent로 넣어 마크다운이 기호 그대로 보이고, 근거 없는 승패·과장 표현이
+    실측에서 반복돼 규칙으로 명시한다. 이유를 함께 적어야 모델이 일관되게 지킨다.
+    """
+    fmt = ("Plain text only — the page inserts it with textContent, so markdown (**, #, bullet "
+           "symbols, code blocks), JSON and emoji would show up as literal characters. No title.")
+    if numbered:
+        fmt = ("Plain text except the required '1. ' line numbers — the page inserts it with "
+               "textContent, so other markdown, emoji or a title would show up as literal characters.")
+    return [
+        fmt,
+        f"Length: {length}. The insight sits next to the numbers on the page — longer is not better.",
+        "Use only numbers from the data or the baselines (a simple ± % between two of them is fine). "
+        "If the data has no result or score, never say the team won or lost.",
+        "When a figure rests on fewer than 3 matches, call it tentative and avoid labels like 'ace' "
+        "or absolute wording ('must', 'definitely', 'guaranteed').",
+        "Use the formal IGNs.",
+    ]
+
+
 def match_insight(report: dict, lang: str = "ko") -> str:
     """매치 리포트 데이터 → 1-2문장 자연어 인사이트.
 
@@ -76,17 +103,28 @@ def match_insight(report: dict, lang: str = "ko") -> str:
     if not report:
         return ""
     try:
+        # team_totals의 zcs/rds는 선수 평균, score는 인게임 점수 합 — 이름 그대로 넘기면
+        # AI가 "팀 ZCS 합계"·"팀 점수(=스코어)"로 오독하므로 의미가 드러나게 바꿔 넘긴다.
+        totals = dict(report["team_totals"] or {})
+        for old, new in (("zcs", "zcs_avg_per_player"), ("rds", "rds_avg_per_player"),
+                         ("score", "ingame_score_sum")):
+            if old in totals:
+                totals[new] = totals.pop(old)
         data = {
             "mode": report["mode"],
+            "map": report.get("map_name"),
+            "result": report.get("result"),
+            "team_score": report.get("team_score"),
+            "opponent_score": report.get("opponent_score"),
             "mom": report["mom"],
             "best": report["best"],
             "worst": report["worst"],
-            "team_totals": report["team_totals"],
+            "team_totals": totals,
             "players": report["players"],
         }
         completion = _client().chat.completions.create(
             model=config.OPENAI_MODEL,
-            **config.chat_params(0.5, 500),
+            **config.chat_params(0.5, _WEB_MAX_OUT),
             messages=[
                 {
                     "role": "system",
@@ -94,9 +132,11 @@ def match_insight(report: dict, lang: str = "ko") -> str:
                         "Write 3-4 sentences of key insight from the match stats JSON. "
                         "Provide insight (who had good form, team strengths/weaknesses, "
                         "what stands out tactically — e.g. anchor play, slayer dominance, "
-                        "ZCS outliers), not just a list of numbers. For Discord.",
+                        "ZCS outliers), not just a list of numbers. "
+                        "For the match page and Discord.",
                         lang,
                         domains=_domains_for_match(report["mode"], report.get("map_name")),
+                        rules=_web_rules("3-4 sentences"),
                     ),
                 },
                 {"role": "user", "content": json.dumps(data, ensure_ascii=False, default=str)},
@@ -201,7 +241,7 @@ def player_profile_insight(stats: dict, team_hp: dict = None, lang: str = "ko") 
         }
         completion = _client().chat.completions.create(
             model=config.OPENAI_MODEL,
-            **config.chat_params(0.5, 650),
+            **config.chat_params(0.5, _WEB_MAX_OUT),
             messages=[
                 {
                     "role": "system",
@@ -216,6 +256,7 @@ def player_profile_insight(stats: dict, team_hp: dict = None, lang: str = "ko") 
                         f"Grounded in numbers, no over-interpretation. Actionable, for web display.",
                         lang,
                         domains=_domains_for_player(stats),
+                        rules=_web_rules("5-8 sentences"),
                     ),
                 },
                 {"role": "user", "content": json.dumps(data, ensure_ascii=False, default=str)},
@@ -268,7 +309,7 @@ def map_advice(map_data: dict, lang: str = "ko") -> str:
         )
         completion = _client().chat.completions.create(
             model=config.OPENAI_MODEL,
-            **config.chat_params(0.4, 550),
+            **config.chat_params(0.4, _WEB_MAX_OUT),
             messages=[
                 {
                     "role": "system",
@@ -284,6 +325,7 @@ def map_advice(map_data: dict, lang: str = "ko") -> str:
                         lang,
                         domains=_domains_for_match(mode, map_data.get("map_name"),
                                                    extra=["mechanics-terms"]),
+                        rules=_web_rules("4-6 sentences"),
                     ),
                 },
                 {"role": "user", "content": json.dumps(payload, ensure_ascii=False, default=str)},
@@ -400,7 +442,7 @@ def briefing_insight(hub_data: dict, lang: str = "ko") -> str:
         }
         completion = _client().chat.completions.create(
             model=config.OPENAI_MODEL,
-            **config.chat_params(0.4, 600),
+            **config.chat_params(0.4, _WEB_MAX_OUT),
             messages=[
                 {
                     "role": "system",
@@ -413,10 +455,14 @@ def briefing_insight(hub_data: dict, lang: str = "ko") -> str:
                         "Be DIRECT and prescriptive (the coach acts on this) — unlike player-facing map advice, "
                         "you MAY give concrete directives ('Focus X', 'Ban Y'). "
                         "Format strictly: 3 lines, each '1. <conclusion> — <number>'. "
-                        "Keep total under 250 characters. No preamble, no closing remarks. "
+                        "Label each number with what it is, plus n when the data gives a sample size "
+                        "(e.g. 'Takeoff score -50.6, n=15') — a bare number means nothing to the coach. "
+                        "No preamble, no closing remarks. "
                         "Grounded only in the provided data; no fabrication.",
                         lang,
                         domains=["principles", "mechanics-core", "team", "mechanics-meta"],
+                        rules=_web_rules("exactly 3 lines, about 150-250 characters in total",
+                                         numbered=True),
                     ),
                 },
                 {"role": "user", "content": json.dumps(data, ensure_ascii=False, default=str)},

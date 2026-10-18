@@ -214,6 +214,67 @@ def team_averages(mode: str = "HP", season: str = None) -> dict:
     return avg
 
 
+_BASELINE_MIN_ROWS = 30  # 시즌 초 표본이 이보다 적으면 전 시즌 분포로 대체
+
+
+def metric_baselines(season: str = None) -> dict:
+    """AI 프롬프트용 지표 기준선 — 선수·매치 단위 분포 (p25/p50/p75/p90 + 평균).
+
+    고정 수치("ZCS 평균 ~120")는 시즌마다 낡으므로(s1 116 → s2 68) DB에서 매번 잰다.
+    반환: {"season": "s2"|"all", "HP": {"kd": {...}, "zcs": {...}, ...}, "SND": {...}}
+    """
+    season = _norm_season(season)
+
+    def dist(vals):
+        vals = sorted(v for v in vals if v is not None)
+        if not vals:
+            return None
+        pick = lambda q: round(vals[int(q * (len(vals) - 1))], 2)  # noqa: E731
+        return {"n": len(vals), "mean": round(sum(vals) / len(vals), 2),
+                "p25": pick(.25), "p50": pick(.5), "p75": pick(.75), "p90": pick(.9)}
+
+    def f(x):
+        return float(x) if x is not None else None
+
+    def fetch(where, params):
+        with db.get_conn() as conn:
+            hp = conn.execute(
+                f"""SELECT s.kills, s.deaths, s.kd_ratio, s.obj_time, s.score, s.impact,
+                           s.total_damage, s.capture_kill
+                    FROM player_stats_hp s JOIN matches m ON m.id=s.match_id {where}""", params
+            ).fetchall()
+            snd = conn.execute(
+                f"""SELECT s.kills, s.deaths, s.assists, s.kd_ratio, s.first_kill,
+                           s.lone_wolf_win, s.adr
+                    FROM player_stats_snd s JOIN matches m ON m.id=s.match_id {where}""", params
+            ).fetchall()
+        # Postgres Decimal → float
+        return ([{k: f(v) for k, v in dict(r).items()} for r in hp],
+                [{k: f(v) for k, v in dict(r).items()} for r in snd])
+
+    label = season
+    hp, snd = fetch(f"WHERE {_season_cond('m')}", (season,))
+    if len(hp) < _BASELINE_MIN_ROWS:
+        label = "all"
+        hp, snd = fetch("", ())
+
+    out = {"season": label, "HP": {}, "SND": {}}
+    if hp:
+        hm = [metrics.all_hp_metrics(r["kills"], r["deaths"], r["obj_time"], r["score"],
+                                     r["impact"], r["total_damage"], r["capture_kill"]) for r in hp]
+        out["HP"] = {"kd": dist([r["kd_ratio"] for r in hp])}
+        for key in ("zcs", "dpk", "dpd", "impact", "ap_pct"):
+            out["HP"][key] = dist([m[key] for m in hm])
+    if snd:
+        out["SND"] = {
+            "kd": dist([r["kd_ratio"] for r in snd]),
+            "rds": dist([metrics.all_snd_metrics(r["kills"], r["assists"], r["first_kill"],
+                                                 r["lone_wolf_win"], r["adr"], r["deaths"])["rds"]
+                         for r in snd]),
+        }
+    return out
+
+
 def leaderboard(mode: str = "HP", metric: str = "avg_kd", limit: int = 10,
                 season: str = None) -> list:
     """모드별 순위표. metric: avg_kd/avg_k/avg_dmg/avg_score/avg_obj/avg_adr.

@@ -53,3 +53,23 @@ def test_default_domains_constant():
     assert hasattr(pc, "_DEFAULT_DOMAINS")
     assert "principles" in pc._DEFAULT_DOMAINS
     assert "mechanics-core" in pc._DEFAULT_DOMAINS
+
+
+def test_metric_definitions_have_no_fixed_ranges():
+    """시즌마다 낡는 고정 수치(ZCS ~120, DPK 700–1100 등)를 정의에 두지 않는다 — 기준선은 DB에서."""
+    for stale in ("~120", "700", "1100", "1300", "150+"):
+        assert stale not in pc._METRIC_DEFINITIONS, stale
+
+
+def test_baselines_injected_and_rules_last(monkeypatch):
+    """기준선이 주입되고, 작업 지시·출력 규칙은 참고 자료 뒤(맨 끝)에 온다."""
+    import queries
+    d = {"n": 40, "mean": 70.0, "p25": 14.1, "p50": 56.3, "p75": 111.2, "p90": 157.5}
+    monkeypatch.setattr(queries, "metric_baselines",
+                        lambda season=None: {"season": "s2", "HP": {"zcs": d}, "SND": {}})
+    monkeypatch.setitem(pc._baseline_cache, "text", "")
+    result = pc.build_system_prompt("do thing", "ko", domains=["principles"], rules=["Plain text only"])
+    assert "HP ZCS: 14.1 / 56.3 / 111.2 / 157.5" in result
+    assert result.index("## Task") > result.index("Current Season Baselines")
+    assert result.index("## Output Rules") > result.index("## Task")
+    assert result.rstrip().endswith("Respond in Korean (한국어).")

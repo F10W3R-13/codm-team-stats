@@ -127,10 +127,11 @@ HP: ZCS 최우선 + 보조 지표들. SND: RDS 단일.
 
 ### 코칭 브레인 → AI 인사이트 연동
 - `coaching brain/knowledge/` (Obsidian 볼트)가 AI 인사이트의 코칭 지식 진실 공급원.
-- `coaching_brain_loader.py`가 영역별(principles/mechanics/modes/maps/team)로 mtime 캐싱 읽기. 코치가 Obsidian에서 수정하면 다음 AI 호출 시 자동 반영 (재시작 불필요).
-- `prompt_context.build_system_prompt(task, lang, domains)`가 domains로 선택적 주입. 각 인사이트 함수가 맥락에 맞는 영역 명시.
+- `coaching_brain_loader.py`가 영역별(principles/mechanics/modes/maps/team)로 mtime 캐싱 읽기. 로컬은 Obsidian 수정이 다음 AI 호출에 바로 반영. **배포(Railway)는 브레인 파일을 git push(재배포)해야 반영**된다.
+- `prompt_context.build_system_prompt(task, lang, domains, rules)`가 domains로 선택적 주입. 각 인사이트 함수가 맥락에 맞는 영역 명시. 순서는 참고 자료(지표 정의·기준선·브레인·로스터) → Task → Output Rules (지시를 끝에 둬야 잘 지켜지고, 앞쪽 공통부는 프롬프트 캐시를 탄다).
 - 코칭 브레인 폴더/파일 없으면 빈 문자열 → 지표 정의만으로 AI 동작 (실패 안전).
-- 지표 공식(ZCS/RDS) 정의는 `prompt_context._METRIC_DEFINITIONS`에 고정 (metrics.py 동기화). 코칭 통찰과 분리.
+- 지표 공식(ZCS/RDS) 정의는 `prompt_context._METRIC_DEFINITIONS`에 고정 (metrics.py 동기화). 코칭 통찰과 분리. **정의에 "평균 ~120" 같은 고정 수치를 넣지 말 것** — 시즌마다 낡는다(ZCS 평균 s1 116 → s2 68). 기준값은 `queries.metric_baselines()`가 현재 시즌 분포(p25/p50/p75/p90)를 DB에서 재서 `season_baselines_context()`로 주입 (10분 캐시, 시즌 표본 30행 미만이면 전 시즌).
+- 웹 인사이트(선수·매치·맵·브리핑)는 `analytics_insights._web_rules()` 출력 규칙 공통 적용: 평문(textContent라 마크다운이 기호 그대로 노출), 길이, 데이터 숫자만, 결과 없으면 승패 단정 금지, 3경기 미만은 잠정·과장어 금지. 모델: GPT-6 Luna low (2026-10 실측 비교 — `scripts/insight_model_bench.py`).
 
 ### 테스트·CI
 - **루트 스위트**: `pytest` — `tests/conftest.py`가 임시 SQLite·더미 env 토큰을 자동 설정 (GPT/Discord 외부 호출 없음). fixture 시드는 HP 2매치+SND 2매치(Takeoff/Firing Range).
