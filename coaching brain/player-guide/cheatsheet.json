@@ -1,0 +1,222 @@
+{
+ "_about": "Source data for the Discord reminder generator. Every line is copied from the player-guide pages (which come from knowledge/). Only ✅ and 🔶 lines are here — ❓ items are never included. Edit a line here, then re-run build_reminder.py.",
+ "maps": {
+  "takeoff": {
+   "title": "Takeoff",
+   "mode": "HP",
+   "en": [
+    "P2: pick ONE entrance and move left–right together — don't spread out to cover every angle. `S19 ✅`",
+    "P3 (you hold it): top red first; rotated early → stay inside the hill, go straight in after spawn. `S5·S19 ✅`",
+    "P3 break (they hold it, you have numbers): slam main again and again — no big loop around P1, spawns aren't 50/50. `S18 ✅`",
+    "P4 late rotation: give up the first 20–30 s, then ONE clean push (P1 side + main together). `S19 ✅`",
+    "P4 hold: stay physically close to the hill; slay out only after hill control. `S5·S7 ✅`"
+   ],
+   "es": [
+    "P2: elige UNA entrada y muévanse juntos a izquierda y derecha — no se dispersen para cubrir todos los ángulos. `S19 ✅`",
+    "P3 (la tienes tú): top red primero; ¿rotaste temprano? quédate dentro del hill y entra directo al hacer spawn. `S5·S19 ✅`",
+    "Romper P3 (la tienen ellos, tienes números): slam por main una y otra vez — nada de dar la vuelta por P1, los spawns no son 50/50. `S18 ✅`",
+    "P4 si rotaste tarde: regala los primeros 20–30 s y luego UN solo push limpio (lado de P1 + main juntos). `S19 ✅`",
+    "P4 si la tienes: mantente físicamente cerca del hill; slay out solo después de tener el control. `S5·S7 ✅`"
+   ],
+   "note_en": "Callout positions (launch, medic, blue, white, ticket…) are not defined yet.",
+   "note_es": "Las posiciones de los callouts (launch, medic, blue, white, ticket…) todavía no están definidas."
+  },
+  "combine": {
+   "title": "Combine",
+   "mode": "HP",
+   "en": [
+    "P1: take the outside map control first (green side, catwalk, head glitch), then come back in. `S9 ✅`",
+    "P3 (money hill): top red first; don't park at lounge — after a kill move toward the hill. `S5 ✅`",
+    "First P3 with operators: take the spawn side first; window + staircase side together. `S16 ✅`",
+    "Second P3: don't play scared — pull the operator and go in, even at 2v5. `S6 ✅`",
+    "P4: control the staircase; the spawn does no magic. `S3 ✅`"
+   ],
+   "es": [
+    "P1: toma primero el control del mapa de afuera (green side, catwalk, head glitch) y luego vuelve a entrar. `S9 ✅`",
+    "P3 (money hill): top red primero; no te quedes fijo en lounge — después de una kill, muévete hacia el hill. `S5 ✅`",
+    "Primer P3 con operators: toma primero el spawn side; window + staircase side juntos. `S16 ✅`",
+    "Segundo P3: no juegues con miedo — saca el operator y entra, aunque sea 2v5. `S6 ✅`",
+    "P4: controla el staircase; aquí el spawn no hace magia. `S3 ✅`"
+   ],
+   "note_en": "Callout positions are not defined yet.",
+   "note_es": "Las posiciones de los callouts todavía no están definidas."
+  },
+  "hacienda": {
+   "title": "Hacienda",
+   "mode": "HP",
+   "en": [
+    "P1: smoke and dive; don't rely on the ping to survive. `S7 ✅`",
+    "P2: between two spawns, call what you see; rock + statue for a full 60 s is impossible. `S17 ✅`",
+    "P3: grenades INSIDE the hill, operators inside; invest even with 20 s left. `S7·S17 ✅`",
+    "P4: clear the corner on your own side first — and clear corners even if you hold the hill. `S5·S18 ✅`",
+    "Doing a rat play? Say it. Top balcony = top plat (one spot, one name). `S18 ✅`"
+   ],
+   "es": [
+    "P1: smoke y entra; no dependas del ping para sobrevivir. `S7 ✅`",
+    "P2: entre dos spawns, canta lo que ves; rock + statue durante 60 s completos es imposible. `S17 ✅`",
+    "P3: granadas DENTRO del hill, operators adentro; invierte aunque queden 20 s. `S7·S17 ✅`",
+    "P4: limpia primero el corner de tu mismo lado — y limpia corners aunque tengas el hill. `S5·S18 ✅`",
+    "¿Vas a hacer una jugada de rat? Dilo. Top balcony = top plat (un lugar, un nombre). `S18 ✅`"
+   ],
+   "note_en": "office, con, E-box and tin are not defined yet.",
+   "note_es": "office, con, E-box y tin todavía no están definidos."
+  },
+  "summit": {
+   "title": "Summit",
+   "mode": "HP",
+   "en": [
+    "P1: you can find kills inside; both ARs go for computer side; save the War Machine for P2/P3. `S9 ✅`",
+    "P1: keep flooding the hill and land the final blow; top P2 is a route, not a goal. `S16·S17 ✅`",
+    "P2: lost top P2? You can take it back — from CDOM spawn, your first job is a kill. `S17 ✅`",
+    "P3: spawn holders get ready to recycle too; we must hold this hill. `S12 ✅`",
+    "P4 first wave: one intention, go deep; if they slam, wrap outside (not with 15 s left). `S16·S17 ✅`"
+   ],
+   "es": [
+    "P1: puedes buscar kills adentro; los dos AR van a computer side; guarda la War Machine para P2/P3. `S9 ✅`",
+    "P1: sigue haciendo flooding al hill y da el final blow; top P2 es una ruta, no una meta. `S16·S17 ✅`",
+    "P2: ¿perdiste top P2? Se puede recuperar — si haces spawn en CDOM, tu primer trabajo es una kill. `S17 ✅`",
+    "P3: los que sostienen el spawn también se preparan para hacer recycle; este hill hay que mantenerlo. `S12 ✅`",
+    "P4 primer wave: una sola intención, go deep; si hacen slam, wrap por afuera (no con 15 s restantes). `S16·S17 ✅`"
+   ],
+   "note_en": "Only CDOM is defined; computer side, snow, green, top P2… are not.",
+   "note_es": "Solo CDOM está definido; computer side, snow, green, top P2… no."
+  },
+  "arsenal": {
+   "title": "Arsenal",
+   "mode": "HP",
+   "en": [
+    "P1 start: if nobody says push, nobody pushes — the signal is the SKS one-tap. `S15 ✅`",
+    "P1: 5 players inside is over-investment — one wraps outside. `S15 ✅`",
+    "P1 → P2: don't get stuck on grabbing yellow; rotation OR scrap, not both. `S15 ✅`",
+    "Losing? Rotate first and talk while rotating — don't hunt kills. `S18 ✅`",
+    "After a 3-kill, fill in for that player at once; 2 kills + near the hill = play for life. `S13·S15 ✅`"
+   ],
+   "es": [
+    "Inicio de P1: si nadie dice push, nadie empuja — la señal es el one-tap del SKS. `S15 ✅`",
+    "P1: 5 jugadores adentro es sobreinversión — uno hace wrap por afuera. `S15 ✅`",
+    "P1 → P2: no te quedes pegado a tomar yellow; rotation O scrap, no los dos. `S15 ✅`",
+    "¿Vas perdiendo? Rota primero y habla mientras rotas — no caces kills. `S18 ✅`",
+    "Después de una triple, rellena a ese jugador de inmediato; 2 kills + cerca del hill = juega por la vida. `S13·S15 ✅`"
+   ],
+   "note_en": "Only yellow (P2 spawn) and vents are defined.",
+   "note_es": "Solo yellow (spawn de P2) y vents están definidos."
+  },
+  "raid": {
+   "title": "Raid",
+   "mode": "Control",
+   "en": [
+    "Attack: map control (B site + mid) and trade kills — don't force one lane or sit on the mid stairs. `S8 ✅`",
+    "Defense: lane control first; mid is the hub; don't rush to retake P5. `S17 ✅`",
+    "Say \"I'll kill him\" → finish it; hunt the one enemy whose position you know. `S17 ✅`",
+    "Spawn push: one phrase is enough — \"I take red side.\" `S10 ✅`"
+   ],
+   "es": [
+    "Ataque: control del mapa (B site + mid) y trade kills — no fuerces un solo carril ni te quedes en las mid stairs. `S8 ✅`",
+    "Defensa: control de carril primero; mid es el hub; no te apures a retomar P5. `S17 ✅`",
+    "Si dices \"yo lo mato\" → termínalo; caza al rival cuya posición conoces. `S17 ✅`",
+    "Spawn push: basta una frase — \"yo tomo red side.\" `S10 ✅`"
+   ],
+   "note_en": "Most callouts (P5, Zig side, kitchen…) are not defined.",
+   "note_es": "La mayoría de los callouts (P5, Zig side, kitchen…) no están definidos."
+  },
+  "standoff": {
+   "title": "Standoff",
+   "mode": "Control",
+   "en": [
+    "B push is the key (A push is fine): statue → broken → top granny chain. `S5 ✅`",
+    "Smoke statue + 2 tractor + 2 mid; the sniper watches top granny. `S5 ✅`",
+    "Don't push B without statue / broken control. `S5 ✅`",
+    "Coach's idea: clear B with a Sparrow instead of the death machine (Standoff B only). `S5 🔶`"
+   ],
+   "es": [
+    "El push a B es la clave (A está fine): cadena statue → broken → top granny. `S5 ✅`",
+    "Smoke a statue + 2 tractor + 2 mid; el sniper vigila top granny. `S5 ✅`",
+    "No empujes B sin control de statue / broken. `S5 ✅`",
+    "Idea del coach: limpiar B con un Sparrow en vez de la death machine (solo Standoff B). `S5 🔶`"
+   ],
+   "note_en": "Callout positions are not defined yet.",
+   "note_es": "Las posiciones de los callouts todavía no están definidas."
+  },
+  "crossroads-strike": {
+   "title": "Crossroads Strike",
+   "mode": "Control",
+   "en": [
+    "Stuck at spawn while a teammate roams their side? Capture the site the roamer took — it makes the spawn attackers look back. `S5 ✅`"
+   ],
+   "es": [
+    "¿Atascados en el spawn mientras un compañero anda de roaming por su lado? Captura el site que tomó — hace que los que atacan el spawn miren hacia atrás. `S5 ✅`"
+   ],
+   "note_en": "Only one coach-confirmed point so far.",
+   "note_es": "Solo hay un punto confirmado por el coach hasta ahora."
+  },
+  "firing-range": {
+   "title": "Firing Range",
+   "mode": "SnD",
+   "en": [
+    "Retake map: keep your numbers before the plant. `S18 ✅`",
+    "Mid gamble only with a concrete goal (e.g. a sniper lineup covers mid). `S16 ✅`",
+    "B defense: escape first, kills second — tire side is the best exit. `S18 ✅`",
+    "Against a strong team: get info and flee, or take the ramp first. `S19 ✅`",
+    "Sniper: say \"this round I'm going B\" so the team adjusts. `S16 ✅`"
+   ],
+   "es": [
+    "Mapa de retake: conserva tus números antes del plant. `S18 ✅`",
+    "Gamble a mid solo con una meta concreta (p. ej. un lineup de sniper cubre mid). `S16 ✅`",
+    "Defensa de B: primero escapar, después las kills — tire side es la mejor salida. `S18 ✅`",
+    "Contra un equipo fuerte: consigue info y huye, o toma primero la ramp. `S19 ✅`",
+    "Sniper: di \"esta ronda voy a B\" para que el equipo se ajuste. `S16 ✅`"
+   ],
+   "note_en": "wood, tires, cubby, barrel, long… are not defined yet.",
+   "note_es": "wood, tires, cubby, barrel, long… todavía no están definidos."
+  },
+  "coastal": {
+   "title": "Coastal",
+   "mode": "SnD",
+   "en": [
+    "B defense: play safe, OR explore one corner at a time and tell the team. `S19 ✅`",
+    "Talk between A and B — and use mid to help the other side. `S19 ✅`",
+    "Alone at B? Always keep an escape route. `S19 ✅`",
+    "Avoid unnecessary deaths to their number push. `S19 ✅`"
+   ],
+   "es": [
+    "Defensa de B: juega seguro, O explora un corner a la vez y avísale al equipo. `S19 ✅`",
+    "Hablen entre A y B — y usen mid para ayudar al otro lado. `S19 ✅`",
+    "¿Solo en B? Ten siempre una ruta de escape. `S19 ✅`",
+    "Evita las muertes innecesarias contra su número push. `S19 ✅`"
+   ],
+   "note_en": "Callouts (A long, A cut, B short, diner…) are not defined — the coach doesn't know them either.",
+   "note_es": "Los callouts (A long, A cut, B short, diner…) no están definidos — el coach tampoco los conoce."
+  },
+  "slums": {
+   "title": "Slums",
+   "mode": "SnD",
+   "en": [
+    "No coach-confirmed advice for this map yet (only a player discussion). Ask Flower before posting a reminder."
+   ],
+   "es": [
+    "Todavía no hay consejos confirmados por el coach para este mapa (solo una discusión entre jugadores). Pregúntale a Flower antes de publicar un recordatorio."
+   ],
+   "note_en": "",
+   "note_es": ""
+  }
+ },
+ "default_fixes": {
+  "HP": {
+   "en": "Hardpoint — the one thing to fix: **rotation**. Pick one plan and do it the same way every time. `S16 ✅`",
+   "es": "Hardpoint — lo único que hay que arreglar: **la rotación**. Elige un plan y hazlo igual cada vez. `S16 ✅`"
+  },
+  "SnD": {
+   "en": "SnD — the two things to fix: **call your end point** (kill or pull out) and **clear tires first, then plant**. `S16 ✅`",
+   "es": "SnD — las dos cosas que hay que arreglar: **cantar tu end point** (kill o retirarte) y **limpiar tires primero y luego plantar**. `S16 ✅`"
+  },
+  "Control": {
+   "en": "Control — play to win, not to not-lose: attack with trades; stay close to teammates. `S5 ✅`",
+   "es": "Control — juega para ganar, no para no perder: ataca con trades; mantente cerca de tus compañeros. `S5 ✅`"
+  }
+ },
+ "common_fix": {
+  "en": "Say what you're doing — a statement, not an order. If you say it, mean it. `S18·S9 ✅`",
+  "es": "Di lo que estás haciendo — una declaración, no una orden. Si lo dices, cúmplelo. `S18·S9 ✅`"
+ },
+ "default_fixes_as_of": "Session 16 (Oct 16). They may be out of date — pass --fix to replace them with what the coach picked last time."
+}
