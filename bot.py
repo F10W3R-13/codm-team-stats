@@ -322,6 +322,10 @@ async def on_ready():
         await bot.load_extension("commands_cog")
     except discord.ext.commands.ExtensionAlreadyLoaded:
         pass
+    try:
+        await bot.load_extension("coach_cog")  # /ask, /reminder (coaching brain player guide)
+    except discord.ext.commands.ExtensionAlreadyLoaded:
+        pass
 
     # 슬래시 명령을 디스코드에 동기화 (글로벌 — 최대 1시간 전파, 개발 중엔 길드 즉시)
     try:
